@@ -124,7 +124,7 @@
               >
                 <option disabled value="">Escoger</option>
                 <option value="en_calle">En calle</option>
-                <option value="refugio">En refugio</option>
+                <option value="en_refugio">En refugio</option>
                 <option value="adoptado">Adoptado</option>
                 <option value="fallecido">Fallecido</option>
               </select>
@@ -217,7 +217,7 @@
                 />
 
                 <label for="photos" class="label-carga-de-archivo-govco">
-                  Fotografías del animal*
+                  Fotografías del animal (opcional)
                 </label>
                 <label for="photos" class="container-input-carga-de-archivo-govco">
                   <span class="button-file-carga-de-archivo-govco">Seleccionar archivos</span>
@@ -226,7 +226,7 @@
                   </span>
                 </label>
                 <span class="text-validation-carga-de-archivo-govco">
-                  Mínimo 2 fotografías. JPG/PNG. Peso máximo: 2 MB por archivo
+                  Opcional. JPG/PNG. Peso máximo: 2 MB por archivo
                 </span>
               </div>
 
@@ -259,11 +259,11 @@
 
       <!-- BOTONES -->
       <div class="form-actions">
-        <button type="button" @click="resetForm" class="govco-btn govco-bg-concrete">
+        <button type="button" @click="resetForm" class="govco-btn govco-bg-concrete" :disabled="isSubmitting">
           Limpiar formulario
         </button>
-        <button type="submit" class="govco-btn govco-bg-elf-green">
-          Registrar animal
+        <button type="submit" class="govco-btn govco-bg-elf-green" :disabled="isSubmitting">
+          {{ isSubmitting ? 'Registrando...' : 'Registrar animal' }}
         </button>
       </div>
     </form>
@@ -275,9 +275,11 @@
 import { reactive, ref, computed, onMounted, nextTick } from 'vue';
 import MapSelector from '../common/MapSelector.vue';
 
+const API_BASE_URL = 'http://localhost:8000/api/v1';
 
 const formEl = ref(null);
 const photosInput = ref(null);
+const isSubmitting = ref(false);
 
 const form = reactive({
   microchip: '', species: '', breed: '', color: '', sex: '', estimatedAge: '',
@@ -622,8 +624,8 @@ function validate() {
   // Ubicación
   if (!form.coordinates) errors.coordinates = 'Debe georeferenciar la ubicación';
   
-  // Fotos - mínimo 2
-  if (!form.photos || form.photos.length < 2) errors.photos = 'Mínimo 2 fotografías requeridas';
+  // Fotos - opcional por ahora (comentado)
+  // if (!form.photos || form.photos.length < 2) errors.photos = 'Mínimo 2 fotografías requeridas';
   
   return !Object.values(errors).some(e => e);
 }
@@ -635,7 +637,106 @@ function resetForm() {
   Object.keys(errors).forEach(k => errors[k] = '');
 }
 
-function onSubmit() {
+// Función para convertir edad aproximada a meses
+function parseAgeToMonths(ageString) {
+  const lower = ageString.toLowerCase().trim();
+  
+  // Buscar años
+  const yearsMatch = lower.match(/(\d+)\s*a[ñn]os?/);
+  const years = yearsMatch ? parseInt(yearsMatch[1]) : 0;
+  
+  // Buscar meses
+  const monthsMatch = lower.match(/(\d+)\s*mes(?:es)?/);
+  const months = monthsMatch ? parseInt(monthsMatch[1]) : 0;
+  
+  return (years * 12) + months;
+}
+
+// Función para formatear fecha a YYYY-MM-DD
+function formatDateToISO(dateString) {
+  if (!dateString) return null;
+  
+  // Si viene en formato DD/MM/YYYY
+  const parts = dateString.split('/');
+  if (parts.length === 3) {
+    const [day, month, year] = parts;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+  
+  return dateString;
+}
+
+// Función para preparar los datos según la estructura de la BD
+function prepareAnimalData() {
+  const ageInMonths = parseAgeToMonths(form.estimatedAge);
+  
+  return {
+    codigo_unico: form.microchip,
+    nombre: form.microchip, // Usar microchip como nombre temporal
+    especie: form.species,
+    raza: form.breed,
+    sexo: form.sex === 'indeterminado' ? 'desconocido' : form.sex,
+    edad_aproximada: ageInMonths,
+    color: form.color,
+    tamanio: null, // Se dejará null por ahora
+    senias_particulares: null, // Se dejará null por ahora
+    fecha_rescate: formatDateToISO(form.rescueDate),
+    ubicacion_rescate: form.coordinates ? `${form.coordinates.lat},${form.coordinates.lng}` : null,
+    estado: form.status,
+    estado_salud: form.healthCondition.toLowerCase().includes('crítico') ? 'critico' :
+                   form.healthCondition.toLowerCase().includes('grave') ? 'grave' :
+                   form.healthCondition.toLowerCase().includes('regular') ? 'estable' :
+                   form.healthCondition.toLowerCase().includes('buen') ? 'bueno' : 'estable',
+    observaciones: form.healthCondition,
+    foto_principal: null, // Por ahora null, después se pueden subir las fotos
+    galeria_fotos: null
+  };
+}
+
+// Función para registrar el animal en la API
+async function registerAnimal() {
+  isSubmitting.value = true;
+  
+  try {
+    const animalData = prepareAnimalData();
+    
+    console.log('Enviando datos a la API:', animalData);
+    
+    const response = await fetch(`${API_BASE_URL}/animals`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(animalData)
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.message || 'Error al registrar el animal');
+    }
+    
+    console.log('Animal registrado exitosamente:', result.data);
+    
+    // Mostrar mensaje de éxito
+    alert(`✅ Animal registrado exitosamente!\n\nCódigo: ${result.data.codigo_unico}\nID: ${result.data.id}`);
+    
+    // Limpiar el formulario
+    resetForm();
+    
+    return result.data;
+    
+  } catch (error) {
+    console.error('Error al registrar animal:', error);
+    alert(`❌ Error al registrar el animal:\n${error.message}`);
+    throw error;
+  } finally {
+    isSubmitting.value = false;
+  }
+}
+
+async function onSubmit() {
   // Sincronizar valores antes de validar
   syncDropdownValues();
   syncDateValues();
@@ -658,8 +759,9 @@ function onSubmit() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return;
   }
-  console.log('Registro animal:', form);
-  alert('Animal registrado exitosamente (simulación)');
+  
+  // Registrar el animal en la API
+  await registerAnimal();
 }
 </script>
 
