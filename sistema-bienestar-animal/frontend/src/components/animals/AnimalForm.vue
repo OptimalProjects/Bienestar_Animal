@@ -116,7 +116,7 @@
             <label for="status" class="label-desplegable-govco">
               Estado actual<span aria-required="true">*</span>
             </label>
-            <div class="desplegable-govco" data-type="basic" id="state-dropdown">
+            <div class="desplegable-govco" data-type="basic" id="status-dropdown">
               <select
                 id="status"
                 v-model="form.status"

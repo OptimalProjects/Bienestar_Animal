@@ -1,64 +1,52 @@
 <!-- src/views/VeterinaryView.vue -->
 <template>
-  <div class="vet-layout">
-    <!-- Si ya usas Navbar y Sidebar en otras vistas, los reutilizamos -->
-    <Navbar />
+  <div class="vet-view">
+    <header class="vet-header">
+      <h1 class="h2-tipografia-govco">
+        Atención Veterinaria y Bienestar Animal
+      </h1>
+      <p class="text2-tipografia-govco">
+        Gestión de consultas, vacunaciones, cirugías e inventario de medicamentos.
+      </p>
+    </header>
 
-    <div class="vet-content">
-      <Sidebar />
+    <!-- PESTAÑAS -->
+    <nav class="vet-tabs">
+      <button
+        v-for="tab in tabs"
+        :key="tab.id"
+        type="button"
+        class="vet-tab-btn"
+        :class="{ active: activeTab === tab.id }"
+        @click="activeTab = tab.id"
+      >
+        {{ tab.label }}
+      </button>
+    </nav>
 
-      <main class="vet-main">
-        <header class="vet-header">
-          <h1 class="h2-tipografia-govco">
-            Atención Veterinaria y Bienestar Animal
-          </h1>
-          <p class="text2-tipografia-govco">
-            Gestión de consultas, vacunaciones, cirugías e inventario de medicamentos.
-          </p>
-        </header>
+    <!-- CONTENIDO SEGÚN PESTAÑA -->
+    <section class="vet-tab-content">
+      <MedicalRecordForm v-if="activeTab === 'consultation'" />
 
-        <!-- PESTAÑAS -->
-        <nav class="vet-tabs">
-          <button
-            v-for="tab in tabs"
-            :key="tab.id"
-            type="button"
-            class="vet-tab-btn"
-            :class="{ active: activeTab === tab.id }"
-            @click="activeTab = tab.id"
-          >
-            {{ tab.label }}
-          </button>
-        </nav>
+      <VaccinationForm v-else-if="activeTab === 'vaccination'" />
 
-        <!-- CONTENIDO SEGÚN PESTAÑA -->
-        <section class="vet-tab-content">
-          <MedicalRecordForm v-if="activeTab === 'consultation'" />
+      <SurgeryForm v-else-if="activeTab === 'surgery'" />
 
-          <VaccinationForm v-else-if="activeTab === 'vaccination'" />
+      <MedicationInventory v-else-if="activeTab === 'inventory'" />
 
-          <SurgeryForm v-else-if="activeTab === 'surgery'" />
+      <div v-else-if="activeTab === 'history'">
+        <MedicalHistory :animal-id="1" />
+      </div>
 
-          <MedicationInventory v-else-if="activeTab === 'inventory'" />
+      <VeterinaryAlerts v-else-if="activeTab === 'alerts'" />
 
-          <div v-else-if="activeTab === 'history'">
-            <!-- Puedes pasar el animalId real cuando lo tengas -->
-            <MedicalHistory :animal-id="1" />
-          </div>
-
-          <VeterinaryAlerts v-else-if="activeTab === 'alerts'" />
-
-          <CertificateGenerator v-else-if="activeTab === 'certificates'" />
-        </section>
-      </main>
-    </div>
+      <CertificateGenerator v-else-if="activeTab === 'certificates'" />
+    </section>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue';
-
-
 
 // Componentes del módulo veterinario
 import MedicalRecordForm from '../components/veterinary/MedicalRecordForm.vue';
@@ -83,23 +71,10 @@ const tabs = [
 </script>
 
 <style scoped>
-.vet-layout {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-.vet-content {
-  display: flex;
-  flex: 1;
-}
-
-/* Sidebar a la izquierda y contenido a la derecha */
-.vet-main {
-  flex: 1;
+.vet-view {
   padding: 1.5rem 2rem;
   background: #f5f7fb;
-  overflow-x: hidden;
+  min-height: 100vh;
 }
 
 .vet-header {
@@ -123,6 +98,11 @@ const tabs = [
   background: #e0e0e0;
   cursor: pointer;
   font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.vet-tab-btn:hover {
+  background: #d0d0d0;
 }
 
 .vet-tab-btn.active {
@@ -136,9 +116,9 @@ const tabs = [
 }
 
 /* Responsive */
-@media (max-width: 992px) {
-  .vet-content {
-    flex-direction: column;
+@media (max-width: 768px) {
+  .vet-view {
+    padding: 1rem;
   }
 }
 </style>

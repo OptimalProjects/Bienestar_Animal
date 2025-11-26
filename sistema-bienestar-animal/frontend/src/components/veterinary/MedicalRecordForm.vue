@@ -30,29 +30,36 @@
 
           <!-- Fecha y hora -->
           <div class="input-like-govco">
-            <label for="consultDate" class="label-desplegable-govco">
-              Fecha y hora<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco desplegable-calendar-govco" data-type="calendar">
-              <div class="date desplegable-selected-option">
-                <input
-                  type="datetime-local"
-                  id="consultDate"
-                  v-model="form.consultDate"
-                  class="browser-default"
-                />
+            <div class="date-field-container neut-date-container">
+              <label for="consultDate" class="label-desplegable-govco">
+                Fecha y hora<span aria-required="true">*</span>
+              </label>
+              <div class="desplegable-govco desplegable-calendar-govco" data-type="calendar">
+                <div class="date desplegable-selected-option">
+                  <input
+                    class="browser-default"
+                    type="text"
+                    id="consultDate"
+                    v-model="form.consultDate"
+                    @change="() => {}"
+                    @blur="() => {}"
+                    aria-autocomplete="off"
+                    days="true"
+                    placeholder="DD/MM/AAAA"
+                  />
+                </div>
               </div>
+              <span v-if="errors.consultDate" class="alert-desplegable-govco">{{ errors.consultDate }}</span>
             </div>
-            <span v-if="errors.consultDate" class="alert-desplegable-govco">{{ errors.consultDate }}</span>
           </div>
 
           <!-- Tipo de consulta -->
           <div class="input-like-govco">
-            <label for="consultType" class="label-desplegable-govco">
+            <label for="consultType" class="label-desplegable-govco" >
               Tipo de consulta<span aria-required="true">*</span>
             </label>
-            <div class="desplegable-govco" data-type="basic">
-              <select id="consultType" v-model="form.consultType">
+            <div class="desplegable-govco" data-type="basic" id="consultType-search-dropdown">
+              <select id="consultType" v-model="form.consultType" @change="onDropdownChange">
                 <option disabled value="">Escoger</option>
                 <option value="primera_vez">Primera vez</option>
                 <option value="control">Control</option>
@@ -81,10 +88,7 @@
       <!-- SECCIÓN 2: SIGNOS VITALES -->
       <div class="form-section">
         <h3 class="h5-tipografia-govco section-title">Signos vitales</h3>
-        
-        <div class="form-grid">
           <VitalSignsInput v-model="form.vitalSigns" :errors="errors.vitalSigns" />
-        </div>
       </div>
 
       <!-- SECCIÓN 3: EXAMEN FÍSICO Y DIAGNÓSTICO -->
@@ -121,8 +125,8 @@
             <label for="prognosis" class="label-desplegable-govco">
               Pronóstico
             </label>
-            <div class="desplegable-govco" data-type="basic">
-              <select id="prognosis" v-model="form.prognosis">
+            <div class="desplegable-govco" data-type="basic" id="prognosis-search-dropdown">
+              <select id="prognosis" v-model="form.prognosis" @change="onDropdownChange">
                 <option value="">No especificado</option>
                 <option value="excelente">Excelente</option>
                 <option value="bueno">Bueno</option>
@@ -199,21 +203,29 @@
 
           <!-- Fecha de próximo control -->
           <div v-if="form.requiresFollowup" class="input-like-govco">
-            <label for="followupDate" class="label-desplegable-govco">
-              Fecha de próximo control<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco desplegable-calendar-govco" data-type="calendar">
-              <div class="date desplegable-selected-option">
-                <input
-                  type="date"
-                  id="followupDate"
-                  v-model="form.followupDate"
-                  class="browser-default"
-                />
+            <div class="date-field-container neut-date-container">
+              <label for="followupDate" class="label-desplegable-govco">
+                Fecha de próximo control<span aria-required="true">*</span>
+              </label>
+              <div class="desplegable-govco desplegable-calendar-govco" data-type="calendar">
+                <div class="date desplegable-selected-option">
+                  <input
+                    class="browser-default"
+                    type="text"
+                    id="followupDate"
+                    v-model="form.followupDate"
+                    @change="() => {}"
+                    @blur="() => {}"
+                    aria-autocomplete="off"
+                    days="true"
+                    placeholder="DD/MM/AAAA"
+                  />
+                </div>
               </div>
+              <span v-if="errors.followupDate" class="alert-desplegable-govco">{{ errors.followupDate }}</span>
             </div>
-            <span v-if="errors.followupDate" class="alert-desplegable-govco">{{ errors.followupDate }}</span>
           </div>
+
 
           <!-- Notas de seguimiento -->
           <div v-if="form.requiresFollowup" class="entradas-de-texto-govco full-width">
@@ -475,6 +487,11 @@ onMounted(() => {
 .full-width { grid-column: 1 / 3; }
 .entradas-de-texto-govco input,
 .entradas-de-texto-govco textarea,
+.entradas-de-texto-govco, 
+.desplegable-govco, 
+.container-carga-de-archivo-govco { 
+  width: 100%; 
+}
 .desplegable-govco select { width: 100%; padding: 0.75rem; border: 1px solid #D0D0D0; border-radius: 4px; font-size: 1rem; }
 .error-text, .alert-desplegable-govco { display: block; color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; }
 .checkbox-govco { display: flex; align-items: center; gap: 0.75rem; padding: 1rem; background: #f5f7fb; border-radius: 6px; }
@@ -482,7 +499,38 @@ onMounted(() => {
 .govco-btn { padding: 0.75rem 2rem; border-radius: 6px; font-weight: 600; cursor: pointer; border: none; color: white; }
 .govco-bg-concrete { background-color: #737373; }
 .govco-bg-elf-green { background-color: #069169; }
-.input-like-govco { display: flex; flex-direction: column; width: 100%; margin: 18px 0; }
+.input-like-govco {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 18px 0;
+}
+
+/* Igual que en SearchFilters.vue */
+.input-like-govco label {
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.date-field-container {
+  width: 100%;
+}
+
+.date-field-container :deep(.date.desplegable-selected-option) {
+  padding: 7px 40px 7px 16px !important;
+  box-sizing: border-box !important;
+}
+
+.date-field-container :deep(.date.desplegable-selected-option input) {
+  width: 100% !important;
+  padding-right: 30px !important;
+  box-sizing: border-box !important;
+}
+
+.neut-date-container .desplegable-govco {
+  margin-top: 0.7rem;
+}
 
 @media (max-width: 768px) {
   .form-grid { grid-template-columns: 1fr; }
