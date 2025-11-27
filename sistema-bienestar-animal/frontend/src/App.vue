@@ -9,6 +9,7 @@
         <!-- Por ahora muestras las vistas directamente -->
         <AnimalsView />
         <VeterinaryView />
+        <ComplaintsView />
       </main>
     
   
@@ -19,6 +20,7 @@ import Navbar from './components/common/Navbar.vue';
 import Sidebar from './components/common/Sidebar.vue';
 import AnimalsView from './views/AnimalsView.vue';
 import VeterinaryView from './views/VeterinaryView.vue';
+import ComplaintsView from './views/ComplaintsView.vue'
 </script>
 
 <style>
