@@ -14,61 +14,56 @@
         <div class="form-grid">
           <!-- Animal -->
           <div class="input-like-govco">
-            <label for="animal" class="label-desplegable-govco">
-              Animal<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco" data-type="basic" id="animal-dropdown">
-              <select id="animal" v-model="form.animalId" aria-invalid="false">
-                <option disabled value="">Seleccionar animal</option>
-                <option v-for="animal in animals" :key="animal.id" :value="animal.id">
-                  {{ animal.name }} - {{ animal.microchip }}
-                </option>
-              </select>
-            </div>
-            <span v-if="errors.animalId" class="alert-desplegable-govco">{{ errors.animalId }}</span>
+            <DesplegableGovco
+              ref="animalDropdownRef"
+              id="animal"
+              label="Animal"
+              :options="animalOptions"
+              v-model="form.animalId"
+              placeholder="Seleccionar animal"
+              :required="true"
+              :alert-text="errors.animalId"
+              :error="!!errors.animalId"
+              width="100%"
+              height="44px"
+              @change="onAnimalChange"
+            />
           </div>
 
           <!-- Fecha y hora -->
-          <div class="input-like-govco">
-            <div class="date-field-container neut-date-container">
-              <label for="consultDate" class="label-desplegable-govco">
-                Fecha y hora<span aria-required="true">*</span>
-              </label>
-              <div class="desplegable-govco desplegable-calendar-govco" data-type="calendar">
-                <div class="date desplegable-selected-option">
-                  <input
-                    class="browser-default"
-                    type="text"
-                    id="consultDate"
-                    v-model="form.consultDate"
-                    @change="() => {}"
-                    @blur="() => {}"
-                    aria-autocomplete="off"
-                    days="true"
-                    placeholder="DD/MM/AAAA"
-                  />
-                </div>
-              </div>
-              <span v-if="errors.consultDate" class="alert-desplegable-govco">{{ errors.consultDate }}</span>
-            </div>
+          <div class="input-like-govco calendar-wrapper">
+            <CalendarioGovco
+              ref="consultDateCalendarRef"
+              id="consultDateCalendar"
+              input-id="consultDate"
+              label="Fecha y hora"
+              v-model="form.consultDate"
+              view-days="true"
+              :required="true"
+              width="100%"
+              height="44px"
+              :alert-text="errors.consultDate"
+              :error="!!errors.consultDate"
+              @change="onConsultDateChange"
+            />
           </div>
 
           <!-- Tipo de consulta -->
           <div class="input-like-govco">
-            <label for="consultType" class="label-desplegable-govco" >
-              Tipo de consulta<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco" data-type="basic" id="consultType-dropdown">
-              <select id="consultType" v-model="form.consultType" aria-invalid="false">
-                <option disabled value="">Escoger</option>
-                <option value="primera_vez">Primera vez</option>
-                <option value="control">Control</option>
-                <option value="emergencia">Emergencia</option>
-                <option value="vacunacion">Vacunación</option>
-                <option value="cirugia">Pre-quirúrgica</option>
-              </select>
-            </div>
-            <span v-if="errors.consultType" class="alert-desplegable-govco">{{ errors.consultType }}</span>
+            <DesplegableGovco
+              ref="consultTypeDropdownRef"
+              id="consultType"
+              label="Tipo de consulta"
+              :options="consultTypeOptions"
+              v-model="form.consultType"
+              placeholder="Escoger"
+              :required="true"
+              :alert-text="errors.consultType"
+              :error="!!errors.consultType"
+              width="100%"
+              height="44px"
+              @change="onConsultTypeChange"
+            />
           </div>
 
           <!-- Motivo de consulta -->
@@ -88,7 +83,7 @@
       <!-- SECCIÓN 2: SIGNOS VITALES -->
       <div class="form-section">
         <h3 class="h5-tipografia-govco section-title">Signos vitales</h3>
-          <VitalSignsInput v-model="form.vitalSigns" :errors="errors.vitalSigns" />
+        <VitalSignsInput v-model="form.vitalSigns" :errors="errors.vitalSigns" />
       </div>
 
       <!-- SECCIÓN 3: EXAMEN FÍSICO Y DIAGNÓSTICO -->
@@ -122,18 +117,17 @@
 
           <!-- Pronóstico -->
           <div class="input-like-govco">
-            <label for="prognosis" class="label-desplegable-govco">
-              Pronóstico
-            </label>
-            <div class="desplegable-govco" data-type="basic" id="prognosis-dropdown">
-              <select id="prognosis" v-model="form.prognosis" aria-invalid="false">
-                <option value="">No especificado</option>
-                <option value="excelente">Excelente</option>
-                <option value="bueno">Bueno</option>
-                <option value="reservado">Reservado</option>
-                <option value="grave">Grave</option>
-              </select>
-            </div>
+            <DesplegableGovco
+              ref="prognosisDropdownRef"
+              id="prognosis"
+              label="Pronóstico"
+              :options="prognosisOptions"
+              v-model="form.prognosis"
+              placeholder="No especificado"
+              width="100%"
+              height="44px"
+              @change="onPrognosisChange"
+            />
           </div>
         </div>
       </div>
@@ -202,28 +196,21 @@
           </div>
 
           <!-- Fecha de próximo control -->
-          <div v-if="form.requiresFollowup" class="input-like-govco">
-            <div class="date-field-container neut-date-container">
-              <label for="followupDate" class="label-desplegable-govco">
-                Fecha de próximo control<span aria-required="true">*</span>
-              </label>
-              <div class="desplegable-govco desplegable-calendar-govco" data-type="calendar">
-                <div class="date desplegable-selected-option">
-                  <input
-                    class="browser-default"
-                    type="text"
-                    id="followupDate"
-                    v-model="form.followupDate"
-                    @change="() => {}"
-                    @blur="() => {}"
-                    aria-autocomplete="off"
-                    days="true"
-                    placeholder="DD/MM/AAAA"
-                  />
-                </div>
-              </div>
-              <span v-if="errors.followupDate" class="alert-desplegable-govco">{{ errors.followupDate }}</span>
-            </div>
+          <div v-if="form.requiresFollowup" class="input-like-govco calendar-wrapper">
+            <CalendarioGovco
+              ref="followupDateCalendarRef"
+              id="followupDateCalendar"
+              input-id="followupDate"
+              label="Fecha de próximo control"
+              v-model="form.followupDate"
+              view-days="true"
+              :required="true"
+              width="100%"
+              height="44px"
+              :alert-text="errors.followupDate"
+              :error="!!errors.followupDate"
+              @change="onFollowupDateChange"
+            />
           </div>
 
           <!-- Notas de seguimiento -->
@@ -245,18 +232,20 @@
         
         <div class="form-grid">
           <div class="input-like-govco">
-            <label for="veterinarian" class="label-desplegable-govco">
-              Veterinario responsable<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco" data-type="basic" id="veterinarian-dropdown">
-              <select id="veterinarian" v-model="form.veterinarianId" aria-invalid="false">
-                <option disabled value="">Seleccionar veterinario</option>
-                <option v-for="vet in veterinarians" :key="vet.id" :value="vet.id">
-                  {{ vet.name }} - Tarjeta Prof. {{ vet.license }}
-                </option>
-              </select>
-            </div>
-            <span v-if="errors.veterinarianId" class="alert-desplegable-govco">{{ errors.veterinarianId }}</span>
+            <DesplegableGovco
+              ref="veterinarianDropdownRef"
+              id="veterinarian"
+              label="Veterinario responsable"
+              :options="veterinarianOptions"
+              v-model="form.veterinarianId"
+              placeholder="Seleccionar veterinario"
+              :required="true"
+              :alert-text="errors.veterinarianId"
+              :error="!!errors.veterinarianId"
+              width="100%"
+              height="44px"
+              @change="onVeterinarianChange"
+            />
           </div>
 
           <!-- Observaciones del veterinario -->
@@ -287,10 +276,12 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted, nextTick } from 'vue';
+import { reactive, ref, computed, onMounted, nextTick } from 'vue';
 import VitalSignsInput from './VitalSignsInput.vue';
 import MedicationPrescription from './MedicationPrescription.vue';
 import FileUploader from '../common/FileUploader.vue';
+import DesplegableGovco from '../common/DesplegableGovco.vue';
+import CalendarioGovco from '../common/CalendarioGovco.vue';
 
 const formEl = ref(null);
 
@@ -310,6 +301,37 @@ const medicationInventory = ref([
   { id: 2, name: 'Ivermectina 1%', stock: 20, unit: 'ml' }
 ]);
 
+// Opciones computadas para los dropdowns
+const animalOptions = computed(() => 
+  animals.value.map(animal => ({
+    value: animal.id,
+    text: `${animal.name} - ${animal.microchip}`
+  }))
+);
+
+const consultTypeOptions = [
+  { value: 'primera_vez', text: 'Primera vez' },
+  { value: 'control', text: 'Control' },
+  { value: 'emergencia', text: 'Emergencia' },
+  { value: 'vacunacion', text: 'Vacunación' },
+  { value: 'cirugia', text: 'Pre-quirúrgica' }
+];
+
+const prognosisOptions = [
+  { value: '', text: 'No especificado' },
+  { value: 'excelente', text: 'Excelente' },
+  { value: 'bueno', text: 'Bueno' },
+  { value: 'reservado', text: 'Reservado' },
+  { value: 'grave', text: 'Grave' }
+];
+
+const veterinarianOptions = computed(() => 
+  veterinarians.value.map(vet => ({
+    value: vet.id,
+    text: `${vet.name} - Tarjeta Prof. ${vet.license}`
+  }))
+);
+
 const form = reactive({
   animalId: '',
   consultDate: '',
@@ -320,7 +342,10 @@ const form = reactive({
     heartRate: '',
     respiratoryRate: '',
     weight: '',
-    bodyCondition: ''
+    bodyCondition: '',
+    mucosa: '',
+    hydration: '',
+    tllc: ''
   },
   physicalExam: '',
   diagnosis: '',
@@ -349,6 +374,148 @@ const errors = reactive({
   veterinarianId: ''
 });
 
+// Handlers para los eventos de cambio de los dropdowns
+function onAnimalChange(value) {
+  console.log('Animal seleccionado:', value);
+  form.animalId = value;
+}
+
+function onConsultDateChange(value) {
+  console.log('Fecha de consulta:', value);
+  form.consultDate = value;
+}
+
+function onConsultTypeChange(value) {
+  console.log('Tipo de consulta:', value);
+  form.consultType = value;
+}
+
+function onPrognosisChange(value) {
+  console.log('Pronóstico:', value);
+  form.prognosis = value;
+}
+
+function onFollowupDateChange(value) {
+  console.log('Fecha de seguimiento:', value);
+  form.followupDate = value;
+}
+
+function onVeterinarianChange(value) {
+  console.log('Veterinario:', value);
+  form.veterinarianId = value;
+}
+
+// Referencias a los componentes
+const animalDropdownRef = ref(null);
+const consultTypeDropdownRef = ref(null);
+const prognosisDropdownRef = ref(null);
+const veterinarianDropdownRef = ref(null);
+const consultDateCalendarRef = ref(null);
+const followupDateCalendarRef = ref(null);
+
+// Función para sincronizar valores desde los selects nativos
+function syncAllDropdownValues() {
+  console.log('=== INICIANDO SINCRONIZACIÓN ===');
+  
+  // Método 1: Intentar obtener valores de las refs de los componentes
+  if (animalDropdownRef.value?.getValue) {
+    const value = animalDropdownRef.value.getValue();
+    if (value) {
+      form.animalId = value;
+      console.log('Animal desde ref:', value);
+    }
+  }
+  
+  if (consultTypeDropdownRef.value?.getValue) {
+    const value = consultTypeDropdownRef.value.getValue();
+    if (value) {
+      form.consultType = value;
+      console.log('ConsultType desde ref:', value);
+    }
+  }
+  
+  if (prognosisDropdownRef.value?.getValue) {
+    const value = prognosisDropdownRef.value.getValue();
+    if (value) {
+      form.prognosis = value;
+      console.log('Prognosis desde ref:', value);
+    }
+  }
+  
+  if (veterinarianDropdownRef.value?.getValue) {
+    const value = veterinarianDropdownRef.value.getValue();
+    if (value) {
+      form.veterinarianId = value;
+      console.log('Veterinarian desde ref:', value);
+    }
+  }
+  
+  // Sincronizar calendarios
+  if (consultDateCalendarRef.value?.getValue) {
+    const value = consultDateCalendarRef.value.getValue();
+    if (value) {
+      form.consultDate = value;
+      console.log('ConsultDate desde ref:', value);
+    }
+  }
+  
+  if (followupDateCalendarRef.value?.getValue) {
+    const value = followupDateCalendarRef.value.getValue();
+    if (value) {
+      form.followupDate = value;
+      console.log('FollowupDate desde ref:', value);
+    }
+  }
+  
+  // Método 2: Leer directamente desde el DOM como fallback
+  const animalSelect = document.querySelector('#animal-select');
+  const consultTypeSelect = document.querySelector('#consultType-select');
+  const prognosisSelect = document.querySelector('#prognosis-select');
+  const veterinarianSelect = document.querySelector('#veterinarian-select');
+  const consultDateInput = document.getElementById('consultDate');
+  const followupDateInput = document.getElementById('followupDate');
+  
+  if (animalSelect?.value && !form.animalId) {
+    form.animalId = parseInt(animalSelect.value) || animalSelect.value;
+    console.log('Animal desde DOM:', animalSelect.value);
+  }
+  
+  if (consultTypeSelect?.value && !form.consultType) {
+    form.consultType = consultTypeSelect.value;
+    console.log('ConsultType desde DOM:', consultTypeSelect.value);
+  }
+  
+  if (prognosisSelect?.value && !form.prognosis) {
+    form.prognosis = prognosisSelect.value;
+    console.log('Prognosis desde DOM:', prognosisSelect.value);
+  }
+  
+  if (veterinarianSelect?.value && !form.veterinarianId) {
+    form.veterinarianId = parseInt(veterinarianSelect.value) || veterinarianSelect.value;
+    console.log('Veterinarian desde DOM:', veterinarianSelect.value);
+  }
+  
+  if (consultDateInput?.value && !form.consultDate) {
+    form.consultDate = consultDateInput.value;
+    console.log('ConsultDate desde DOM:', consultDateInput.value);
+  }
+  
+  if (followupDateInput?.value && !form.followupDate) {
+    form.followupDate = followupDateInput.value;
+    console.log('FollowupDate desde DOM:', followupDateInput.value);
+  }
+  
+  console.log('Valores finales sincronizados:', {
+    animalId: form.animalId,
+    consultDate: form.consultDate,
+    consultType: form.consultType,
+    prognosis: form.prognosis,
+    veterinarianId: form.veterinarianId,
+    followupDate: form.followupDate
+  });
+  console.log('=== FIN SINCRONIZACIÓN ===');
+}
+
 // Función para asegurar que los botones tengan el type correcto
 function fixNonSubmitButtons() {
   if (!formEl.value) return;
@@ -356,7 +523,6 @@ function fixNonSubmitButtons() {
   const buttons = formEl.value.querySelectorAll('button');
 
   buttons.forEach((btn) => {
-    // Solo el botón "Guardar consulta" debe tener type="submit"
     const isSubmitButton = btn.textContent?.includes('Guardar consulta');
     
     if (isSubmitButton) {
@@ -366,10 +532,8 @@ function fixNonSubmitButtons() {
     }
   });
   
-  // Interceptar cualquier intento de submit del formulario
   if (formEl.value && !formEl.value.dataset.listenerAdded) {
     formEl.value.addEventListener('submit', (e) => {
-      // Solo permitir submit si viene del botón correcto
       const submitter = e.submitter;
       if (!submitter || !submitter.textContent?.includes('Guardar consulta')) {
         e.preventDefault();
@@ -384,22 +548,17 @@ function fixNonSubmitButtons() {
 
 // Función para prevenir scroll automático de GOV.CO
 function preventScrollOnInteractions() {
-  // Prevenir scroll cuando se abre un dropdown/desplegable
   const handleDropdownOpen = (e) => {
     const element = e.target.closest('.desplegable-govco, [data-type="calendar"]');
     if (element) {
-      // Guardar posición actual
       const scrollPos = window.scrollY || document.documentElement.scrollTop;
       
-      // Esperar a que GOV.CO abra el dropdown
       setTimeout(() => {
-        // Restaurar posición
         window.scrollTo(0, scrollPos);
       }, 50);
     }
   };
 
-  // Prevenir scroll al hacer focus en inputs de calendarios
   const handleCalendarFocus = (e) => {
     if (e.target.closest('[data-type="calendar"] input')) {
       const scrollPos = window.scrollY || document.documentElement.scrollTop;
@@ -410,7 +569,6 @@ function preventScrollOnInteractions() {
     }
   };
 
-  // Agregar listeners a toda la sección del formulario
   if (formEl.value) {
     formEl.value.removeEventListener('click', handleDropdownOpen);
     formEl.value.addEventListener('click', handleDropdownOpen);
@@ -420,106 +578,9 @@ function preventScrollOnInteractions() {
   }
 }
 
-// Función para inicializar componentes GOV.CO
-function initializeGovcoComponents() {
-  if (typeof window === 'undefined' || !window.GOVCo) return;
-  
-  nextTick(() => {
-    // Inicializar dropdowns básicos
-    const dropdowns = document.querySelectorAll('.desplegable-govco[data-type="basic"]');
-    dropdowns.forEach(dropdown => {
-      if (window.GOVCo?.init) {
-        window.GOVCo.init(dropdown.parentElement);
-      }
-    });
-
-    // Inicializar calendarios
-    const calendars = document.querySelectorAll('[data-type="calendar"]');
-    calendars.forEach(cal => {
-      if (window.GOVCo?.init) {
-        window.GOVCo.init(cal.parentElement);
-      }
-    });
-    
-    // Sincronizar valores después de inicializar
-    setTimeout(() => {
-      syncDropdownValues();
-      syncDateValues();
-    }, 200);
-  });
-}
-
-// Función para configurar listeners en los dropdowns
-function setupDropdownListeners() {
-  // Escuchar cambios en los selects nativos
-  const selects = ['animal', 'consultType', 'prognosis', 'veterinarian'];
-  
-  selects.forEach(id => {
-    const select = document.getElementById(id);
-    if (select) {
-      select.addEventListener('change', (e) => {
-        const field = id === 'animal' ? 'animalId' : 
-                     id === 'consultType' ? 'consultType' :
-                     id === 'veterinarian' ? 'veterinarianId' : id;
-        form[field] = e.target.value;
-        console.log(`${field} changed to:`, e.target.value);
-      });
-    }
-  });
-  
-  // Escuchar cambios en los inputs de fecha
-  ['consultDate', 'followupDate'].forEach(id => {
-    const dateInput = document.getElementById(id);
-    if (dateInput) {
-      ['change', 'blur', 'input'].forEach(eventType => {
-        dateInput.addEventListener(eventType, (e) => {
-          syncDateValues();
-        });
-      });
-    }
-  });
-}
-
-// Función para sincronizar valores de dropdowns
-function syncDropdownValues() {
-  const animal = document.getElementById('animal');
-  const consultType = document.getElementById('consultType');
-  const prognosis = document.getElementById('prognosis');
-  const veterinarian = document.getElementById('veterinarian');
-  
-  if (animal) form.animalId = animal.value;
-  if (consultType) form.consultType = consultType.value;
-  if (prognosis) form.prognosis = prognosis.value;
-  if (veterinarian) form.veterinarianId = veterinarian.value;
-  
-  console.log('Dropdowns sincronizados:', {
-    animalId: form.animalId,
-    consultType: form.consultType,
-    prognosis: form.prognosis,
-    veterinarianId: form.veterinarianId
-  });
-}
-
-// Función para sincronizar valores de fechas
-function syncDateValues() {
-  const consultDate = document.getElementById('consultDate');
-  const followupDate = document.getElementById('followupDate');
-  
-  if (consultDate) {
-    form.consultDate = consultDate.value;
-    console.log('consultDate sincronizada:', form.consultDate);
-  }
-  
-  if (followupDate) {
-    form.followupDate = followupDate.value;
-    console.log('followupDate sincronizada:', form.followupDate);
-  }
-}
-
 function validate() {
-  // Sincronizar valores antes de validar
-  syncDropdownValues();
-  syncDateValues();
+  // IMPORTANTE: Sincronizar valores antes de validar
+  syncAllDropdownValues();
   
   Object.keys(errors).forEach(k => {
     if (typeof errors[k] === 'object') {
@@ -576,15 +637,15 @@ function validate() {
     isValid = false;
   }
   
+  console.log('Validación completada:', { isValid, form, errors });
+  
   return isValid;
 }
 
 function updateInventoryStock(medicationId, quantity) {
-  // Lógica para descontar del inventario
   const medication = medicationInventory.value.find(m => m.id === medicationId);
   if (medication) {
     medication.stock -= quantity;
-    // TODO: Enviar actualización al backend
     console.log(`Stock actualizado: ${medication.name} - Quedan ${medication.stock}`);
   }
 }
@@ -618,16 +679,11 @@ async function onSubmit() {
   }
   
   try {
-    // TODO: Integración con backend
     console.log('Guardando consulta:', form);
     
-    // Descontar medicamentos del inventario
     form.medications.forEach(med => {
       updateInventoryStock(med.medicationId, med.totalQuantity);
     });
-    
-    // TODO: Enviar evento a sciaudit
-    // await sendAuditEvent('medical_record_created', form);
     
     alert('Consulta veterinaria guardada exitosamente');
     resetForm();
@@ -640,46 +696,81 @@ async function onSubmit() {
 onMounted(() => {
   fixNonSubmitButtons();
   preventScrollOnInteractions();
-  initializeGovcoComponents();
-  setupDropdownListeners();
 
   if (typeof window !== 'undefined') {
     window.addEventListener('load', () => {
       fixNonSubmitButtons();
       preventScrollOnInteractions();
-      initializeGovcoComponents();
-      setupDropdownListeners();
     });
   }
 });
 </script>
 
 <style scoped>
-.medical-form { max-width: 1200px; margin: 0 auto; padding: 2rem; background: #f5f7fb; }
-.form-header { margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 3px solid #3366CC; }
-.form-section { background: white; border-radius: 8px; margin-bottom: 1.5rem; overflow: visible; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-.section-title { margin: 0; padding: 1rem 1.5rem; background: #E8F0FE; color: #3366CC; font-weight: 600; }
-.form-grid { display: grid; grid-template-columns: repeat(2, 1fr); column-gap: 2rem; row-gap: 1.5rem; padding: 1.5rem; }
-.full-width { grid-column: 1 / 3; }
-.entradas-de-texto-govco input,
-.entradas-de-texto-govco textarea,
-.entradas-de-texto-govco, 
-.desplegable-govco, 
-.container-carga-de-archivo-govco { 
-  width: 100%; 
+.medical-form { 
+  max-width: 1200px; 
+  margin: 0 auto; 
+  padding: 2rem; 
+  background: #f5f7fb; 
 }
-.desplegable-govco select { width: 100%; padding: 0.75rem; border: 1px solid #D0D0D0; border-radius: 4px; font-size: 1rem; }
-.error-text, .alert-desplegable-govco { display: block; color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; }
-.checkbox-govco { display: flex; align-items: center; gap: 0.75rem; padding: 1rem; background: #f5f7fb; border-radius: 6px; }
-.form-actions { display: flex; justify-content: flex-end; gap: 1rem; padding: 1.5rem; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-.govco-btn { padding: 0.75rem 2rem; border-radius: 6px; font-weight: 600; cursor: pointer; border: none; color: white; }
-.govco-bg-concrete { background-color: #737373; }
-.govco-bg-elf-green { background-color: #069169; }
+
+.form-header { 
+  margin-bottom: 2rem; 
+  padding-bottom: 1rem; 
+  border-bottom: 3px solid #3366CC; 
+}
+
+.form-section { 
+  background: white; 
+  border-radius: 8px; 
+  margin-bottom: 1.5rem; 
+  overflow: visible; 
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08); 
+}
+
+.section-title { 
+  margin: 0; 
+  padding: 1rem 1.5rem; 
+  background: #E8F0FE; 
+  color: #3366CC; 
+  font-weight: 600; 
+}
+
+.form-grid { 
+  display: grid; 
+  grid-template-columns: repeat(2, 1fr); 
+  column-gap: 2rem; 
+  row-gap: 1.5rem; 
+  padding: 1.5rem; 
+}
+
+.full-width { 
+  grid-column: 1 / 3; 
+}
+
+.entradas-de-texto-govco input,
+.entradas-de-texto-govco textarea { 
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #D0D0D0;
+  border-radius: 4px;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.entradas-de-texto-govco input {
+  height: 44px;
+}
+
+.entradas-de-texto-govco textarea {
+  font-family: inherit;
+  resize: vertical;
+}
+
 .input-like-govco {
   display: flex;
   flex-direction: column;
   width: 100%;
-  margin: 18px 0;
 }
 
 .input-like-govco label {
@@ -688,23 +779,90 @@ onMounted(() => {
   color: #333;
 }
 
-.date-field-container {
+/* Estilos específicos para los calendarios */
+.calendar-wrapper {
+  margin: 0;
+}
+
+.calendar-wrapper :deep(.label-desplegable-govco) {
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.calendar-wrapper :deep(.desplegable-govco) {
   width: 100%;
 }
 
-.date-field-container :deep(.date.desplegable-selected-option) {
-  padding: 7px 40px 7px 16px !important;
-  box-sizing: border-box !important;
+.calendar-wrapper :deep(.desplegable-govco .date.desplegable-selected-option) {
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.date-field-container :deep(.date.desplegable-selected-option input) {
-  width: 100% !important;
-  padding-right: 30px !important;
-  box-sizing: border-box !important;
+.calendar-wrapper :deep(.desplegable-govco input) {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #D0D0D0;
+  border-radius: 4px;
+  font-size: 1rem;
+  height: 44px;
+  box-sizing: border-box;
 }
 
-.neut-date-container .desplegable-govco {
-  margin-top: 0.7rem;
+.error-text, 
+.alert-desplegable-govco { 
+  display: block; 
+  color: #b00020; 
+  font-size: 0.85rem; 
+  margin-top: 0.5rem; 
+}
+
+.checkbox-govco { 
+  display: flex; 
+  align-items: center; 
+  gap: 0.75rem; 
+  padding: 1rem; 
+  background: #f5f7fb; 
+  border-radius: 6px; 
+}
+
+.checkbox-govco input {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.form-actions { 
+  display: flex; 
+  justify-content: flex-end; 
+  gap: 1rem; 
+  padding: 1.5rem; 
+  background: white; 
+  border-radius: 8px; 
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08); 
+}
+
+.govco-btn { 
+  padding: 0.75rem 2rem; 
+  border-radius: 6px; 
+  font-weight: 600; 
+  cursor: pointer; 
+  border: none; 
+  color: white;
+  transition: all 0.3s;
+}
+
+.govco-btn:hover {
+  transform: translateY(-2px);
+  opacity: 0.9;
+}
+
+.govco-bg-concrete { 
+  background-color: #737373; 
+}
+
+.govco-bg-elf-green { 
+  background-color: #069169; 
 }
 
 :deep(.desplegable-govco .desplegable-items) {
@@ -713,10 +871,40 @@ onMounted(() => {
 
 :deep(.desplegable-govco.desplegable-calendar-govco .desplegable-calendar-control) {
   z-index: 1500 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  max-height: 668.8px !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+}
+
+:deep(.desplegable-calendar-govco .desplegable-calendar-control .header) { 
+  width: 100% !important; 
+  box-sizing: border-box !important;
+}
+
+:deep(.desplegable-calendar-govco .desplegable-calendar-control table#miCalendarioGrid.dates) {
+  width: 100% !important;
+  table-layout: fixed !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+  margin: 0 !important;  
+  margin-left: -4.8px !important;
+}
+
+:deep(.desplegable-calendar-govco .desplegable-calendar-control table td) { 
+  box-sizing: border-box !important; 
+  width: calc(100% / 7) !important;
 }
 
 @media (max-width: 768px) {
-  .form-grid { grid-template-columns: 1fr; }
-  .full-width { grid-column: 1 / 2; }
+  .form-grid { 
+    grid-template-columns: 1fr; 
+  }
+  
+  .full-width { 
+    grid-column: 1 / 2; 
+  }
 }
 </style>
