@@ -264,7 +264,7 @@ export default {
     
     initializeGovcoDropdown() {
       if (this.isInitialized) return;
-      
+
       this.$nextTick(() => {
         // Inicializar GOV.CO
         if (window.createList) {
@@ -275,20 +275,51 @@ export default {
             window.GOVCo.init(dropdownElement.parentElement);
           }
         }
-        
+
         this.isInitialized = true;
-        
+
         // Configurar listeners y observers
         setTimeout(() => {
           this.setupMutationObserver();
           this.setupClickListener();
           this.setupPeriodicSync();
-          
+
+          // IMPORTANTE: Prevenir submit en botones creados por GOV.CO
+          this.preventButtonSubmit();
+
           // Sincronizar valor inicial
           if (this.internalValue) {
             this.syncDropdownDisplay();
           }
         }, 200);
+      });
+    },
+
+    preventButtonSubmit() {
+      // Buscar el boton creado por GOV.CO y asignar type="button" para prevenir submit
+      const container = document.getElementById(this.id);
+      if (container) {
+        // Aplicar a botones existentes
+        this.fixButtons(container);
+
+        // Observar cambios para botones que se creen dinamicamente
+        const buttonObserver = new MutationObserver(() => {
+          this.fixButtons(container);
+        });
+
+        buttonObserver.observe(container, {
+          childList: true,
+          subtree: true
+        });
+
+        this.observers.push(buttonObserver);
+      }
+    },
+
+    fixButtons(container) {
+      const buttons = container.querySelectorAll('button');
+      buttons.forEach(btn => {
+        btn.setAttribute('type', 'button');
       });
     },
     
