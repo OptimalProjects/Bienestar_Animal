@@ -3,18 +3,49 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sistema Bienestar Animal</title>
+    <meta name="description" content="Sistema de Bienestar Animal - Alcaldía" />
+    <title>Sistema Bienestar Animal - GOV.CO</title>
 
-    <!-- CSS oficial GOV.CO -->
+    <!-- Favicon GOV.CO -->
+    <link rel="icon" type="image/x-icon" href="https://cdn.www.gov.co/layout/v4/images/favicon.ico" />
+
+    <!-- Fuentes Google (Requeridas por GOV.CO) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- CSS oficial GOV.CO v4 -->
     <link href="https://cdn.www.gov.co/layout/v4/all.css" rel="stylesheet" />
+
+    <!-- Estilos adicionales para compatibilidad -->
+    <style>
+      /* Reset para evitar conflictos */
+      *, *::before, *::after {
+        box-sizing: border-box;
+      }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Work Sans', sans-serif;
+        background-color: #f5f5f5;
+      }
+
+      #app {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+    </style>
   </head>
 
   <body>
     <div id="app"></div>
 
-    <script type="module" src="/src/main.js"></script>
-
-    <!-- JS oficial GOV.CO -->
+    <!-- JS oficial GOV.CO v4 (antes del script de Vue para que esté disponible) -->
     <script src="https://cdn.www.gov.co/layout/v4/script.js"></script>
+
+    <!-- Vue App -->
+    <script type="module" src="/src/main.js"></script>
   </body>
 </html>
