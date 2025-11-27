@@ -27,11 +27,12 @@
             <label :for="`medication-${index}`" class="label-desplegable-govco">
               Medicamento<span aria-required="true">*</span>
             </label>
-            <div class="desplegable-govco" data-type="basic">
+            <div class="desplegable-govco" data-type="basic" :id="`medication-dropdown-${index}`">
               <select 
                 :id="`medication-${index}`"
                 v-model="med.medicationId"
                 @change="onMedicationChange(index)"
+                aria-invalid="false"
               >
                 <option disabled value="">Seleccionar</option>
                 <option 
@@ -86,7 +87,7 @@
               v-model.number="med.duration"
               min="1"
               max="90"
-              @input="calculateTotal(index)"
+              @input="emitUpdate"
             />
           </div>
 
@@ -95,11 +96,12 @@
             <label :for="`route-${index}`" class="label-desplegable-govco">
               Vía<span aria-required="true">*</span>
             </label>
-            <div class="desplegable-govco" data-type="basic">
+            <div class="desplegable-govco" data-type="basic" :id="`route-dropdown-${index}`">
               <select 
                 :id="`route-${index}`"
                 v-model="med.route"
                 @change="emitUpdate"
+                aria-invalid="false"
               >
                 <option disabled value="">Seleccionar</option>
                 <option value="oral">Oral</option>
@@ -160,7 +162,7 @@
 </template>
 
 <script setup>
-import { reactive, watch, onMounted } from 'vue';
+import { reactive, watch, onMounted, nextTick } from 'vue';
 
 const props = defineProps({
   modelValue: {
@@ -181,6 +183,75 @@ watch(() => props.modelValue, (newVal) => {
   localMedications.splice(0, localMedications.length, ...newVal);
 }, { deep: true });
 
+// Función para inicializar componentes GOV.CO
+function initializeGovcoComponents() {
+  if (typeof window === 'undefined' || !window.GOVCo) return;
+  
+  nextTick(() => {
+    // Inicializar todos los dropdowns
+    const dropdowns = document.querySelectorAll('.medication-prescription .desplegable-govco[data-type="basic"]');
+    
+    dropdowns.forEach((dropdown) => {
+      if (window.GOVCo?.init) {
+        try {
+          const parent = dropdown.parentElement;
+          window.GOVCo.init(parent);
+        } catch (e) {
+          console.error('Error inicializando dropdown:', e);
+        }
+      }
+    });
+    
+    // Sincronizar valores después de inicializar
+    setTimeout(() => {
+      syncDropdownValues();
+      setupDropdownListeners();
+    }, 250);
+  });
+}
+
+// Función para sincronizar valores de dropdowns
+function syncDropdownValues() {
+  localMedications.forEach((med, index) => {
+    const medicationSelect = document.getElementById(`medication-${index}`);
+    const routeSelect = document.getElementById(`route-${index}`);
+    
+    if (medicationSelect && med.medicationId) {
+      medicationSelect.value = med.medicationId;
+    }
+    
+    if (routeSelect && med.route) {
+      routeSelect.value = med.route;
+    }
+  });
+}
+
+// Función para configurar listeners en los dropdowns
+function setupDropdownListeners() {
+  nextTick(() => {
+    localMedications.forEach((med, index) => {
+      const medicationSelect = document.getElementById(`medication-${index}`);
+      const routeSelect = document.getElementById(`route-${index}`);
+      
+      if (medicationSelect && !medicationSelect.dataset.listenerAdded) {
+        medicationSelect.addEventListener('change', (e) => {
+          med.medicationId = e.target.value;
+          onMedicationChange(index);
+        });
+        medicationSelect.dataset.listenerAdded = 'true';
+      }
+      
+      if (routeSelect && !routeSelect.dataset.listenerAdded) {
+        routeSelect.addEventListener('change', (e) => {
+          med.route = e.target.value;
+          emitUpdate();
+        });
+        routeSelect.dataset.listenerAdded = 'true';
+      }
+    });
+  });
+}
+
 function addMedication() {
   localMedications.push({
     medicationId: '',
@@ -193,6 +264,8 @@ function addMedication() {
     error: ''
   });
   emitUpdate();
+  
+  // NO reinicializar GOV.CO - los dropdowns deben cargarse manualmente por el usuario
 }
 
 function removeMedication(index) {
@@ -213,17 +286,6 @@ function onMedicationChange(index) {
   emitUpdate();
 }
 
-function calculateTotal(index) {
-  const med = localMedications[index];
-  
-  // Estimación simple: 3 veces al día por X días
-  if (med.duration) {
-    med.totalQuantity = med.duration * 3;
-  }
-  
-  emitUpdate();
-}
-
 function getUnit(medicationId) {
   const medication = props.inventory.find(m => m.id === medicationId);
   return medication ? medication.unit : '';
@@ -234,14 +296,14 @@ function emitUpdate() {
 }
 
 onMounted(() => {
-  // Inicializar dropdowns de GOV.CO
-  if (window.GOVCo?.init) {
-    setTimeout(() => {
-      const dropdowns = document.querySelectorAll('.desplegable-govco');
-      dropdowns.forEach(dropdown => {
-        window.GOVCo.init(dropdown.parentElement);
-      });
-    }, 100);
+  initializeGovcoComponents();
+  setupDropdownListeners();
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('load', () => {
+      initializeGovcoComponents();
+      setupDropdownListeners();
+    });
   }
 });
 </script>
@@ -334,13 +396,25 @@ onMounted(() => {
   background: #c82333;
 }
 
-.entradas-de-texto-govco input,
-.desplegable-govco select {
+.entradas-de-texto-govco {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.entradas-de-texto-govco label {
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.entradas-de-texto-govco input {
   width: 100%;
   padding: 0.75rem;
   border: 1px solid #D0D0D0;
   border-radius: 4px;
   font-size: 1rem;
+  box-sizing: border-box;
 }
 
 .info-entradas-de-texto-govco {
@@ -361,6 +435,31 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   width: 100%;
+  margin: 0;
+}
+
+.input-like-govco label {
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.desplegable-govco {
+  width: 100%;
+}
+
+.desplegable-govco select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #D0D0D0;
+  border-radius: 4px;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+/* Z-index para dropdowns */
+:deep(.desplegable-govco .desplegable-items) {
+  z-index: 1500 !important;
 }
 
 @media (max-width: 768px) {

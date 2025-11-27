@@ -117,6 +117,7 @@
 
 <script setup>
 import { computed, onMounted, nextTick } from 'vue';
+import CalendarioGovco from '../common/CalendarioGovco.vue'; 
 
 const props = defineProps({
   modelValue: Object

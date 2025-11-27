@@ -67,49 +67,44 @@
     </div>
 
     <!-- Condición corporal -->
-    <div class="input-like-govco">
-      <label for="bodyCondition" class="label-desplegable-govco">
-        Condición corporal<span aria-required="true">*</span>
-      </label>
-      <div class="desplegable-govco" data-type="basic" id="bodyCondition-dropdown">
-        <select id="bodyCondition" v-model="localSigns.bodyCondition" aria-invalid="false">
-          <option disabled value="">Evaluar</option>
-          <option value="emaciado">1 - Emaciado (costillas muy visibles)</option>
-          <option value="delgado">2 - Delgado (se palpan costillas fácilmente)</option>
-          <option value="ideal">3 - Ideal (cintura visible, costillas palpables)</option>
-          <option value="sobrepeso">4 - Sobrepeso (difícil palpar costillas)</option>
-          <option value="obeso">5 - Obeso (sin cintura visible)</option>
-        </select>
-      </div>
-      <span v-if="errors?.bodyCondition" class="alert-desplegable-govco">{{ errors.bodyCondition }}</span>
-    </div>
+    <DesplegableGovco
+      id="bodyCondition"
+      label="Condición corporal"
+      :options="bodyConditionOptions"
+      v-model="localSigns.bodyCondition"
+      placeholder="Evaluar"
+      :required="true"
+      :alert-text="errors?.bodyCondition"
+      :error="!!errors?.bodyCondition"
+      width="100%"
+      height="44px"
+      @change="emitUpdate"
+    />
 
     <!-- Mucosas -->
-    <div class="input-like-govco">
-      <label for="mucosa" class="label-desplegable-govco">Color de mucosas</label>
-      <div class="desplegable-govco" data-type="basic" id="mucosa-dropdown">
-        <select id="mucosa" v-model="localSigns.mucosa" aria-invalid="false">
-          <option disabled value="">No evaluado</option>
-          <option value="rosadas">Rosadas (normal)</option>
-          <option value="palidas">Pálidas (posible anemia)</option>
-          <option value="cianoticas">Cianóticas (falta de oxígeno)</option>
-          <option value="ictericas">Ictéricas (problemas hepáticos)</option>
-        </select>
-      </div>
-    </div>
+    <DesplegableGovco
+      id="mucosa"
+      label="Color de mucosas"
+      :options="mucosaOptions"
+      v-model="localSigns.mucosa"
+      placeholder="No evaluado"
+      width="100%"
+      height="44px"
+      @change="emitUpdate"
+    />
 
     <!-- Hidratación -->
     <div class="input-like-govco">
-      <label for="hydration" class="label-desplegable-govco">Estado de hidratación</label>
-      <div class="desplegable-govco" data-type="basic" id="hydration-dropdown">
-        <select id="hydration" v-model="localSigns.hydration" aria-invalid="false">
-          <option disabled value="">No evaluado</option>
-          <option value="normal">Normal (&lt; 2 seg)</option>
-          <option value="leve">Deshidratación leve (5%)</option>
-          <option value="moderada">Deshidratación moderada (7-8%)</option>
-          <option value="severa">Deshidratación severa (&gt; 10%)</option>
-        </select>
-      </div>
+      <DesplegableGovco
+        id="hydration"
+        label="Estado de hidratación"
+        :options="hydrationOptions"
+        v-model="localSigns.hydration"
+        placeholder="No evaluado"
+        width="100%"
+        height="44px"
+        @change="emitUpdate"
+      />
       <span class="info-entradas-de-texto-govco">Evaluar mediante pliegue cutáneo</span>
     </div>
 
@@ -134,6 +129,7 @@
 
 <script setup>
 import { reactive, watch, onMounted, nextTick } from 'vue';
+import DesplegableGovco from '../common/DesplegableGovco.vue';
 
 const props = defineProps({
   modelValue: {
@@ -158,6 +154,29 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue']);
 
 const localSigns = reactive({ ...props.modelValue });
+
+// Opciones para los dropdowns
+const bodyConditionOptions = [
+  { value: 'emaciado', text: '1 - Emaciado (costillas muy visibles)' },
+  { value: 'delgado', text: '2 - Delgado (se palpan costillas fácilmente)' },
+  { value: 'ideal', text: '3 - Ideal (cintura visible, costillas palpables)' },
+  { value: 'sobrepeso', text: '4 - Sobrepeso (difícil palpar costillas)' },
+  { value: 'obeso', text: '5 - Obeso (sin cintura visible)' }
+];
+
+const mucosaOptions = [
+  { value: 'rosadas', text: 'Rosadas (normal)' },
+  { value: 'palidas', text: 'Pálidas (posible anemia)' },
+  { value: 'cianoticas', text: 'Cianóticas (falta de oxígeno)' },
+  { value: 'ictericas', text: 'Ictéricas (problemas hepáticos)' }
+];
+
+const hydrationOptions = [
+  { value: 'normal', text: 'Normal (< 2 seg)' },
+  { value: 'leve', text: 'Deshidratación leve (5%)' },
+  { value: 'moderada', text: 'Deshidratación moderada (7-8%)' },
+  { value: 'severa', text: 'Deshidratación severa (> 10%)' }
+];
 
 watch(() => props.modelValue, newVal => Object.assign(localSigns, newVal), { deep: true });
 
@@ -185,78 +204,12 @@ function preventScrollOnInteractions() {
   }
 }
 
-// Función para inicializar componentes GOV.CO
-function initializeGovcoComponents() {
-  if (typeof window === 'undefined' || !window.GOVCo) return;
-  
-  nextTick(() => {
-    const dropdowns = document.querySelectorAll('.vital-signs-grid .desplegable-govco[data-type="basic"]');
-    dropdowns.forEach(dropdown => {
-      if (window.GOVCo?.init) {
-        window.GOVCo.init(dropdown.parentElement);
-      }
-    });
-    
-    setTimeout(() => {
-      syncDropdownValues();
-      fixDropdownButtons();
-    }, 200);
-  });
-}
-
-// Función para asegurar que los botones de dropdown tengan type="button"
-function fixDropdownButtons() {
-  const dropdownButtons = document.querySelectorAll('.vital-signs-grid .desplegable-selected-option');
-  dropdownButtons.forEach(button => {
-    if (button.tagName === 'BUTTON' && !button.getAttribute('type')) {
-      button.setAttribute('type', 'button');
-    }
-  });
-}
-
-// Función para configurar listeners en los dropdowns
-function setupDropdownListeners() {
-  const selects = ['bodyCondition', 'mucosa', 'hydration'];
-  
-  selects.forEach(id => {
-    const select = document.getElementById(id);
-    if (select) {
-      select.addEventListener('change', (e) => {
-        localSigns[id] = e.target.value;
-        emitUpdate();
-        console.log(`${id} changed to:`, e.target.value);
-      });
-    }
-  });
-}
-
-// Función para sincronizar valores de dropdowns
-function syncDropdownValues() {
-  const bodyCondition = document.getElementById('bodyCondition');
-  const mucosa = document.getElementById('mucosa');
-  const hydration = document.getElementById('hydration');
-  
-  if (bodyCondition) localSigns.bodyCondition = bodyCondition.value;
-  if (mucosa) localSigns.mucosa = mucosa.value;
-  if (hydration) localSigns.hydration = hydration.value;
-  
-  console.log('Dropdowns sincronizados:', {
-    bodyCondition: localSigns.bodyCondition,
-    mucosa: localSigns.mucosa,
-    hydration: localSigns.hydration
-  });
-}
-
 onMounted(() => {
   preventScrollOnInteractions();
-  initializeGovcoComponents();
-  setupDropdownListeners();
   
   if (typeof window !== 'undefined') {
     window.addEventListener('load', () => {
       preventScrollOnInteractions();
-      initializeGovcoComponents();
-      setupDropdownListeners();
     });
   }
 });
@@ -286,26 +239,9 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   width: 100%;
-  margin: 18px 0;
-}
-
-.input-like-govco label {
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: #333;
 }
 
 .entradas-de-texto-govco input {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #D0D0D0;
-  border-radius: 4px;
-  font-size: 1rem;
-  height: 44px;
-  box-sizing: border-box;
-}
-
-.desplegable-govco select {
   width: 100%;
   padding: 0.75rem;
   border: 1px solid #D0D0D0;
@@ -322,8 +258,7 @@ onMounted(() => {
   margin-top: 0.25rem;
 }
 
-.error-text,
-.alert-desplegable-govco {
+.error-text {
   color: #d32f2f;
   font-size: 0.875rem;
   display: block;
