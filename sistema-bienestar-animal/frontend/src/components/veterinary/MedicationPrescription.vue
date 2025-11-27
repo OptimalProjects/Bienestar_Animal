@@ -18,34 +18,26 @@
     <div v-else class="medications-list">
       <div 
         v-for="(med, index) in localMedications" 
-        :key="index"
+        :key="`med-${index}-${med.id || Date.now()}`"
         class="medication-item"
       >
         <div class="medication-grid">
           <!-- Medicamento -->
           <div class="input-like-govco">
-            <label :for="`medication-${index}`" class="label-desplegable-govco">
-              Medicamento<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco" data-type="basic" :id="`medication-dropdown-${index}`">
-              <select 
-                :id="`medication-${index}`"
-                v-model="med.medicationId"
-                @change="onMedicationChange(index)"
-                aria-invalid="false"
-              >
-                <option disabled value="">Seleccionar</option>
-                <option 
-                  v-for="item in inventory" 
-                  :key="item.id" 
-                  :value="item.id"
-                  :disabled="item.stock <= 0"
-                >
-                  {{ item.name }} (Stock: {{ item.stock }} {{ item.unit }})
-                </option>
-              </select>
-            </div>
-            <span v-if="med.error" class="alert-desplegable-govco">{{ med.error }}</span>
+            <DesplegableGovco
+              :ref="el => setMedicationRef(el, index)"
+              :id="`medication-${index}`"
+              label="Medicamento"
+              :options="medicationOptions"
+              v-model="med.medicationId"
+              placeholder="Seleccionar"
+              :required="true"
+              :alert-text="med.error"
+              :error="!!med.error"
+              width="100%"
+              height="44px"
+              @change="(value) => onMedicationChange(index, value)"
+            />
           </div>
 
           <!-- Dosis -->
@@ -93,24 +85,18 @@
 
           <!-- Vía de administración -->
           <div class="input-like-govco">
-            <label :for="`route-${index}`" class="label-desplegable-govco">
-              Vía<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco" data-type="basic" :id="`route-dropdown-${index}`">
-              <select 
-                :id="`route-${index}`"
-                v-model="med.route"
-                @change="emitUpdate"
-                aria-invalid="false"
-              >
-                <option disabled value="">Seleccionar</option>
-                <option value="oral">Oral</option>
-                <option value="subcutanea">Subcutánea</option>
-                <option value="intramuscular">Intramuscular</option>
-                <option value="intravenosa">Intravenosa</option>
-                <option value="topica">Tópica</option>
-              </select>
-            </div>
+            <DesplegableGovco
+              :ref="el => setRouteRef(el, index)"
+              :id="`route-${index}`"
+              label="Vía"
+              :options="routeOptions"
+              v-model="med.route"
+              placeholder="Seleccionar"
+              :required="true"
+              width="100%"
+              height="44px"
+              @change="(value) => onRouteChange(index, value)"
+            />
           </div>
 
           <!-- Cantidad total -->
@@ -162,7 +148,8 @@
 </template>
 
 <script setup>
-import { reactive, watch, onMounted, nextTick } from 'vue';
+import { reactive, computed, watch, onMounted, ref } from 'vue';
+import DesplegableGovco from '../common/DesplegableGovco.vue';
 
 const props = defineProps({
   modelValue: {
@@ -179,81 +166,47 @@ const emit = defineEmits(['update:modelValue', 'update:stock']);
 
 const localMedications = reactive([...props.modelValue]);
 
+// Referencias para los dropdowns dinámicos
+const medicationRefs = ref([]);
+const routeRefs = ref([]);
+
+// Opciones para los dropdowns
+const medicationOptions = computed(() => 
+  props.inventory.map(item => ({
+    value: item.id,
+    text: `${item.name} (Stock: ${item.stock} ${item.unit})`,
+    disabled: item.stock <= 0
+  }))
+);
+
+const routeOptions = [
+  { value: 'oral', text: 'Oral' },
+  { value: 'subcutanea', text: 'Subcutánea' },
+  { value: 'intramuscular', text: 'Intramuscular' },
+  { value: 'intravenosa', text: 'Intravenosa' },
+  { value: 'topica', text: 'Tópica' }
+];
+
 watch(() => props.modelValue, (newVal) => {
   localMedications.splice(0, localMedications.length, ...newVal);
 }, { deep: true });
 
-// Función para inicializar componentes GOV.CO
-function initializeGovcoComponents() {
-  if (typeof window === 'undefined' || !window.GOVCo) return;
-  
-  nextTick(() => {
-    // Inicializar todos los dropdowns
-    const dropdowns = document.querySelectorAll('.medication-prescription .desplegable-govco[data-type="basic"]');
-    
-    dropdowns.forEach((dropdown) => {
-      if (window.GOVCo?.init) {
-        try {
-          const parent = dropdown.parentElement;
-          window.GOVCo.init(parent);
-        } catch (e) {
-          console.error('Error inicializando dropdown:', e);
-        }
-      }
-    });
-    
-    // Sincronizar valores después de inicializar
-    setTimeout(() => {
-      syncDropdownValues();
-      setupDropdownListeners();
-    }, 250);
-  });
+// Funciones para manejar las referencias dinámicas
+function setMedicationRef(el, index) {
+  if (el) {
+    medicationRefs.value[index] = el;
+  }
 }
 
-// Función para sincronizar valores de dropdowns
-function syncDropdownValues() {
-  localMedications.forEach((med, index) => {
-    const medicationSelect = document.getElementById(`medication-${index}`);
-    const routeSelect = document.getElementById(`route-${index}`);
-    
-    if (medicationSelect && med.medicationId) {
-      medicationSelect.value = med.medicationId;
-    }
-    
-    if (routeSelect && med.route) {
-      routeSelect.value = med.route;
-    }
-  });
-}
-
-// Función para configurar listeners en los dropdowns
-function setupDropdownListeners() {
-  nextTick(() => {
-    localMedications.forEach((med, index) => {
-      const medicationSelect = document.getElementById(`medication-${index}`);
-      const routeSelect = document.getElementById(`route-${index}`);
-      
-      if (medicationSelect && !medicationSelect.dataset.listenerAdded) {
-        medicationSelect.addEventListener('change', (e) => {
-          med.medicationId = e.target.value;
-          onMedicationChange(index);
-        });
-        medicationSelect.dataset.listenerAdded = 'true';
-      }
-      
-      if (routeSelect && !routeSelect.dataset.listenerAdded) {
-        routeSelect.addEventListener('change', (e) => {
-          med.route = e.target.value;
-          emitUpdate();
-        });
-        routeSelect.dataset.listenerAdded = 'true';
-      }
-    });
-  });
+function setRouteRef(el, index) {
+  if (el) {
+    routeRefs.value[index] = el;
+  }
 }
 
 function addMedication() {
   localMedications.push({
+    id: Date.now(), // Agregar ID único para el key
     medicationId: '',
     dose: '',
     frequency: '',
@@ -264,18 +217,25 @@ function addMedication() {
     error: ''
   });
   emitUpdate();
-  
-  // NO reinicializar GOV.CO - los dropdowns deben cargarse manualmente por el usuario
 }
 
 function removeMedication(index) {
   localMedications.splice(index, 1);
+  
+  // Limpiar referencias
+  medicationRefs.value.splice(index, 1);
+  routeRefs.value.splice(index, 1);
+  
   emitUpdate();
 }
 
-function onMedicationChange(index) {
+function onMedicationChange(index, value) {
+  console.log(`Medication ${index} changed to:`, value);
+  
   const med = localMedications[index];
-  const selected = props.inventory.find(item => item.id === med.medicationId);
+  med.medicationId = value;
+  
+  const selected = props.inventory.find(item => item.id === value);
   
   if (selected && selected.stock <= 0) {
     med.error = 'Medicamento sin stock disponible';
@@ -283,6 +243,13 @@ function onMedicationChange(index) {
     med.error = '';
   }
   
+  emitUpdate();
+}
+
+function onRouteChange(index, value) {
+  console.log(`Route ${index} changed to:`, value);
+  
+  localMedications[index].route = value;
   emitUpdate();
 }
 
@@ -295,16 +262,42 @@ function emitUpdate() {
   emit('update:modelValue', localMedications.map(med => ({ ...med })));
 }
 
-onMounted(() => {
-  initializeGovcoComponents();
-  setupDropdownListeners();
+// Función para sincronizar todos los valores desde los componentes
+function syncAllMedicationValues() {
+  console.log('=== Sincronizando valores de medicamentos ===');
+  
+  localMedications.forEach((med, index) => {
+    // Sincronizar medicamento
+    const medicationRef = medicationRefs.value[index];
+    if (medicationRef?.getValue) {
+      const medicationValue = medicationRef.getValue();
+      if (medicationValue) {
+        med.medicationId = medicationValue;
+        console.log(`Medication ${index} synced:`, medicationValue);
+      }
+    }
+    
+    // Sincronizar ruta
+    const routeRef = routeRefs.value[index];
+    if (routeRef?.getValue) {
+      const routeValue = routeRef.getValue();
+      if (routeValue) {
+        med.route = routeValue;
+        console.log(`Route ${index} synced:`, routeValue);
+      }
+    }
+  });
+  
+  console.log('Medicamentos sincronizados:', localMedications);
+}
 
-  if (typeof window !== 'undefined') {
-    window.addEventListener('load', () => {
-      initializeGovcoComponents();
-      setupDropdownListeners();
-    });
-  }
+// Exponer función para uso externo
+defineExpose({
+  syncAllMedicationValues
+});
+
+onMounted(() => {
+  console.log('MedicationPrescription mounted');
 });
 </script>
 
@@ -337,6 +330,12 @@ onMounted(() => {
   border: none;
   color: white;
   font-size: 0.9rem;
+  transition: all 0.3s;
+}
+
+.govco-btn-small:hover {
+  transform: translateY(-1px);
+  opacity: 0.9;
 }
 
 .govco-bg-elf-green {
@@ -390,10 +389,12 @@ onMounted(() => {
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.9rem;
+  transition: all 0.3s;
 }
 
 .btn-remove:hover {
   background: #c82333;
+  transform: translateY(-1px);
 }
 
 .entradas-de-texto-govco {
@@ -408,6 +409,11 @@ onMounted(() => {
   color: #333;
 }
 
+.entradas-de-texto-govco label span[aria-required="true"] {
+  color: #d32f2f;
+  margin-left: 0.25rem;
+}
+
 .entradas-de-texto-govco input {
   width: 100%;
   padding: 0.75rem;
@@ -415,6 +421,7 @@ onMounted(() => {
   border-radius: 4px;
   font-size: 1rem;
   box-sizing: border-box;
+  height: 44px;
 }
 
 .info-entradas-de-texto-govco {
@@ -442,19 +449,6 @@ onMounted(() => {
   margin-bottom: 0.5rem;
   font-weight: 500;
   color: #333;
-}
-
-.desplegable-govco {
-  width: 100%;
-}
-
-.desplegable-govco select {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #D0D0D0;
-  border-radius: 4px;
-  font-size: 1rem;
-  box-sizing: border-box;
 }
 
 /* Z-index para dropdowns */

@@ -12,39 +12,38 @@
         <h3 class="h5-tipografia-govco section-title">Datos del animal</h3>
         
         <div class="form-grid">
-          <!-- Animal -->
           <div class="input-like-govco">
-            <label for="animal" class="label-desplegable-govco">
-              Animal<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco" data-type="basic">
-              <select id="animal" v-model="form.animalId">
-                <option disabled value="">Seleccionar animal</option>
-                <option v-for="animal in animals" :key="animal.id" :value="animal.id">
-                  {{ animal.name }} - {{ animal.microchip }}
-                </option>
-              </select>
-            </div>
-            <span v-if="errors.animalId" class="alert-desplegable-govco">{{ errors.animalId }}</span>
+            <DesplegableGovco
+              ref="animalDropdownRef"
+              id="animal"
+              label="Animal"
+              :options="animalOptions"
+              v-model="form.animalId"
+              placeholder="Seleccionar animal"
+              :required="true"
+              :alert-text="errors.animalId"
+              :error="!!errors.animalId"
+              width="100%"
+              height="44px"
+              @change="form.animalId = $event"
+            />
           </div>
 
-          <!-- Fecha de aplicación -->
-          <div class="input-like-govco">
-            <label for="applicationDate" class="label-desplegable-govco">
-              Fecha de aplicación<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco desplegable-calendar-govco" data-type="calendar">
-              <div class="date desplegable-selected-option">
-                <input
-                  type="date"
-                  id="applicationDate"
-                  v-model="form.applicationDate"
-                  class="browser-default"
-                  @change="calculateNextDose"
-                />
-              </div>
-            </div>
-            <span v-if="errors.applicationDate" class="alert-desplegable-govco">{{ errors.applicationDate }}</span>
+          <div class="input-like-govco calendar-wrapper">
+            <CalendarioGovco
+              ref="applicationDateRef"
+              id="applicationDateCalendar"
+              input-id="applicationDate"
+              label="Fecha de aplicación"
+              v-model="form.applicationDate"
+              view-days="true"
+              :required="true"
+              width="100%"
+              height="44px"
+              :alert-text="errors.applicationDate"
+              :error="!!errors.applicationDate"
+              @change="onDateChange"
+            />
           </div>
         </div>
       </div>
@@ -54,96 +53,78 @@
         <h3 class="h5-tipografia-govco section-title">Información de la vacuna</h3>
         
         <div class="form-grid">
-          <!-- Tipo de vacuna -->
           <div class="input-like-govco">
-            <label for="vaccineType" class="label-desplegable-govco">
-              Tipo de vacuna<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco" data-type="basic">
-              <select 
-                id="vaccineType" 
-                v-model="form.vaccineType"
-                @change="onVaccineTypeChange"
-              >
-                <option disabled value="">Seleccionar tipo</option>
-                <option value="rabia">Rabia</option>
-                <option value="quintuple">Quíntuple (DHPPL)</option>
-                <option value="sextuple">Séxtuple (DHPPL + Corona)</option>
-                <option value="triple_felina">Triple Felina</option>
-                <option value="leucemia_felina">Leucemia Felina</option>
-                <option value="parvovirus">Parvovirus</option>
-                <option value="bordetella">Bordetella (Tos de las perreras)</option>
-                <option value="otra">Otra</option>
-              </select>
-            </div>
-            <span v-if="errors.vaccineType" class="alert-desplegable-govco">{{ errors.vaccineType }}</span>
+            <DesplegableGovco
+              ref="vaccineTypeRef"
+              id="vaccineType"
+              label="Tipo de vacuna"
+              :options="vaccineTypeOptions"
+              v-model="form.vaccineType"
+              placeholder="Seleccionar tipo"
+              :required="true"
+              :alert-text="errors.vaccineType"
+              :error="!!errors.vaccineType"
+              width="100%"
+              height="44px"
+              @change="onVaccineTypeChange"
+            />
           </div>
 
-          <!-- Nombre comercial -->
-          <div class="entradas-de-texto-govco">
-            <label for="vaccineName">
-              Nombre comercial<span aria-required="true">*</span>
-            </label>
+          <div class="input-wrapper">
+            <label for="vaccineName">Nombre comercial<span class="required">*</span></label>
             <input
               type="text"
               id="vaccineName"
               v-model="form.vaccineName"
               placeholder="Ej: Nobivac, Vanguard"
+              class="input-govco"
             />
             <span v-if="errors.vaccineName" class="error-text">{{ errors.vaccineName }}</span>
           </div>
 
-          <!-- Laboratorio -->
-          <div class="entradas-de-texto-govco">
-            <label for="laboratory">
-              Laboratorio fabricante<span aria-required="true">*</span>
-            </label>
+          <div class="input-wrapper">
+            <label for="laboratory">Laboratorio fabricante<span class="required">*</span></label>
             <input
               type="text"
               id="laboratory"
               v-model="form.laboratory"
               placeholder="Ej: MSD, Zoetis"
+              class="input-govco"
             />
             <span v-if="errors.laboratory" class="error-text">{{ errors.laboratory }}</span>
           </div>
 
-          <!-- Número de lote -->
-          <div class="entradas-de-texto-govco">
-            <label for="batchNumber">
-              Número de lote<span aria-required="true">*</span>
-            </label>
+          <div class="input-wrapper">
+            <label for="batchNumber">Número de lote<span class="required">*</span></label>
             <input
               type="text"
               id="batchNumber"
               v-model="form.batchNumber"
               placeholder="LOT123456"
+              class="input-govco"
             />
             <span v-if="errors.batchNumber" class="error-text">{{ errors.batchNumber }}</span>
           </div>
 
-          <!-- Fecha de vencimiento -->
-          <div class="input-like-govco">
-            <label for="expirationDate" class="label-desplegable-govco">
-              Fecha de vencimiento<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco desplegable-calendar-govco" data-type="calendar">
-              <div class="date desplegable-selected-option">
-                <input
-                  type="date"
-                  id="expirationDate"
-                  v-model="form.expirationDate"
-                  class="browser-default"
-                />
-              </div>
-            </div>
-            <span v-if="errors.expirationDate" class="alert-desplegable-govco">{{ errors.expirationDate }}</span>
+          <div class="input-like-govco calendar-wrapper">
+            <CalendarioGovco
+              ref="expirationDateRef"
+              id="expirationDateCalendar"
+              input-id="expirationDate"
+              label="Fecha de vencimiento"
+              v-model="form.expirationDate"
+              view-days="true"
+              :required="true"
+              width="100%"
+              height="44px"
+              :alert-text="errors.expirationDate"
+              :error="!!errors.expirationDate"
+              @change="form.expirationDate = $event"
+            />
           </div>
 
-          <!-- Dosis -->
-          <div class="entradas-de-texto-govco">
-            <label for="dose">
-              Dosis (ml)<span aria-required="true">*</span>
-            </label>
+          <div class="input-wrapper">
+            <label for="dose">Dosis (ml)<span class="required">*</span></label>
             <input
               type="number"
               id="dose"
@@ -152,36 +133,36 @@
               min="0.1"
               max="10"
               placeholder="1.0"
+              class="input-govco"
             />
             <span v-if="errors.dose" class="error-text">{{ errors.dose }}</span>
           </div>
 
-          <!-- Vía de aplicación -->
           <div class="input-like-govco">
-            <label for="route" class="label-desplegable-govco">
-              Vía de aplicación<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco" data-type="basic">
-              <select id="route" v-model="form.route">
-                <option disabled value="">Seleccionar vía</option>
-                <option value="subcutanea">Subcutánea</option>
-                <option value="intramuscular">Intramuscular</option>
-                <option value="intranasal">Intranasal</option>
-              </select>
-            </div>
-            <span v-if="errors.route" class="alert-desplegable-govco">{{ errors.route }}</span>
+            <DesplegableGovco
+              ref="routeRef"
+              id="route"
+              label="Vía de aplicación"
+              :options="routeOptions"
+              v-model="form.route"
+              placeholder="Seleccionar vía"
+              :required="true"
+              :alert-text="errors.route"
+              :error="!!errors.route"
+              width="100%"
+              height="44px"
+              @change="form.route = $event"
+            />
           </div>
 
-          <!-- Sitio de aplicación -->
-          <div class="entradas-de-texto-govco">
-            <label for="site">
-              Sitio de aplicación
-            </label>
+          <div class="input-wrapper">
+            <label for="site">Sitio de aplicación</label>
             <input
               type="text"
               id="site"
               v-model="form.site"
               placeholder="Ej: Miembro anterior derecho"
+              class="input-govco"
             />
           </div>
         </div>
@@ -192,55 +173,49 @@
         <h3 class="h5-tipografia-govco section-title">Esquema de vacunación</h3>
         
         <div class="form-grid">
-          <!-- Dosis número -->
           <div class="input-like-govco">
-            <label for="doseNumber" class="label-desplegable-govco">
-              Dosis número<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco" data-type="basic">
-              <select id="doseNumber" v-model="form.doseNumber">
-                <option disabled value="">Seleccionar</option>
-                <option value="1">Primera dosis</option>
-                <option value="2">Segunda dosis</option>
-                <option value="3">Tercera dosis</option>
-                <option value="refuerzo">Refuerzo anual</option>
-              </select>
-            </div>
-            <span v-if="errors.doseNumber" class="alert-desplegable-govco">{{ errors.doseNumber }}</span>
+            <DesplegableGovco
+              ref="doseNumberRef"
+              id="doseNumber"
+              label="Dosis número"
+              :options="doseNumberOptions"
+              v-model="form.doseNumber"
+              placeholder="Seleccionar"
+              :required="true"
+              :alert-text="errors.doseNumber"
+              :error="!!errors.doseNumber"
+              width="100%"
+              height="44px"
+              @change="form.doseNumber = $event"
+            />
           </div>
 
-          <!-- ¿Requiere próxima dosis? -->
-          <div class="checkbox-govco full-width">
+          <div class="checkbox-wrapper full-width">
             <input 
               type="checkbox" 
               id="requiresNext" 
               v-model="form.requiresNextDose"
               @change="calculateNextDose"
             />
-            <label for="requiresNext">
-              Requiere próxima dosis
-            </label>
+            <label for="requiresNext">Requiere próxima dosis</label>
           </div>
 
-          <!-- Fecha de próxima dosis -->
-          <div v-if="form.requiresNextDose" class="input-like-govco">
-            <label for="nextDoseDate" class="label-desplegable-govco">
-              Fecha de próxima dosis<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco desplegable-calendar-govco" data-type="calendar">
-              <div class="date desplegable-selected-option">
-                <input
-                  type="date"
-                  id="nextDoseDate"
-                  v-model="form.nextDoseDate"
-                  class="browser-default"
-                />
-              </div>
-            </div>
-            <span class="info-entradas-de-texto-govco">
-              {{ nextDoseInfo }}
-            </span>
-            <span v-if="errors.nextDoseDate" class="alert-desplegable-govco">{{ errors.nextDoseDate }}</span>
+          <div v-if="form.requiresNextDose" class="input-like-govco calendar-wrapper full-width">
+            <CalendarioGovco
+              ref="nextDoseDateRef"
+              id="nextDoseDateCalendar"
+              input-id="nextDoseDate"
+              label="Fecha de próxima dosis"
+              v-model="form.nextDoseDate"
+              view-days="true"
+              :required="true"
+              width="100%"
+              height="44px"
+              :alert-text="errors.nextDoseDate"
+              :error="!!errors.nextDoseDate"
+              @change="form.nextDoseDate = $event"
+            />
+            <span class="info-text">{{ nextDoseInfo }}</span>
           </div>
         </div>
       </div>
@@ -250,55 +225,51 @@
         <h3 class="h5-tipografia-govco section-title">Responsable y observaciones</h3>
         
         <div class="form-grid">
-          <!-- Veterinario -->
           <div class="input-like-govco">
-            <label for="veterinarian" class="label-desplegable-govco">
-              Veterinario aplicador<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco" data-type="basic">
-              <select id="veterinarian" v-model="form.veterinarianId">
-                <option disabled value="">Seleccionar veterinario</option>
-                <option v-for="vet in veterinarians" :key="vet.id" :value="vet.id">
-                  {{ vet.name }} - TP {{ vet.license }}
-                </option>
-              </select>
-            </div>
-            <span v-if="errors.veterinarianId" class="alert-desplegable-govco">{{ errors.veterinarianId }}</span>
+            <DesplegableGovco
+              ref="veterinarianRef"
+              id="veterinarian"
+              label="Veterinario aplicador"
+              :options="veterinarianOptions"
+              v-model="form.veterinarianId"
+              placeholder="Seleccionar veterinario"
+              :required="true"
+              :alert-text="errors.veterinarianId"
+              :error="!!errors.veterinarianId"
+              width="100%"
+              height="44px"
+              @change="form.veterinarianId = $event"
+            />
           </div>
 
-          <!-- Observaciones -->
-          <div class="entradas-de-texto-govco full-width">
-            <label for="observations">
-              Observaciones
-            </label>
+          <div class="input-wrapper full-width">
+            <label for="observations">Observaciones</label>
             <textarea
               id="observations"
               v-model="form.observations"
               rows="3"
               placeholder="Reacciones adversas, estado del animal post-vacunación..."
+              class="input-govco"
             ></textarea>
           </div>
 
-          <!-- Generar certificado -->
-          <div class="checkbox-govco full-width">
+          <div class="checkbox-wrapper full-width">
             <input 
               type="checkbox" 
               id="generateCertificate" 
               v-model="form.generateCertificate"
             />
-            <label for="generateCertificate">
-              Generar certificado de vacunación en PDF
-            </label>
+            <label for="generateCertificate">Generar certificado de vacunación en PDF</label>
           </div>
         </div>
       </div>
 
       <!-- BOTONES -->
       <div class="form-actions">
-        <button type="button" @click="resetForm" class="govco-btn govco-bg-concrete">
+        <button type="button" @click="resetForm" class="btn-secondary">
           Cancelar
         </button>
-        <button type="submit" class="govco-btn govco-bg-elf-green">
+        <button type="submit" class="btn-primary">
           Registrar vacunación
         </button>
       </div>
@@ -309,8 +280,18 @@
 
 <script setup>
 import { reactive, ref, computed, onMounted } from 'vue';
+import DesplegableGovco from '../common/DesplegableGovco.vue';
+import CalendarioGovco from '../common/CalendarioGovco.vue';
 
 const formEl = ref(null);
+const animalDropdownRef = ref(null);
+const applicationDateRef = ref(null);
+const vaccineTypeRef = ref(null);
+const expirationDateRef = ref(null);
+const routeRef = ref(null);
+const doseNumberRef = ref(null);
+const nextDoseDateRef = ref(null);
+const veterinarianRef = ref(null);
 
 // Mock data
 const animals = ref([
@@ -323,7 +304,44 @@ const veterinarians = ref([
   { id: 2, name: 'Dra. María López', license: '67890' }
 ]);
 
-// Esquemas de vacunación por tipo
+const animalOptions = computed(() => 
+  animals.value.map(animal => ({
+    value: animal.id,
+    text: `${animal.name} - ${animal.microchip}`
+  }))
+);
+
+const vaccineTypeOptions = [
+  { value: 'rabia', text: 'Rabia' },
+  { value: 'quintuple', text: 'Quíntuple (DHPPL)' },
+  { value: 'sextuple', text: 'Séxtuple (DHPPL + Corona)' },
+  { value: 'triple_felina', text: 'Triple Felina' },
+  { value: 'leucemia_felina', text: 'Leucemia Felina' },
+  { value: 'parvovirus', text: 'Parvovirus' },
+  { value: 'bordetella', text: 'Bordetella (Tos de las perreras)' },
+  { value: 'otra', text: 'Otra' }
+];
+
+const routeOptions = [
+  { value: 'subcutanea', text: 'Subcutánea' },
+  { value: 'intramuscular', text: 'Intramuscular' },
+  { value: 'intranasal', text: 'Intranasal' }
+];
+
+const doseNumberOptions = [
+  { value: '1', text: 'Primera dosis' },
+  { value: '2', text: 'Segunda dosis' },
+  { value: '3', text: 'Tercera dosis' },
+  { value: 'refuerzo', text: 'Refuerzo anual' }
+];
+
+const veterinarianOptions = computed(() => 
+  veterinarians.value.map(vet => ({
+    value: vet.id,
+    text: `${vet.name} - TP ${vet.license}`
+  }))
+);
+
 const vaccinationSchemes = {
   rabia: { interval: 365, nextDoseText: 'Refuerzo anual' },
   quintuple: { interval: 21, nextDoseText: 'Cada 21 días hasta completar esquema' },
@@ -375,8 +393,13 @@ const nextDoseInfo = computed(() => {
   return `ℹ️ ${vaccinationSchemes[form.vaccineType].nextDoseText}`;
 });
 
-function onVaccineTypeChange() {
-  // Calcular fecha de próxima dosis automáticamente
+function onDateChange(value) {
+  form.applicationDate = value;
+  calculateNextDose();
+}
+
+function onVaccineTypeChange(value) {
+  form.vaccineType = value;
   if (form.doseNumber !== 'refuerzo') {
     form.requiresNextDose = true;
     calculateNextDose();
@@ -391,78 +414,81 @@ function calculateNextDose() {
   const scheme = vaccinationSchemes[form.vaccineType];
   if (!scheme) return;
 
-  const appDate = new Date(form.applicationDate);
-  const nextDate = new Date(appDate);
-  nextDate.setDate(nextDate.getDate() + scheme.interval);
-  
-  form.nextDoseDate = nextDate.toISOString().split('T')[0];
+  const dateParts = form.applicationDate.split('/');
+  if (dateParts.length === 3) {
+    const appDate = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
+    const nextDate = new Date(appDate);
+    nextDate.setDate(nextDate.getDate() + scheme.interval);
+    
+    const day = String(nextDate.getDate()).padStart(2, '0');
+    const month = String(nextDate.getMonth() + 1).padStart(2, '0');
+    const year = nextDate.getFullYear();
+    form.nextDoseDate = `${day}/${month}/${year}`;
+  }
+}
+
+function syncAllValues() {
+  const refs = [
+    { ref: animalDropdownRef, field: 'animalId', selector: '#animal-select' },
+    { ref: vaccineTypeRef, field: 'vaccineType', selector: '#vaccineType-select' },
+    { ref: routeRef, field: 'route', selector: '#route-select' },
+    { ref: doseNumberRef, field: 'doseNumber', selector: '#doseNumber-select' },
+    { ref: veterinarianRef, field: 'veterinarianId', selector: '#veterinarian-select' },
+    { ref: applicationDateRef, field: 'applicationDate', selector: '#applicationDate' },
+    { ref: expirationDateRef, field: 'expirationDate', selector: '#expirationDate' },
+    { ref: nextDoseDateRef, field: 'nextDoseDate', selector: '#nextDoseDate' }
+  ];
+
+  refs.forEach(({ ref, field, selector }) => {
+    if (ref.value?.getValue) {
+      const value = ref.value.getValue();
+      if (value) form[field] = value;
+    }
+    
+    if (!form[field]) {
+      const element = document.querySelector(selector);
+      if (element?.value) {
+        form[field] = isNaN(element.value) ? element.value : parseInt(element.value);
+      }
+    }
+  });
 }
 
 function validate() {
+  syncAllValues();
   Object.keys(errors).forEach(k => errors[k] = '');
   
   let isValid = true;
-  
-  if (!form.animalId) {
-    errors.animalId = 'Debe seleccionar un animal';
-    isValid = false;
+  const requiredFields = {
+    animalId: 'Debe seleccionar un animal',
+    applicationDate: 'Campo requerido',
+    vaccineType: 'Campo requerido',
+    vaccineName: 'Campo requerido',
+    laboratory: 'Campo requerido',
+    batchNumber: 'Campo requerido',
+    expirationDate: 'Campo requerido',
+    route: 'Campo requerido',
+    doseNumber: 'Campo requerido',
+    veterinarianId: 'Debe seleccionar veterinario responsable'
+  };
+
+  for (const [field, message] of Object.entries(requiredFields)) {
+    if (!form[field] || (typeof form[field] === 'string' && !form[field].trim())) {
+      errors[field] = message;
+      isValid = false;
+    }
   }
-  
-  if (!form.applicationDate) {
-    errors.applicationDate = 'Campo requerido';
-    isValid = false;
-  }
-  
-  if (!form.vaccineType) {
-    errors.vaccineType = 'Campo requerido';
-    isValid = false;
-  }
-  
-  if (!form.vaccineName?.trim()) {
-    errors.vaccineName = 'Campo requerido';
-    isValid = false;
-  }
-  
-  if (!form.laboratory?.trim()) {
-    errors.laboratory = 'Campo requerido';
-    isValid = false;
-  }
-  
-  if (!form.batchNumber?.trim()) {
-    errors.batchNumber = 'Campo requerido';
-    isValid = false;
-  }
-  
-  if (!form.expirationDate) {
-    errors.expirationDate = 'Campo requerido';
-    isValid = false;
-  }
-  
+
   if (!form.dose || form.dose <= 0) {
     errors.dose = 'Debe especificar una dosis válida';
     isValid = false;
   }
-  
-  if (!form.route) {
-    errors.route = 'Campo requerido';
-    isValid = false;
-  }
-  
-  if (!form.doseNumber) {
-    errors.doseNumber = 'Campo requerido';
-    isValid = false;
-  }
-  
+
   if (form.requiresNextDose && !form.nextDoseDate) {
     errors.nextDoseDate = 'Debe especificar fecha de próxima dosis';
     isValid = false;
   }
-  
-  if (!form.veterinarianId) {
-    errors.veterinarianId = 'Debe seleccionar veterinario responsable';
-    isValid = false;
-  }
-  
+
   return isValid;
 }
 
@@ -476,7 +502,6 @@ function resetForm() {
       form[k] = '';
     }
   });
-  
   Object.keys(errors).forEach(k => errors[k] = '');
 }
 
@@ -488,27 +513,6 @@ async function onSubmit() {
   
   try {
     console.log('Guardando vacunación:', form);
-    
-    // TODO: Guardar en backend
-    // await saveVaccination(form);
-    
-    // TODO: Si requiresNextDose, crear alerta automática 7 días antes
-    if (form.requiresNextDose) {
-      const alertDate = new Date(form.nextDoseDate);
-      alertDate.setDate(alertDate.getDate() - 7);
-      console.log('Crear alerta para:', alertDate);
-      // await createVaccinationAlert(form.animalId, form.nextDoseDate, alertDate);
-    }
-    
-    // TODO: Si generateCertificate, generar PDF
-    if (form.generateCertificate) {
-      console.log('Generar certificado de vacunación');
-      // await generateVaccinationCertificate(form);
-    }
-    
-    // TODO: Enviar indicador a sci-indicators
-    // await sendIndicator('vaccination_registered', form);
-    
     alert('Vacunación registrada exitosamente');
     resetForm();
   } catch (error) {
@@ -517,38 +521,295 @@ async function onSubmit() {
   }
 }
 
+function fixButtonTypes() {
+  if (!formEl.value) return;
+
+  const buttons = formEl.value.querySelectorAll('button');
+  buttons.forEach((btn) => {
+    const isSubmitButton = btn.textContent?.includes('Registrar vacunación');
+    btn.setAttribute('type', isSubmitButton ? 'submit' : 'button');
+  });
+  
+  // Prevenir envío del formulario desde botones internos de los componentes
+  if (formEl.value && !formEl.value.dataset.listenerAdded) {
+    formEl.value.addEventListener('submit', (e) => {
+      const submitter = e.submitter;
+      if (!submitter || !submitter.textContent?.includes('Registrar vacunación')) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    }, true);
+    
+    formEl.value.dataset.listenerAdded = 'true';
+  }
+}
+
+function preventScrollOnInteractions() {
+  const handleDropdownOpen = (e) => {
+    const element = e.target.closest('.desplegable-govco, [data-type="calendar"]');
+    if (element) {
+      const scrollPos = window.scrollY || document.documentElement.scrollTop;
+      setTimeout(() => {
+        window.scrollTo(0, scrollPos);
+      }, 50);
+    }
+  };
+
+  const handleCalendarFocus = (e) => {
+    if (e.target.closest('[data-type="calendar"] input')) {
+      const scrollPos = window.scrollY || document.documentElement.scrollTop;
+      e.preventDefault();
+      setTimeout(() => {
+        window.scrollTo(0, scrollPos);
+      }, 10);
+    }
+  };
+
+  if (formEl.value) {
+    formEl.value.removeEventListener('click', handleDropdownOpen);
+    formEl.value.addEventListener('click', handleDropdownOpen);
+    
+    formEl.value.removeEventListener('focus', handleCalendarFocus, true);
+    formEl.value.addEventListener('focus', handleCalendarFocus, true);
+  }
+}
+
 onMounted(() => {
-  // Inicializar componentes GOV.CO
-  if (window.GOVCo?.init) {
-    const elements = document.querySelectorAll('.desplegable-govco');
-    elements.forEach(el => {
-      window.GOVCo.init(el.parentElement);
+  fixButtonTypes();
+  preventScrollOnInteractions();
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('load', () => {
+      fixButtonTypes();
+      preventScrollOnInteractions();
     });
   }
 });
 </script>
 
 <style scoped>
-.vaccination-form { max-width: 1200px; margin: 0 auto; padding: 2rem; background: #f5f7fb; }
-.form-header { margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 3px solid #3366CC; }
-.form-section { background: white; border-radius: 8px; margin-bottom: 1.5rem; overflow: visible; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-.section-title { margin: 0; padding: 1rem 1.5rem; background: #E8F0FE; color: #3366CC; font-weight: 600; }
-.form-grid { display: grid; grid-template-columns: repeat(2, 1fr); column-gap: 2rem; row-gap: 1.5rem; padding: 1.5rem; }
-.full-width { grid-column: 1 / 3; }
-.entradas-de-texto-govco input,
-.entradas-de-texto-govco textarea,
-.desplegable-govco select { width: 100%; padding: 0.75rem; border: 1px solid #D0D0D0; border-radius: 4px; font-size: 1rem; }
-.error-text, .alert-desplegable-govco { display: block; color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; }
-.info-entradas-de-texto-govco { display: block; color: #666; font-size: 0.85rem; margin-top: 0.25rem; }
-.checkbox-govco { display: flex; align-items: center; gap: 0.75rem; padding: 1rem; background: #f5f7fb; border-radius: 6px; }
-.form-actions { display: flex; justify-content: flex-end; gap: 1rem; padding: 1.5rem; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-.govco-btn { padding: 0.75rem 2rem; border-radius: 6px; font-weight: 600; cursor: pointer; border: none; color: white; }
-.govco-bg-concrete { background-color: #737373; }
-.govco-bg-elf-green { background-color: #069169; }
-.input-like-govco { display: flex; flex-direction: column; width: 100%; }
+.vaccination-form { 
+  max-width: 1200px; 
+  margin: 0 auto; 
+  padding: 2rem; 
+  background: #f5f7fb; 
+}
+
+.form-header { 
+  margin-bottom: 2rem; 
+  padding-bottom: 1rem; 
+  border-bottom: 3px solid #3366CC; 
+}
+
+.form-section { 
+  background: white; 
+  border-radius: 8px; 
+  margin-bottom: 1.5rem; 
+  overflow: visible; 
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08); 
+}
+
+.section-title { 
+  margin: 0; 
+  padding: 1rem 1.5rem; 
+  background: #E8F0FE; 
+  color: #3366CC; 
+  font-weight: 600; 
+}
+
+.form-grid { 
+  display: grid; 
+  grid-template-columns: repeat(2, 1fr); 
+  gap: 1.5rem 2rem; 
+  padding: 1.5rem; 
+}
+
+.full-width { 
+  grid-column: 1 / 3; 
+}
+
+.input-wrapper,
+.input-like-govco {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.input-wrapper label,
+.input-like-govco label {
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.required {
+  color: #d32f2f;
+  margin-left: 0.25rem;
+}
+
+.input-govco {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #D0D0D0;
+  border-radius: 4px;
+  font-size: 1rem;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+input.input-govco {
+  height: 44px;
+}
+
+textarea.input-govco {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.input-govco:focus {
+  outline: none;
+  border-color: #3366CC;
+  box-shadow: 0 0 0 3px rgba(51, 102, 204, 0.1);
+}
+
+.calendar-wrapper {
+  margin: 0;
+}
+
+.calendar-wrapper :deep(.label-desplegable-govco) {
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.calendar-wrapper :deep(.desplegable-govco) {
+  width: 100%;
+}
+
+.calendar-wrapper :deep(.desplegable-govco input) {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #D0D0D0;
+  border-radius: 4px;
+  font-size: 1rem;
+  height: 44px;
+  box-sizing: border-box;
+}
+
+.error-text { 
+  display: block; 
+  color: #b00020; 
+  font-size: 0.85rem; 
+  margin-top: 0.5rem; 
+}
+
+.info-text { 
+  display: block; 
+  color: #666; 
+  font-size: 0.85rem; 
+  margin-top: 0.5rem; 
+}
+
+.checkbox-wrapper { 
+  display: flex; 
+  align-items: center; 
+  gap: 0.75rem; 
+  padding: 1rem; 
+  background: #f5f7fb; 
+  border-radius: 6px; 
+}
+
+.checkbox-wrapper input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.checkbox-wrapper label {
+  margin: 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.form-actions { 
+  display: flex; 
+  justify-content: flex-end; 
+  gap: 1rem; 
+  padding: 1.5rem; 
+  background: white; 
+  border-radius: 8px; 
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08); 
+}
+
+.btn-primary,
+.btn-secondary { 
+  padding: 0.75rem 2rem; 
+  border-radius: 6px; 
+  font-weight: 600; 
+  cursor: pointer; 
+  border: none; 
+  color: white;
+  transition: all 0.3s;
+  font-size: 1rem;
+}
+
+.btn-primary {
+  background-color: #069169;
+}
+
+.btn-secondary {
+  background-color: #737373;
+}
+
+.btn-primary:hover,
+.btn-secondary:hover {
+  transform: translateY(-2px);
+  opacity: 0.9;
+}
+
+:deep(.desplegable-govco .desplegable-items) {
+  z-index: 1500 !important;
+}
+
+:deep(.desplegable-govco.desplegable-calendar-govco .desplegable-calendar-control) {
+  z-index: 1500 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  max-height: 668.8px !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+}
+
+:deep(.desplegable-calendar-govco .desplegable-calendar-control .header) { 
+  width: 100% !important; 
+  box-sizing: border-box !important;
+}
+
+:deep(.desplegable-calendar-govco .desplegable-calendar-control table#miCalendarioGrid.dates) {
+  width: 100% !important;
+  table-layout: fixed !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+  margin: 0 !important;  
+  margin-left: -4.8px !important;
+}
+
+:deep(.desplegable-calendar-govco .desplegable-calendar-control table td) { 
+  box-sizing: border-box !important; 
+  width: calc(100% / 7) !important;
+}
 
 @media (max-width: 768px) {
-  .form-grid { grid-template-columns: 1fr; }
-  .full-width { grid-column: 1 / 2; }
+  .form-grid { 
+    grid-template-columns: 1fr; 
+  }
+  
+  .full-width { 
+    grid-column: 1 / 2; 
+  }
 }
-</style>6
+</style>

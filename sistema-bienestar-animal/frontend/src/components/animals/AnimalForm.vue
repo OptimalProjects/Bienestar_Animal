@@ -13,16 +13,16 @@
         
         <div class="form-grid">
           <!-- Microchip -->
-          <div class="entradas-de-texto-govco">
-            <label for="microchip">Microchip*</label>
-            <input
-              type="text"
-              id="microchip"
-              v-model="form.microchip"
-              placeholder="MC123456789"
-            />
-            <span v-if="errors.microchip" class="error-text">{{ errors.microchip }}</span>
-          </div>
+          <InputGovCo
+            id="microchip"
+            v-model="form.microchip"
+            label="Microchip"
+            type="text"
+            placeholder="MC123456789"
+            :required="true"
+            :error="!!errors.microchip"
+            :alert-text="errors.microchip"
+          />
 
           <!-- Especie -->
           <div class="input-like-govco">
@@ -45,28 +45,28 @@
           </div>
 
           <!-- Raza -->
-          <div class="entradas-de-texto-govco">
-            <label for="breed">Raza<span aria-required="true">*</span></label>
-            <input
-              type="text"
-              id="breed"
-              v-model="form.breed"
-              placeholder="Criollo, Mestizo"
-            />
-            <span v-if="errors.breed" class="alert-desplegable-govco">{{ errors.breed }}</span>
-          </div>
+          <InputGovCo
+            id="breed"
+            v-model="form.breed"
+            label="Raza"
+            type="text"
+            placeholder="Criollo, Mestizo"
+            :required="true"
+            :error="!!errors.breed"
+            :alert-text="errors.breed"
+          />
 
           <!-- Color -->
-          <div class="entradas-de-texto-govco">
-            <label for="color">Color*</label>
-            <input
-              type="text"
-              id="color"
-              v-model="form.color"
-              placeholder="Café, Blanco"
-            />
-            <span v-if="errors.color" class="error-text">{{ errors.color }}</span>
-          </div>
+          <InputGovCo
+            id="color"
+            v-model="form.color"
+            label="Color"
+            type="text"
+            placeholder="Café, Blanco"
+            :required="true"
+            :error="!!errors.color"
+            :alert-text="errors.color"
+          />
 
           <!-- Sexo -->
           <div class="input-like-govco">
@@ -89,20 +89,17 @@
           </div>
 
           <!-- Edad estimada -->
-          <div class="entradas-de-texto-govco">
-            <label for="age">Edad estimada*</label>
-            <input
-              type="text"
-              id="age"
-              v-model="form.estimatedAge"
-              aria-describedby="age-help"
-              placeholder="2 años, 6 meses"
-            />
-            <span id="age-help" class="info-entradas-de-texto-govco">
-              Años o meses aproximados
-            </span>
-            <span v-if="errors.estimatedAge" class="error-text">{{ errors.estimatedAge }}</span>
-          </div>
+          <InputGovCo
+            id="age"
+            v-model="form.estimatedAge"
+            label="Edad estimada"
+            type="text"
+            placeholder="2 años, 6 meses"
+            help-text="Años o meses aproximados"
+            :required="true"
+            :error="!!errors.estimatedAge"
+            :alert-text="errors.estimatedAge"
+          />
         </div>
       </div>
 
@@ -186,15 +183,17 @@
 
 
           <!-- Condición de salud -->
-          <div class="entradas-de-texto-govco full-width">
-            <label for="health">Condición de salud inicial*</label>
-            <textarea
+          <div class="full-width">
+            <InputGovCo
               id="health"
               v-model="form.healthCondition"
-              rows="4"
+              label="Condición de salud inicial"
+              type="text"
               placeholder="Describa el estado de salud al momento del rescate..."
-            ></textarea>
-            <span v-if="errors.healthCondition" class="error-text">{{ errors.healthCondition }}</span>
+              :required="true"
+              :error="!!errors.healthCondition"
+              :alert-text="errors.healthCondition"
+            />
           </div>
         </div>
       </div>
@@ -274,6 +273,7 @@
 <script setup>
 import { reactive, ref, computed, onMounted, nextTick } from 'vue';
 import MapSelector from '../common/MapSelector.vue';
+import InputGovCo from '../common/InputGovCo.vue';
 
 const API_BASE_URL = 'http://localhost:8000/api/v1';
 
@@ -887,4 +887,4 @@ async function onSubmit() {
   .form-actions { flex-direction: column; }
   .govco-btn { width: 100%; }
 }
-</style>style scoped>
+</style>
