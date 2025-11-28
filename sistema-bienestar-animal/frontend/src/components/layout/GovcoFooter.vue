@@ -10,7 +10,7 @@
           <div class="footer-column">
             <div class="footer-entity">
               <img
-                src="https://cdn.www.gov.co/layout/v4/images/logo-gov-co-blanco.svg"
+                src="https://cdn.www.gov.co/assets/images/logo.svg"
                 alt="Logo GOV.CO"
                 class="footer-govco-logo"
               />
@@ -115,10 +115,10 @@
               <p class="footer-apps-title">Descarga nuestra App</p>
               <div class="app-badges">
                 <a href="#" class="app-badge" title="Descargar en App Store">
-                  <img src="https://cdn.www.gov.co/layout/v4/images/app-store-badge.svg" alt="App Store" />
+                  <img src="../../assets/icons/App_Store.png" alt="App Store" />
                 </a>
                 <a href="#" class="app-badge" title="Descargar en Google Play">
-                  <img src="https://cdn.www.gov.co/layout/v4/images/google-play-badge.svg" alt="Google Play" />
+                  <img src="../../assets/icons/Google_Play.png" alt="Google Play" />
                 </a>
               </div>
             </div>
@@ -144,7 +144,7 @@
           <div class="footer-govco-badge">
             <a href="https://www.gov.co/" target="_blank" rel="noopener" title="Portal GOV.CO">
               <img
-                src="https://cdn.www.gov.co/layout/v4/images/logo-gov-co.svg"
+                src="https://cdn.www.gov.co/assets/images/logo.svg"
                 alt="GOV.CO"
                 class="govco-badge-img"
               />

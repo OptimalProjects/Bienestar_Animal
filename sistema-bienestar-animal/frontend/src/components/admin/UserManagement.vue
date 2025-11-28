@@ -107,11 +107,21 @@
             </td>
             <td>{{ formatDate(user.ultimoAcceso) }}</td>
             <td class="actions-cell">
-              <button type="button" class="action-btn view" @click="viewUser(user)" title="Ver detalle">
-                =A
+              <button 
+                type="button" 
+                class="action-btn view" 
+                @click="viewUser(user)" 
+                title="Ver detalle"
+              >
+                👁️
               </button>
-              <button type="button" class="action-btn edit" @click="openModal('edit', user)" title="Editar">
-                
+              <button 
+                type="button" 
+                class="action-btn edit" 
+                @click="openModal('edit', user)" 
+                title="Editar"
+              >
+                ✏️
               </button>
               <button
                 type="button"
@@ -119,10 +129,15 @@
                 @click="toggleUserStatus(user)"
                 :title="user.estado === 'activo' ? 'Desactivar' : 'Activar'"
               >
-                {{ user.estado === 'activo' ? '=' : '=' }}
+                {{ user.estado === 'activo' ? '⏸️' : '▶️' }}
               </button>
-              <button type="button" class="action-btn reset" @click="resetPassword(user)" title="Resetear contrasena">
-                =
+              <button 
+                type="button" 
+                class="action-btn reset" 
+                @click="resetPassword(user)" 
+                title="Resetear contraseña"
+              >
+                🔑
               </button>
             </td>
           </tr>
@@ -196,7 +211,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h3>{{ modalMode === 'create' ? 'Nuevo Usuario' : 'Editar Usuario' }}</h3>
-          <button type="button" class="close-btn" @click="closeModal">�</button>
+          <button type="button" class="close-btn" @click="closeModal">X</button>
         </div>
         <div class="modal-body">
           <form @submit.prevent="saveUser">
@@ -320,7 +335,7 @@
       <div class="modal-content view-modal">
         <div class="modal-header">
           <h3>Detalle de Usuario</h3>
-          <button type="button" class="close-btn" @click="closeViewModal">�</button>
+          <button type="button" class="close-btn" @click="closeViewModal">X</button>
         </div>
         <div class="modal-body">
           <div class="user-detail-header">

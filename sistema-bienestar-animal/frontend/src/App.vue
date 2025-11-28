@@ -37,7 +37,7 @@ const route = useRoute();
 
 // Mostrar sidebar solo en rutas con layout 'app' y que requieren autenticación
 const showSidebar = computed(() => {
-  const appRoutes = ['/dashboard', '/animales', '/veterinaria', '/denuncias', '/adopciones', '/administracion'];
+  const appRoutes = ['/dashboard', '/animales', '/veterinaria', '/denuncias', '/adopciones', '/administración'];
   return appRoutes.some(r => route.path.startsWith(r));
 });
 </script>

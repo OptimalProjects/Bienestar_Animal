@@ -11,10 +11,10 @@
       </div>
       <div class="header-right">
         <button type="button" class="btn-export" @click="exportLogs">
-          =� Exportar CSV
+          📥 Exportar CSV
         </button>
         <button type="button" class="btn-refresh" @click="refreshLogs">
-          = Actualizar
+          🔄 Actualizar
         </button>
       </div>
     </div>
@@ -166,7 +166,7 @@
                 class="details-btn"
                 @click="showDetails(log)"
               >
-                =A
+                👁️
               </button>
             </td>
           </tr>
