@@ -5,16 +5,16 @@
     <div class="form-header">
       <h2 class="h2-tipografia-govco">Reportar Denuncia de Maltrato Animal</h2>
       <p class="text2-tipografia-govco">
-        Complete el formulario para reportar un caso de maltrato, abandono o situacion de riesgo animal.
-        <strong>No requiere autenticacion.</strong>
+        Complete el formulario para reportar un caso de maltrato, abandono o situación de riesgo animal.
+        <strong>No requiere autenticación.</strong>
       </p>
     </div>
 
     <form ref="formEl" @submit.prevent="onSubmit" novalidate>
 
-      <!-- SECCION 1: INFORMACION DEL CASO -->
+      <!-- SECCIÓN 1: INFORMACIÓN DEL CASO -->
       <div class="form-section">
-        <h3 class="h5-tipografia-govco section-title">Informacion del caso</h3>
+        <h3 class="h5-tipografia-govco section-title">Información del caso</h3>
 
         <div class="form-grid">
           <!-- Tipo de denuncia -->
@@ -69,29 +69,29 @@
             <span class="info-entradas-de-texto-govco">Si no sabe, deje 1</span>
           </div>
 
-          <!-- Descripcion del caso -->
+          <!-- Descripción del caso -->
           <div class="entradas-de-texto-govco full-width">
-            <label for="description">Descripcion detallada del caso<span aria-required="true">*</span></label>
+            <label for="description">Descripción detallada del caso<span aria-required="true">*</span></label>
             <textarea
               id="description"
               v-model="form.description"
               rows="5"
-              placeholder="Describa la situacion observada: que tipo de maltrato o situacion, desde cuando ocurre (si lo sabe), condiciones del animal, comportamiento del presunto responsable, etc."
+              placeholder="Describa la situación observada: qué tipo de maltrato o situación, desde cuándo ocurre (si lo sabe), condiciones del animal, comportamiento del presunto responsable, etc."
             ></textarea>
-            <span class="info-entradas-de-texto-govco">Minimo 50 caracteres. Sea lo mas detallado posible.</span>
+            <span class="info-entradas-de-texto-govco">Mínimo 50 caracteres. Sea lo más detallado posible.</span>
             <span v-if="errors.description" class="error-text">{{ errors.description }}</span>
           </div>
         </div>
       </div>
 
-      <!-- SECCION 2: UBICACION -->
+      <!-- SECCIÓN 2: UBICACIÓN -->
       <div class="form-section">
-        <h3 class="h5-tipografia-govco section-title">Ubicacion del caso</h3>
+        <h3 class="h5-tipografia-govco section-title">Ubicación del caso</h3>
 
         <div class="form-grid">
-          <!-- Direccion -->
+          <!-- Dirección -->
           <div class="entradas-de-texto-govco full-width">
-            <label for="address">Direccion o referencia<span aria-required="true">*</span></label>
+            <label for="address">Dirección o referencia<span aria-required="true">*</span></label>
             <input
               type="text"
               id="address"
@@ -136,18 +136,18 @@
           <div class="full-width">
             <div class="evidence-info">
               <p class="text2-tipografia-govco">
-                Adjunte fotografias o videos que documenten la situacion. Las evidencias ayudan a priorizar y atender mejor su denuncia.
+                Adjunte fotografías o videos que documenten la situación. Las evidencias ayudan a priorizar y atender mejor su denuncia.
               </p>
             </div>
 
             <!-- Usar componente FileUploader -->
             <FileUploader
               v-model="form.evidence"
-              label="Fotografias y videos del caso (opcional)"
+              label="Fotografías y videos del caso (opcional)"
               accept="image/*,video/*"
               :max-files="10"
               :max-size-m-b="10"
-              help-text="Formatos: JPG, PNG, MP4, MOV. Maximo 10 archivos, 10MB cada uno."
+              help-text="Formatos: JPG, PNG, MP4, MOV. Máximo 10 archivos, 10MB cada uno."
             />
 
             <span v-if="errors.evidence" class="alert-desplegable-govco">{{ errors.evidence }}</span>
@@ -155,7 +155,7 @@
         </div>
       </div>
 
-      <!-- SECCION 4: DATOS DEL DENUNCIANTE (OPCIONAL) -->
+      <!-- SECCIÓN 4: DATOS DEL DENUNCIANTE (OPCIONAL) -->
       <div class="form-section">
         <h3 class="h5-tipografia-govco section-title">Datos del denunciante (opcional)</h3>
 
@@ -167,7 +167,7 @@
               v-model="form.isAnonymous"
             />
             <label for="anonymous">
-              Deseo realizar esta denuncia de forma <strong>anonima</strong>
+              Deseo realizar esta denuncia de forma <strong>anónima</strong>
             </label>
           </div>
 
@@ -183,9 +183,9 @@
               />
             </div>
 
-            <!-- Cedula -->
+            <!-- Cédula -->
             <div class="entradas-de-texto-govco">
-              <label for="reporterId">Numero de cedula</label>
+              <label for="reporterId">Número de cédula</label>
               <input
                 type="text"
                 id="reporterId"
@@ -194,9 +194,9 @@
               />
             </div>
 
-            <!-- Telefono -->
+            <!-- Teléfono -->
             <div class="entradas-de-texto-govco">
-              <label for="reporterPhone">Telefono de contacto</label>
+              <label for="reporterPhone">Teléfono de contacto</label>
               <input
                 type="tel"
                 id="reporterPhone"
@@ -207,7 +207,7 @@
 
             <!-- Email -->
             <div class="entradas-de-texto-govco">
-              <label for="reporterEmail">Correo electronico</label>
+              <label for="reporterEmail">Correo electrónico</label>
               <input
                 type="email"
                 id="reporterEmail"
@@ -221,15 +221,15 @@
           <div v-else class="anonymous-notice full-width">
             <div class="notice-box">
               <span class="notice-icon">🔒</span>
-              <p>Su denuncia sera procesada de forma anonima. No podremos contactarlo para informacion adicional, pero puede consultar el estado con el numero de caso que recibira.</p>
+              <p>Su denuncia será procesada de forma anónima. No podremos contactarlo para información adicional, pero puede consultar el estado con el número de caso que recibirá.</p>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- SECCION 5: INFORMACION ADICIONAL -->
+      <!-- SECCIÓN 5: INFORMACIÓN ADICIONAL -->
       <div class="form-section">
-        <h3 class="h5-tipografia-govco section-title">Informacion adicional</h3>
+        <h3 class="h5-tipografia-govco section-title">Información adicional</h3>
 
         <div class="form-grid">
           <!-- Conoce al responsable? -->
@@ -240,20 +240,20 @@
               v-model="form.knowsResponsible"
             />
             <label for="knowsResponsible">
-              Tengo informacion sobre el presunto responsable
+              Tengo información sobre el presunto responsable
             </label>
           </div>
 
           <!-- Datos del responsable -->
           <div v-if="form.knowsResponsible" class="entradas-de-texto-govco full-width">
-            <label for="responsibleInfo">Informacion del presunto responsable</label>
+            <label for="responsibleInfo">Información del presunto responsable</label>
             <textarea
               id="responsibleInfo"
               v-model="form.responsibleInfo"
               rows="3"
-              placeholder="Nombre, descripcion fisica, direccion, placa de vehiculo, o cualquier dato que ayude a identificarlo..."
+              placeholder="Nombre, descripción física, dirección, placa de vehículo, o cualquier dato que ayude a identificarlo..."
             ></textarea>
-            <span class="info-entradas-de-texto-govco">Esta informacion es confidencial y solo sera usada para la investigacion</span>
+            <span class="info-entradas-de-texto-govco">Esta información es confidencial y solo será usada para la investigación</span>
           </div>
 
           <!-- Observaciones adicionales -->
@@ -263,13 +263,13 @@
               id="additionalNotes"
               v-model="form.additionalNotes"
               rows="3"
-              placeholder="Cualquier informacion adicional que considere relevante..."
+              placeholder="Cualquier información adicional que considere relevante..."
             ></textarea>
           </div>
         </div>
       </div>
 
-      <!-- TERMINOS Y CONDICIONES -->
+      <!-- TÉRMINOS Y CONDICIONES -->
       <div class="form-section terms-section">
         <div class="checkbox-govco">
           <input
@@ -278,8 +278,8 @@
             v-model="form.acceptTerms"
           />
           <label for="acceptTerms">
-            Declaro que la informacion proporcionada es verdadera y acepto los
-            <a href="#" @click.prevent="showTerms">terminos y condiciones</a> del servicio.
+            Declaro que la información proporcionada es verdadera y acepto los
+            <a href="#" @click.prevent="showTerms">términos y condiciones</a> del servicio.
           </label>
         </div>
         <span v-if="errors.acceptTerms" class="error-text">{{ errors.acceptTerms }}</span>
@@ -325,7 +325,7 @@ const urgencyOptions = [
   { value: 'critico', text: 'Critico - Riesgo de vida inminente' },
   { value: 'alto', text: 'Alto - Maltrato activo' },
   { value: 'medio', text: 'Medio - Abandono/negligencia' },
-  { value: 'bajo', text: 'Bajo - Situacion no urgente' }
+  { value: 'bajo', text: 'Bajo - Situación no urgente' }
 ];
 
 const speciesOptions = [
@@ -339,14 +339,14 @@ const speciesOptions = [
 ];
 
 const form = reactive({
-  // Informacion del caso
+  // Información del caso
   complaintType: '',
   urgency: '',
   animalSpecies: '',
   animalCount: 1,
   description: '',
 
-  // Ubicacion
+  // Ubicación
   address: '',
   coordinates: null,
 
@@ -360,7 +360,7 @@ const form = reactive({
   reporterPhone: '',
   reporterEmail: '',
 
-  // Informacion adicional
+  // Información adicional
   knowsResponsible: false,
   responsibleInfo: '',
   additionalNotes: '',
@@ -412,7 +412,7 @@ function validate() {
   }
 
   if (!form.coordinates) {
-    errors.coordinates = 'Marque la ubicacion en el mapa';
+    errors.coordinates = 'Marque la ubicación en el mapa';
     isValid = false;
   }
 
@@ -424,7 +424,7 @@ function validate() {
   return isValid;
 }
 
-// Generar numero de caso
+// Generar número de caso
 function generateCaseNumber() {
   const date = new Date();
   const year = date.getFullYear();
@@ -491,7 +491,7 @@ function resetForm() {
 }
 
 function showTerms() {
-  alert('Terminos y Condiciones:\n\n1. La informacion proporcionada sera utilizada unicamente para atender la denuncia.\n2. Las denuncias falsas pueden tener consecuencias legales.\n3. Los datos personales seran protegidos segun la Ley 1581 de 2012.\n4. El tiempo de respuesta depende de la urgencia y disponibilidad de recursos.');
+  alert('Términos y Condiciones:\n\n1. La información proporcionada será utilizada únicamente para atender la denuncia.\n2. Las denuncias falsas pueden tener consecuencias legales.\n3. Los datos personales serán protegidos según la Ley 1581 de 2012.\n4. El tiempo de respuesta depende de la urgencia y disponibilidad de recursos.');
 }
 
 // Submit

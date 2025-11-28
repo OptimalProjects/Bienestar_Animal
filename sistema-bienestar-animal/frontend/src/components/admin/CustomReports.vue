@@ -497,7 +497,7 @@ function generateMockData() {
       nombre: ['Luna', 'Max', 'Bella', 'Rocky', 'Milo'][i % 5],
       especie: ['Perro', 'Gato', 'Perro', 'Gato', 'Equino'][i % 5],
       raza: ['Mestizo', 'Criollo', 'Labrador', 'Siames', 'Criollo'][i % 5],
-      edad: `${(i % 10) + 1} anos`,
+      edad: `${(i % 10) + 1} años`,
       estado: ['Disponible', 'Adoptado', 'En tratamiento'][i % 3],
       fecha_registro: '2024-11-' + String((i % 28) + 1).padStart(2, '0'),
       ubicacion: ['Sede Norte', 'Sede Sur', 'Sede Centro'][i % 3]

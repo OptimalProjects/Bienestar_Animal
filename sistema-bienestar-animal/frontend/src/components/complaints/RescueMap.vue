@@ -9,7 +9,7 @@
       <h4>Urgencia</h4>
       <div class="legend-item">
         <span class="legend-marker critical"></span>
-        <span>Crítico</span>
+        <span>CrÃ­tico</span>
       </div>
       <div class="legend-item">
         <span class="legend-marker high"></span>
@@ -88,7 +88,7 @@ function createCustomIcon(urgency) {
 // Crear contenido del popup
 function createPopupContent(complaint) {
   const typeLabels = {
-    maltrato_fisico: 'Maltrato físico',
+    maltrato_fisico: 'Maltrato fÃ­sico',
     abandono: 'Abandono',
     negligencia: 'Negligencia',
     hacinamiento: 'Hacinamiento',
@@ -97,7 +97,7 @@ function createPopupContent(complaint) {
   };
 
   const urgencyLabels = {
-    critico: 'CRÍTICO',
+    critico: 'CRÃTICO',
     alto: 'ALTO',
     medio: 'MEDIO',
     bajo: 'BAJO'
@@ -147,7 +147,7 @@ function addMarkers() {
       });
 
       marker.on('click', () => {
-        // También emitir evento
+        // TambiÃ©n emitir evento
       });
 
       marker.addTo(map);
@@ -197,7 +197,7 @@ onMounted(() => {
   // Agregar marcadores iniciales
   addMarkers();
 
-  // Función global para seleccionar denuncia desde popup
+  // FunciÃ³n global para seleccionar denuncia desde popup
   window.selectComplaint = (id) => {
     const complaint = props.complaints.find(c => c.id === id);
     if (complaint) {

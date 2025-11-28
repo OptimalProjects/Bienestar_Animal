@@ -11,7 +11,7 @@
       </div>
       <div class="header-right">
         <button type="button" class="btn-export" @click="exportLogs">
-          =� Exportar CSV
+          =� Exportar CSV
         </button>
         <button type="button" class="btn-refresh" @click="refreshLogs">
           = Actualizar
@@ -61,7 +61,7 @@
             <option value="animales">Animales</option>
             <option value="adopciones">Adopciones</option>
             <option value="denuncias">Denuncias</option>
-            <option value="vacunacion">Vacunacion</option>
+            <option value="vacunacion">Vacunación</option>
             <option value="usuarios">Usuarios</option>
             <option value="reportes">Reportes</option>
             <option value="configuracion">Configuracion</option>
@@ -81,7 +81,7 @@
           <input
             type="text"
             v-model="filters.search"
-            placeholder="Buscar en descripcion, IP, ID..."
+            placeholder="Buscar en descripción, IP, ID..."
             class="filter-input"
           />
         </div>
@@ -125,7 +125,7 @@
             <th class="col-user">Usuario</th>
             <th class="col-action">Accion</th>
             <th class="col-module">Modulo</th>
-            <th class="col-description">Descripcion</th>
+            <th class="col-description">Descripción</th>
             <th class="col-result">Resultado</th>
             <th class="col-ip">IP</th>
             <th class="col-details">Detalles</th>
@@ -190,7 +190,7 @@
           :disabled="currentPage === 1"
           class="page-btn"
         >
-          � Primera
+          � Primera
         </button>
         <button
           type="button"
@@ -226,7 +226,7 @@
           :disabled="currentPage === totalPages"
           class="page-btn"
         >
-          Ultima �
+          Ultima �
         </button>
       </div>
       <div class="page-size-selector">
@@ -245,11 +245,11 @@
       <div class="modal-content">
         <div class="modal-header">
           <h3>Detalle del Registro de Auditoria</h3>
-          <button type="button" class="close-btn" @click="closeModal">�</button>
+          <button type="button" class="close-btn" @click="closeModal">�</button>
         </div>
         <div class="modal-body">
           <div class="detail-section">
-            <h4>Informacion General</h4>
+            <h4>Información General</h4>
             <div class="detail-grid">
               <div class="detail-item">
                 <span class="detail-label">ID Registro</span>
@@ -268,7 +268,7 @@
                 <span class="detail-value">{{ selectedLog?.userRole }}</span>
               </div>
               <div class="detail-item">
-                <span class="detail-label">Accion</span>
+                <span class="detail-label">Acción</span>
                 <span class="detail-value">
                   <span class="action-badge" :class="selectedLog?.actionType?.toLowerCase()">
                     {{ getActionLabel(selectedLog?.actionType) }}
@@ -276,7 +276,7 @@
                 </span>
               </div>
               <div class="detail-item">
-                <span class="detail-label">Modulo</span>
+                <span class="detail-label">Módulo</span>
                 <span class="detail-value">{{ selectedLog?.module }}</span>
               </div>
               <div class="detail-item">
@@ -288,19 +288,19 @@
                 </span>
               </div>
               <div class="detail-item">
-                <span class="detail-label">Direccion IP</span>
+                <span class="detail-label">Dirección IP</span>
                 <span class="detail-value code">{{ selectedLog?.ipAddress }}</span>
               </div>
             </div>
           </div>
 
           <div class="detail-section">
-            <h4>Descripcion</h4>
+            <h4>Descripción</h4>
             <p class="description-text">{{ selectedLog?.description }}</p>
           </div>
 
           <div class="detail-section">
-            <h4>Informacion Tecnica</h4>
+            <h4>Información Técnica</h4>
             <div class="detail-grid">
               <div class="detail-item">
                 <span class="detail-label">Navegador</span>
@@ -764,7 +764,7 @@ function getResultIcon(result) {
   const icons = {
     success: '',
     error: '',
-    warning: '�'
+    warning: '�'
   };
   return icons[result] || '';
 }
@@ -809,7 +809,7 @@ function exportLogs() {
 }
 
 function generateCSV() {
-  const headers = ['ID', 'Fecha/Hora', 'Usuario', 'Rol', 'Accion', 'Modulo', 'Descripcion', 'Resultado', 'IP'];
+  const headers = ['ID', 'Fecha/Hora', 'Usuario', 'Rol', 'Acción', 'Módulo', 'Descripción', 'Resultado', 'IP'];
   const rows = filteredLogs.value.map(log => [
     log.id,
     log.timestamp,

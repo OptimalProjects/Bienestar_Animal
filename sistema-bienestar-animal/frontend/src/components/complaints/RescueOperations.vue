@@ -59,7 +59,7 @@
             </div>
             <div class="operation-location">
               <span class="location-icon">📍</span>
-              <span>{{ operation.direccion }}</span>
+              <span>{{ operation.dirección }}</span>
             </div>
             <div class="operation-team">
               <span class="team-icon">👥</span>

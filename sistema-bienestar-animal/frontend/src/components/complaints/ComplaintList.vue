@@ -3,7 +3,7 @@
 <template>
   <section class="complaint-list">
     <div class="form-header">
-      <h2 class="h2-tipografia-govco">Gestion de Denuncias</h2>
+      <h2 class="h2-tipografia-govco">Gestión de Denuncias</h2>
       <p class="text2-tipografia-govco">
         Revise, clasifique y asigne equipos de rescate a las denuncias pendientes.
       </p>
@@ -11,7 +11,7 @@
 
     <!-- FILTROS -->
     <div class="form-section filters-section">
-      <h3 class="h5-tipografia-govco section-title">Filtros de busqueda</h3>
+      <h3 class="h5-tipografia-govco section-title">Filtros de búsqueda</h3>
       <div class="filters-grid">
         <!-- Estado -->
         <DesplegableGovco
@@ -43,9 +43,9 @@
           width="100%"
         />
 
-        <!-- Busqueda por numero de caso -->
+        <!-- Búsqueda por número de caso -->
         <div class="entradas-de-texto-govco">
-          <label for="filterCase">Numero de caso</label>
+          <label for="filterCase">Número de caso</label>
           <input
             type="text"
             id="filterCase"
@@ -82,7 +82,7 @@
       </div>
       <div class="stat-card stat-inprogress">
         <span class="stat-number">{{ stats.inProgress }}</span>
-        <span class="stat-label">En atencion</span>
+        <span class="stat-label">En atención</span>
       </div>
     </div>
 
@@ -96,7 +96,7 @@
           <label>Ordenar por:</label>
           <select v-model="sortBy" class="sort-select">
             <option value="urgency">Urgencia</option>
-            <option value="date">Fecha (mas reciente)</option>
+            <option value="date">Fecha (más reciente)</option>
             <option value="status">Estado</option>
           </select>
         </div>
@@ -217,7 +217,7 @@ const statusOptions = [
   { value: 'recibida', text: 'Recibidas' },
   { value: 'en_revision', text: 'En revision' },
   { value: 'asignada', text: 'Asignadas' },
-  { value: 'en_atencion', text: 'En atencion' },
+  { value: 'en_atencion', text: 'En atención' },
   { value: 'cerrada', text: 'Cerradas' }
 ];
 
@@ -245,7 +245,7 @@ const complaints = ref([
     urgencia: 'critico',
     especie_animal: 'perro',
     cantidad_animales: 1,
-    descripcion: 'Perro encadenado sin agua ni comida, visiblemente desnutrido y con heridas en el cuello por la cadena. El animal llora constantemente y los vecinos reportan que lleva semanas en esa situacion.',
+    descripcion: 'Perro encadenado sin agua ni comida, visiblemente desnutrido y con heridas en el cuello por la cadena. El animal llora constantemente y los vecinos reportan que lleva semanas en esa situación.',
     direccion: 'Calle 15 #23-45, Barrio El Centro',
     coordenadas: { lat: 3.4516, lng: -76.5319 },
     fecha_recepcion: '2024-11-15T10:30:00',
@@ -259,7 +259,7 @@ const complaints = ref([
     urgencia: 'alto',
     especie_animal: 'gato',
     cantidad_animales: 3,
-    descripcion: 'Familia se mudo y dejo 3 gatos encerrados en el apartamento. Los vecinos escuchan maullidos de hambre desde hace 3 dias.',
+    descripcion: 'Familia se mudó y dejó 3 gatos encerrados en el apartamento. Los vecinos escuchan maullidos de hambre desde hace 3 días.',
     direccion: 'Carrera 8 #42-10, Apto 301, Barrio San Fernando',
     coordenadas: { lat: 3.4450, lng: -76.5250 },
     fecha_recepcion: '2024-11-14T08:15:00',
@@ -273,7 +273,7 @@ const complaints = ref([
     urgencia: 'critico',
     especie_animal: 'perro',
     cantidad_animales: 1,
-    descripcion: 'Perro atropellado en la via, aun con vida pero no puede moverse. Esta en la acera junto a la gasolinera.',
+    descripcion: 'Perro atropellado en la vía, aún con vida pero no puede moverse. Está en la acera junto a la gasolinera.',
     direccion: 'Avenida 6N con Calle 25, junto a Gasolinera Terpel',
     coordenadas: { lat: 3.4600, lng: -76.5400 },
     fecha_recepcion: '2024-11-15T14:20:00',
@@ -287,7 +287,7 @@ const complaints = ref([
     urgencia: 'medio',
     especie_animal: 'perro',
     cantidad_animales: 2,
-    descripcion: 'Dos perros en terraza pequena, expuestos al sol todo el dia sin sombra ni agua suficiente. Se ven muy delgados.',
+    descripcion: 'Dos perros en terraza pequeña, expuestos al sol todo el día sin sombra ni agua suficiente. Se ven muy delgados.',
     direccion: 'Calle 70 #1-50, Casa esquinera, Barrio Ciudad Jardin',
     coordenadas: { lat: 3.4300, lng: -76.5450 },
     fecha_recepcion: '2024-11-13T16:45:00',
@@ -301,7 +301,7 @@ const complaints = ref([
     urgencia: 'alto',
     especie_animal: 'gato',
     cantidad_animales: 15,
-    descripcion: 'Casa con acumulacion de gatos, mal olor y condiciones insalubres. Los vecinos reportan que hay aproximadamente 15 gatos o mas.',
+    descripcion: 'Casa con acumulación de gatos, mal olor y condiciones insalubres. Los vecinos reportan que hay aproximadamente 15 gatos o más.',
     direccion: 'Carrera 24 #5-30, Barrio Obrero',
     coordenadas: { lat: 3.4380, lng: -76.5180 },
     fecha_recepcion: '2024-11-12T11:00:00',
@@ -380,7 +380,7 @@ function getStatusLabel(status) {
     recibida: 'Recibida',
     en_revision: 'En revision',
     asignada: 'Asignada',
-    en_atencion: 'En atencion',
+    en_atencion: 'En atención',
     cerrada: 'Cerrada'
   };
   return labels[status] || status;

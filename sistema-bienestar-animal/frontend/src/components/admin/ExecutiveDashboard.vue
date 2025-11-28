@@ -18,7 +18,7 @@
             <option value="week">Esta semana</option>
             <option value="month">Este mes</option>
             <option value="quarter">Este trimestre</option>
-            <option value="year">Este ano</option>
+            <option value="year">Este año</option>
             <option value="custom">Personalizado</option>
           </select>
         </div>
@@ -72,7 +72,7 @@
         <div class="kpi-icon">💉</div>
         <div class="kpi-content">
           <span class="kpi-value">{{ kpis.vaccinationRate }}%</span>
-          <span class="kpi-label">Cobertura Vacunacion</span>
+          <span class="kpi-label">Cobertura Vacunación</span>
           <span class="kpi-subtitle">{{ kpis.vaccinationsMonth }} este mes</span>
         </div>
       </div>
@@ -285,7 +285,7 @@ const alerts = ref([
     id: 1,
     type: 'critical',
     title: '5 denuncias criticas sin asignar',
-    description: 'Requieren atencion inmediata',
+    description: 'Requieren atención inmediata',
     time: 'Hace 15 min'
   },
   {
@@ -298,7 +298,7 @@ const alerts = ref([
   {
     id: 3,
     type: 'info',
-    title: 'Campana de vacunacion programada',
+    title: 'Campaña de vacunación programada',
     description: 'Barrio El Centro - Sabado 30 Nov',
     time: 'Hace 1 dia'
   }

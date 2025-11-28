@@ -1,17 +1,17 @@
 <!-- src/views/AdminView.vue -->
-<!-- Epica 5: Administracion y Reportes -->
+<!-- Épica 5: Administración y Reportes -->
 <template>
   <div class="admin-view">
     <header class="admin-header">
       <h1 class="h2-tipografia-govco">
-        Administracion y Reportes
+        Administración y Reportes
       </h1>
       <p class="text2-tipografia-govco">
-        Dashboard ejecutivo, reportes personalizados, gestion de usuarios y auditoria del sistema.
+        Dashboard ejecutivo, reportes personalizados, gestión de usuarios y auditoría del sistema.
       </p>
     </header>
 
-    <!-- PESTANAS -->
+    <!-- PESTAÑAS -->
     <nav class="admin-tabs">
       <button
         v-for="tab in visibleTabs"
@@ -27,7 +27,7 @@
       </button>
     </nav>
 
-    <!-- CONTENIDO SEGUN PESTANA -->
+    <!-- CONTENIDO SEGÚN PESTAÑA -->
     <section class="admin-tab-content">
       <!-- HU-020: Dashboard Ejecutivo -->
       <ExecutiveDashboard
@@ -39,12 +39,12 @@
         v-else-if="activeTab === 'reports'"
       />
 
-      <!-- HU-022: Gestion de Usuarios -->
+      <!-- HU-022: Gestión de Usuarios -->
       <UserManagement
         v-else-if="activeTab === 'users'"
       />
 
-      <!-- HU-023: Log de Auditoria -->
+      <!-- HU-023: Log de Auditoría -->
       <AuditLog
         v-else-if="activeTab === 'audit'"
       />
@@ -55,7 +55,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 
-// Componentes del modulo de administracion
+// Componentes del módulo de administración
 import ExecutiveDashboard from '../components/admin/ExecutiveDashboard.vue';
 import CustomReports from '../components/admin/CustomReports.vue';
 import UserManagement from '../components/admin/UserManagement.vue';
@@ -108,7 +108,7 @@ const tabs = [
   },
   {
     id: 'audit',
-    label: 'Auditoria',
+    label: 'Auditoría',
     icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
       <polyline points="14 2 14 8 20 8"></polyline>
@@ -121,7 +121,7 @@ const tabs = [
   }
 ];
 
-// Filtrar tabs segun rol del usuario
+// Filtrar tabs según rol del usuario
 const visibleTabs = computed(() => {
   return tabs.filter(tab => tab.roles.includes(userRole.value));
 });

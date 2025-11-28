@@ -1,5 +1,5 @@
 <!-- src/views/AdoptionsView.vue -->
-<!-- Vista de adopciones con diseño GOV.CO -->
+<!-- Vista de adopciones con diseÃ±o GOV.CO -->
 <template>
   <div class="adoptions-view">
     <div class="adoptions-container">
@@ -7,7 +7,7 @@
       <header class="adoptions-header">
         <h1 class="h2-tipografia-govco govcolor-blue-dark">Adopciones Responsables</h1>
         <p class="text2-tipografia-govco">
-          Encuentra tu compañero ideal. Todos nuestros animales están vacunados,
+          Encuentra tu compaÃ±ero ideal. Todos nuestros animales estÃ¡n vacunados,
           esterilizados y listos para formar parte de tu familia.
         </p>
       </header>
@@ -27,10 +27,10 @@
             </div>
 
             <div class="filter-group">
-              <label class="label-govco">Tamaño</label>
+              <label class="label-govco">TamaÃ±o</label>
               <select v-model="filters.size" class="input-govco">
                 <option value="">Todos</option>
-                <option value="pequeno">Pequeño</option>
+                <option value="pequeno">PequeÃ±o</option>
                 <option value="mediano">Mediano</option>
                 <option value="grande">Grande</option>
               </select>
@@ -40,10 +40,10 @@
               <label class="label-govco">Edad</label>
               <select v-model="filters.age" class="input-govco">
                 <option value="">Todas</option>
-                <option value="cachorro">Cachorro (0-1 año)</option>
-                <option value="joven">Joven (1-3 años)</option>
-                <option value="adulto">Adulto (3-7 años)</option>
-                <option value="senior">Senior (+7 años)</option>
+                <option value="cachorro">Cachorro (0-1 aÃ±o)</option>
+                <option value="joven">Joven (1-3 aÃ±os)</option>
+                <option value="adulto">Adulto (3-7 aÃ±os)</option>
+                <option value="senior">Senior (+7 aÃ±os)</option>
               </select>
             </div>
 
@@ -139,7 +139,7 @@
           </svg>
           <h3 class="h5-tipografia-govco">No se encontraron resultados</h3>
           <p class="text2-tipografia-govco">
-            Intenta ajustar los filtros de búsqueda
+            Intenta ajustar los filtros de bÃºsqueda
           </p>
           <button type="button" class="btn-govco btn-govco-secondary" @click="clearFilters">
             Limpiar filtros
@@ -148,11 +148,11 @@
       </section>
     </div>
 
-    <!-- Modal de adopción -->
+    <!-- Modal de adopciÃ³n -->
     <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal-content card-govco">
         <div class="modal-header">
-          <h3 class="h4-tipografia-govco govcolor-blue-dark">Solicitud de Adopción</h3>
+          <h3 class="h4-tipografia-govco govcolor-blue-dark">Solicitud de AdopciÃ³n</h3>
           <button type="button" class="modal-close" @click="closeModal">&times;</button>
         </div>
         <div class="modal-body">
@@ -193,7 +193,7 @@
               </div>
               <div class="form-group-govco">
                 <label class="label-govco">
-                  Teléfono <span aria-required="true">*</span>
+                  TelÃ©fono <span aria-required="true">*</span>
                 </label>
                 <input
                   v-model="adoptionForm.phone"
@@ -206,7 +206,7 @@
 
             <div class="form-group-govco">
               <label class="label-govco">
-                Correo electrónico <span aria-required="true">*</span>
+                Correo electrÃ³nico <span aria-required="true">*</span>
               </label>
               <input
                 v-model="adoptionForm.email"
@@ -218,7 +218,7 @@
 
             <div class="form-group-govco">
               <label class="label-govco">
-                Dirección de residencia <span aria-required="true">*</span>
+                DirecciÃ³n de residencia <span aria-required="true">*</span>
               </label>
               <input
                 v-model="adoptionForm.address"
@@ -230,7 +230,7 @@
 
             <div class="form-group-govco">
               <label class="label-govco">
-                ¿Por qué deseas adoptar? <span aria-required="true">*</span>
+                Â¿Por quÃ© deseas adoptar? <span aria-required="true">*</span>
               </label>
               <textarea
                 v-model="adoptionForm.reason"
@@ -248,7 +248,7 @@
                 required
               />
               <label for="terms">
-                Acepto los términos y condiciones de adopción responsable
+                Acepto los tÃ©rminos y condiciones de adopciÃ³n responsable
               </label>
             </div>
 
@@ -282,7 +282,7 @@ const filters = reactive({
 const showModal = ref(false);
 const selectedAnimal = ref(null);
 
-// Formulario de adopción
+// Formulario de adopciÃ³n
 const adoptionForm = reactive({
   name: '',
   document: '',
@@ -300,9 +300,9 @@ const animals = ref([
     name: 'Luna',
     species: 'Perro',
     sex: 'Hembra',
-    age: '2 años',
+    age: '2 aÃ±os',
     size: 'Mediano',
-    description: 'Luna es una perrita muy cariñosa y juguetona. Le encanta correr y jugar con pelotas.',
+    description: 'Luna es una perrita muy cariÃ±osa y juguetona. Le encanta correr y jugar con pelotas.',
     image: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400&h=300&fit=crop',
     vaccinated: true,
     sterilized: true,
@@ -313,7 +313,7 @@ const animals = ref([
     name: 'Max',
     species: 'Perro',
     sex: 'Macho',
-    age: '3 años',
+    age: '3 aÃ±os',
     size: 'Grande',
     description: 'Max es un perro muy noble y protector. Ideal para familias con espacio.',
     image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=400&h=300&fit=crop',
@@ -326,9 +326,9 @@ const animals = ref([
     name: 'Michi',
     species: 'Gato',
     sex: 'Macho',
-    age: '1 año',
-    size: 'Pequeño',
-    description: 'Michi es un gato independiente pero muy cariñoso cuando quiere.',
+    age: '1 aÃ±o',
+    size: 'PequeÃ±o',
+    description: 'Michi es un gato independiente pero muy cariÃ±oso cuando quiere.',
     image: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=300&fit=crop',
     vaccinated: true,
     sterilized: true,
@@ -340,7 +340,7 @@ const animals = ref([
     species: 'Perro',
     sex: 'Hembra',
     age: '6 meses',
-    size: 'Pequeño',
+    size: 'PequeÃ±o',
     description: 'Canela es una cachorrita muy activa y curiosa. Necesita mucho amor.',
     image: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=400&h=300&fit=crop',
     vaccinated: true,
@@ -352,9 +352,9 @@ const animals = ref([
     name: 'Nala',
     species: 'Gato',
     sex: 'Hembra',
-    age: '4 años',
-    size: 'Pequeño',
-    description: 'Nala es una gata tranquila y cariñosa. Perfecta para apartamentos.',
+    age: '4 aÃ±os',
+    size: 'PequeÃ±o',
+    description: 'Nala es una gata tranquila y cariÃ±osa. Perfecta para apartamentos.',
     image: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=400&h=300&fit=crop',
     vaccinated: true,
     sterilized: true,
@@ -365,9 +365,9 @@ const animals = ref([
     name: 'Rocky',
     species: 'Perro',
     sex: 'Macho',
-    age: '5 años',
+    age: '5 aÃ±os',
     size: 'Grande',
-    description: 'Rocky es un perro muy tranquilo y obediente. Ya está entrenado.',
+    description: 'Rocky es un perro muy tranquilo y obediente. Ya estÃ¡ entrenado.',
     image: 'https://images.unsplash.com/photo-1561037404-61cd46aa615b?w=400&h=300&fit=crop',
     vaccinated: true,
     sterilized: true,
@@ -419,8 +419,8 @@ function closeModal() {
 }
 
 function submitAdoption() {
-  // Aquí iría la lógica de envío a la API
-  alert(`Solicitud de adopción enviada para ${selectedAnimal.value.name}. Nos comunicaremos contigo pronto.`);
+  // AquÃ­ irÃ­a la lÃ³gica de envÃ­o a la API
+  alert(`Solicitud de adopciÃ³n enviada para ${selectedAnimal.value.name}. Nos comunicaremos contigo pronto.`);
   closeModal();
 }
 </script>

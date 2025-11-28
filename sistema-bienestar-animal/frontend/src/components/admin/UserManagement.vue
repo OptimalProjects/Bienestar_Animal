@@ -25,7 +25,8 @@
           placeholder="Buscar por nombre, email o documento..."
           class="search-input"
         />
-        <span class="search-icon">=</span>
+        <span class="search-icon">=
+</span>
       </div>
       <div class="filter-group">
         <select v-model="filterRole" class="filter-select">
@@ -159,7 +160,7 @@
     <!-- Seccion de Roles -->
     <div class="roles-section">
       <div class="roles-header">
-        <h3 class="h5-tipografia-govco">Gestion de Roles</h3>
+        <h3 class="h5-tipografia-govco">Gestión de Roles</h3>
         <button type="button" class="btn-add-role" @click="openRoleModal">
           + Nuevo Rol
         </button>
@@ -180,7 +181,7 @@
               {{ perm }}
             </span>
             <span v-if="role.permissions.length > 3" class="more-permissions">
-              +{{ role.permissions.length - 3 }} mas
+              +{{ role.permissions.length - 3 }} más
             </span>
           </div>
           <div class="role-actions">
@@ -195,7 +196,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h3>{{ modalMode === 'create' ? 'Nuevo Usuario' : 'Editar Usuario' }}</h3>
-          <button type="button" class="close-btn" @click="closeModal">�</button>
+          <button type="button" class="close-btn" @click="closeModal">�</button>
         </div>
         <div class="modal-body">
           <form @submit.prevent="saveUser">
@@ -221,7 +222,7 @@
 
             <div class="form-row">
               <div class="form-group">
-                <label>Numero de Documento *</label>
+                <label>Número de Documento *</label>
                 <input
                   type="text"
                   v-model="userForm.documento"
@@ -242,7 +243,7 @@
 
             <div class="form-row">
               <div class="form-group">
-                <label>Telefono</label>
+                <label>Teléfono</label>
                 <input
                   type="tel"
                   v-model="userForm.telefono"
@@ -269,7 +270,7 @@
                   <option value="operaciones">Operaciones</option>
                   <option value="veterinaria">Area Veterinaria</option>
                   <option value="adopciones">Area de Adopciones</option>
-                  <option value="denuncias">Atencion Denuncias</option>
+                  <option value="denuncias">Atención Denuncias</option>
                 </select>
               </div>
               <div class="form-group">
@@ -297,7 +298,7 @@
             <div class="sso-section">
               <h4>Integracion SSO</h4>
               <p class="sso-info">
-                Este usuario sera sincronizado con sci-auth y sci-rbac para autenticacion unica (SSO).
+                Este usuario será sincronizado con sci-auth y sci-rbac para autenticación única (SSO).
               </p>
             </div>
 
@@ -319,7 +320,7 @@
       <div class="modal-content view-modal">
         <div class="modal-header">
           <h3>Detalle de Usuario</h3>
-          <button type="button" class="close-btn" @click="closeViewModal">�</button>
+          <button type="button" class="close-btn" @click="closeViewModal">�</button>
         </div>
         <div class="modal-body">
           <div class="user-detail-header">
@@ -347,7 +348,7 @@
               <span class="detail-value">{{ selectedUser?.dependencia || 'Sin asignar' }}</span>
             </div>
             <div class="detail-item">
-              <span class="detail-label">Telefono</span>
+              <span class="detail-label">Teléfono</span>
               <span class="detail-value">{{ selectedUser?.telefono || 'No registrado' }}</span>
             </div>
             <div class="detail-item">
@@ -421,14 +422,14 @@ const roles = ref([
   {
     id: 'veterinario',
     name: 'Veterinario',
-    description: 'Gestion de salud animal',
+    description: 'Gestión de salud animal',
     userCount: 12,
-    permissions: ['animales', 'vacunacion', 'historias_clinicas']
+    permissions: ['animales', 'vacunación', 'historias_clinicas']
   },
   {
     id: 'inspector',
     name: 'Inspector',
-    description: 'Atencion de denuncias y rescates',
+    description: 'Atención de denuncias y rescates',
     userCount: 15,
     permissions: ['denuncias', 'rescates', 'operativos']
   },
@@ -557,10 +558,10 @@ const userForm = ref({
 
 // Actividades del usuario (mock)
 const userActivities = ref([
-  { icon: '=�', text: 'Actualizo registro de animal AN-1234', time: 'Hace 2 horas' },
+  { icon: '=�', text: 'Actualizo registro de animal AN-1234', time: 'Hace 2 horas' },
   { icon: '', text: 'Completo adopcion AD-5678', time: 'Hace 5 horas' },
   { icon: '=', text: 'Inicio sesion desde 192.168.1.50', time: 'Ayer 16:30' },
-  { icon: '=�', text: 'Genero reporte de adopciones', time: 'Hace 2 dias' }
+  { icon: '=�', text: 'Genero reporte de adopciones', time: 'Hace 2 dias' }
 ]);
 
 // Computed
