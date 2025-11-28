@@ -85,9 +85,7 @@ body {
   background-color: #f5f7fb;
 }
 
-.app-body.with-sidebar {
-  /* Con sidebar */
-}
+
 
 /* Main content */
 .app-main {

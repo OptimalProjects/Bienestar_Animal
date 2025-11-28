@@ -9,7 +9,7 @@
           <div class="col-auto">
             <a href="https://www.gov.co/" target="_blank" rel="noopener" class="govco-logo-link">
               <img
-                src="https://cdn.www.gov.co/layout/v4/images/logo-gov-co.svg"
+                src="https://cdn.www.gov.co/assets/images/logo.svg"
                 alt="Logo GOV.CO"
                 class="govco-logo"
               />
@@ -65,7 +65,7 @@
           <div class="col-auto">
             <router-link to="/" class="govco-entity-brand">
               <img
-                src="https://cdn.www.gov.co/layout/v4/images/logo-alcaldia.svg"
+                src="../../assets/icons/alcaldiacali.png"
                 alt="Logo Alcaldía"
                 class="govco-entity-logo"
                 @error="handleLogoError"
