@@ -1,5 +1,5 @@
 <!-- src/views/LoginView.vue -->
-<!-- Página de inicio de sesión con diseño GOV.CO -->
+<!-- Página de "inicio de sesión" pero usando selección de rol de prueba -->
 <template>
   <div class="login-view">
     <div class="login-container">
@@ -13,13 +13,6 @@
           </p>
 
           <div class="login-info-features">
-            <div class="feature-item">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-              </svg>
-              <span>Registro y seguimiento de animales</span>
-            </div>
             <div class="feature-item">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -53,119 +46,58 @@
             <img
               src="https://cdn.www.gov.co/layout/v4/images/logo-gov-co.svg"
               alt="GOV.CO"
-              class="govco-logo"
             />
           </div>
 
-          <h2 class="login-title h3-tipografia-govco">Iniciar Sesión</h2>
+          <!-- Títulos -->
+          <h2 class="login-title h3-tipografia-govco govcolor-blue-dark">
+            Ingresar al sistema
+          </h2>
           <p class="login-subtitle text2-tipografia-govco">
-            Ingresa tus credenciales para acceder al sistema
+            Para esta versión demo, selecciona un rol para simular el acceso
+            con SSO y permisos RBAC.
           </p>
 
-          <!-- Alerta de error -->
-          <div v-if="errorMessage" class="alert-govco alert-govco-danger">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="15" y1="9" x2="9" y2="15"></line>
-              <line x1="9" y1="9" x2="15" y2="15"></line>
-            </svg>
-            <span>{{ errorMessage }}</span>
-          </div>
-
-          <!-- Formulario de login -->
+          <!-- Formulario de "login" por rol -->
           <form @submit.prevent="handleLogin" class="login-form">
-            <!-- Email -->
             <div class="form-group-govco">
-              <label for="email" class="label-govco">
-                Correo electrónico
+              <label for="role" class="label-govco">
+                Selecciona tu rol
                 <span aria-required="true">*</span>
               </label>
-              <div class="input-wrapper">
-                <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                  <polyline points="22,6 12,13 2,6"></polyline>
-                </svg>
-                <input
-                  id="email"
-                  v-model="form.email"
-                  type="email"
-                  class="input-govco input-with-icon"
-                  :class="{ 'is-invalid': errors.email }"
-                  placeholder="correo@ejemplo.gov.co"
-                  required
-                  autocomplete="email"
-                />
-              </div>
-              <span v-if="errors.email" class="error-message-govco">{{ errors.email }}</span>
-            </div>
-
-            <!-- Password -->
-            <div class="form-group-govco">
-              <label for="password" class="label-govco">
-                Contraseña
-                <span aria-required="true">*</span>
-              </label>
-              <div class="input-wrapper">
-                <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                </svg>
-                <input
-                  id="password"
-                  v-model="form.password"
-                  :type="showPassword ? 'text' : 'password'"
-                  class="input-govco input-with-icon"
-                  :class="{ 'is-invalid': errors.password }"
-                  placeholder="Ingresa tu contraseña"
-                  required
-                  autocomplete="current-password"
-                />
-                <button
-                  type="button"
-                  class="password-toggle"
-                  @click="showPassword = !showPassword"
-                  :aria-label="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+              <select
+                id="role"
+                v-model="selectedRole"
+                class="input-govco"
+              >
+                <option
+                  v-for="opt in roleOptions"
+                  :key="opt.value"
+                  :value="opt.value"
                 >
-                  <svg v-if="!showPassword" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                    <circle cx="12" cy="12" r="3"></circle>
-                  </svg>
-                  <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                    <line x1="1" y1="1" x2="23" y2="23"></line>
-                  </svg>
-                </button>
-              </div>
-              <span v-if="errors.password" class="error-message-govco">{{ errors.password }}</span>
+                  {{ opt.label }}
+                </option>
+              </select>
+              <span class="help-text-govco">
+                Este selector reemplaza temporalmente el SSO (HU-024 / HU-025) para pruebas de interfaz.
+              </span>
             </div>
 
-            <!-- Recordar y olvidé contraseña -->
-            <div class="form-options">
-              <label class="checkbox-wrapper">
-                <input type="checkbox" v-model="form.remember" />
-                <span class="checkbox-label">Recordar sesión</span>
-              </label>
-              <a href="#" class="forgot-password" @click.prevent>¿Olvidaste tu contraseña?</a>
-            </div>
-
-            <!-- Botón de login -->
+            <!-- Botón -->
             <button
               type="submit"
-              class="btn-govco btn-govco-primary btn-block"
+              class="btn-govco btn-govco-primary"
               :disabled="isLoading"
             >
-              <span v-if="isLoading" class="spinner"></span>
-              <span v-else>Iniciar Sesión</span>
+              <span v-if="!isLoading">Ingresar</span>
+              <span v-else>Ingresando...</span>
             </button>
-          </form>
 
-          <!-- Enlace de registro -->
-          <div class="login-footer">
-            <p class="text2-tipografia-govco">
-              ¿No tienes cuenta?
-              <a href="#" @click.prevent>Solicita acceso aquí</a>
+            <!-- Error -->
+            <p v-if="errorMessage" class="error-message-govco mt-2">
+              {{ errorMessage }}
             </p>
-          </div>
+          </form>
 
           <!-- Volver al inicio -->
           <router-link to="/" class="back-link">
@@ -182,75 +114,56 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useRole, ROLES } from '../composables/useRol.js';
 
 const router = useRouter();
+const { setRole } = useRole();
 
-// Estado del formulario
-const form = reactive({
-  email: '',
-  password: '',
-  remember: false
-});
-
-const errors = reactive({
-  email: '',
-  password: ''
-});
-
-const showPassword = ref(false);
+const selectedRole = ref(ROLES.CIUDADANO);
 const isLoading = ref(false);
 const errorMessage = ref('');
 
-// Validación
-function validate() {
-  errors.email = '';
-  errors.password = '';
+const roleOptions = [
+  { value: ROLES.CIUDADANO, label: 'Ciudadano (portal público)' },
+  { value: ROLES.OPERADOR_RESCATE, label: 'Operador de Rescate' },
+  { value: ROLES.MEDICO_VETERINARIO, label: 'Médico Veterinario' },
+  { value: ROLES.COORDINADOR_ADOPCIONES, label: 'Coordinador de Adopciones' },
+  { value: ROLES.ADMIN_SISTEMA, label: 'Administrador del Sistema' },
+  { value: ROLES.DIRECTOR, label: 'Director' },
+];
 
-  if (!form.email) {
-    errors.email = 'El correo electrónico es requerido';
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-    errors.email = 'Ingresa un correo electrónico válido';
-  }
-
-  if (!form.password) {
-    errors.password = 'La contraseña es requerida';
-  } else if (form.password.length < 6) {
-    errors.password = 'La contraseña debe tener al menos 6 caracteres';
-  }
-
-  return !errors.email && !errors.password;
-}
-
-// Login
 async function handleLogin() {
   errorMessage.value = '';
 
-  if (!validate()) {
+  if (!selectedRole.value) {
+    errorMessage.value = 'Selecciona un rol para continuar.';
     return;
   }
 
-  isLoading.value = true;
-
   try {
-    // Simular llamada a API
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    isLoading.value = true;
 
-    // Credenciales de prueba
-    if (form.email === 'admin@alcaldia.gov.co' && form.password === 'admin123') {
-      // Login exitoso
-      router.push('/dashboard');
+    // Simulación de delay de login
+    await new Promise(resolve => setTimeout(resolve, 400));
+
+    setRole(selectedRole.value);
+
+    // Redirección según rol:
+    if (selectedRole.value === ROLES.CIUDADANO) {
+      router.push('/adopciones');
     } else {
-      errorMessage.value = 'Credenciales inválidas. Verifica tu correo y contraseña.';
+      router.push('/dashboard');
     }
   } catch (error) {
-    errorMessage.value = 'Error al iniciar sesión. Intenta nuevamente.';
+    errorMessage.value = 'Error al iniciar sesión de prueba.';
   } finally {
     isLoading.value = false;
   }
 }
 </script>
+
 
 <style scoped>
 .login-view {

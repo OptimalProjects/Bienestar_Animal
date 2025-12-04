@@ -175,16 +175,36 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRole, ROLES } from '../../composables/useRol.js';
 
 // Estado del menú
 const menuOpen = ref(false);
 const userMenuOpen = ref(false);
 const highContrast = ref(false);
 
-// Simulación de autenticación (conectar con store real)
-const isAuthenticated = ref(true); // Cambiar a false para probar modo público
-const userName = ref('Dr. Juan Pérez');
-const userRole = ref('admin'); // 'citizen', 'operator', 'director', 'admin'
+const { role, setRole } = useRole();
+
+// ¿Consideramos “autenticado”? → cualquier rol interno
+const isAuthenticated = computed(() => role.value !== ROLES.CIUDADANO);
+
+// Nombre que mostramos según rol
+const userName = computed(() => {
+  switch (role.value) {
+    case ROLES.OPERADOR_RESCATE:
+      return 'Operador de Rescate';
+    case ROLES.MEDICO_VETERINARIO:
+      return 'Médico Veterinario';
+    case ROLES.COORDINADOR_ADOPCIONES:
+      return 'Coordinador de Adopciones';
+    case ROLES.ADMIN_SISTEMA:
+      return 'Administrador del Sistema';
+    case ROLES.DIRECTOR:
+      return 'Director';
+    case ROLES.CIUDADANO:
+    default:
+      return 'Ciudadano';
+  }
+});
 
 const userInitials = computed(() => {
   return userName.value
@@ -195,8 +215,9 @@ const userInitials = computed(() => {
     .toUpperCase();
 });
 
+// Admin para ver link de Administración
 const isAdmin = computed(() => {
-  return ['director', 'admin'].includes(userRole.value);
+  return [ROLES.ADMIN_SISTEMA, ROLES.DIRECTOR].includes(role.value);
 });
 
 // Funciones de menú
@@ -220,11 +241,11 @@ function closeAllMenus() {
   userMenuOpen.value = false;
 }
 
-// Funciones de accesibilidad
+// Accesibilidad
 function increaseFont() {
   const html = document.documentElement;
   const currentSize = parseFloat(getComputedStyle(html).fontSize);
-  if (currentSize < 24) {
+  if (currentSize < 20) {
     html.style.fontSize = `${currentSize + 2}px`;
   }
 }
@@ -242,21 +263,23 @@ function toggleContrast() {
   document.body.classList.toggle('high-contrast', highContrast.value);
 }
 
+// “Cerrar sesión”: volvemos al rol ciudadano
 function logout() {
-  // Aquí iría la lógica de logout
-  isAuthenticated.value = false;
+  setRole(ROLES.CIUDADANO);
   closeAllMenus();
-  // router.push('/');
+  // Si quieres, aquí puedes hacer router.push('/')
 }
 
 function handleLogoError(e) {
-  // Usar un logo de respaldo si falla la carga
   e.target.style.display = 'none';
 }
 
-// Cerrar menús al hacer clic fuera
+// Cerrar menús al hacer clic fuera del menú de usuario
 function handleClickOutside(event) {
-  if (!event.target.closest('.govco-user-menu') && !event.target.closest('.govco-dropdown-menu')) {
+  if (
+    !event.target.closest('.govco-user-menu') &&
+    !event.target.closest('.govco-dropdown-menu')
+  ) {
     userMenuOpen.value = false;
   }
 }
@@ -269,6 +292,7 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
 });
 </script>
+
 
 <style scoped>
 /* Barra de accesibilidad GOV.CO */

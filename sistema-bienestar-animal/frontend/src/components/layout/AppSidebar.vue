@@ -53,15 +53,32 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useRoute } from 'vue-router';
+import { useRole, ROLES } from '../../composables/useRol.js';
 
 const route = useRoute();
+const { role } = useRole();
 
 // Estado del sidebar
 const isCollapsed = ref(false);
 
-// Datos del usuario (conectar con store real)
-const userName = ref('Dr. Juan Pérez');
-const userRole = ref('admin');
+// Nombre y rol que se muestran en el footer del sidebar
+const userName = computed(() => {
+  switch (role.value) {
+    case ROLES.OPERADOR_RESCATE:
+      return 'Operador de Rescate';
+    case ROLES.MEDICO_VETERINARIO:
+      return 'Médico Veterinario';
+    case ROLES.COORDINADOR_ADOPCIONES:
+      return 'Coordinador de Adopciones';
+    case ROLES.ADMIN_SISTEMA:
+      return 'Administrador del Sistema';
+    case ROLES.DIRECTOR:
+      return 'Director';
+    case ROLES.CIUDADANO:
+    default:
+      return 'Ciudadano';
+  }
+});
 
 const userInitials = computed(() => {
   return userName.value
@@ -73,16 +90,18 @@ const userInitials = computed(() => {
 });
 
 const userRoleLabel = computed(() => {
-  const roles = {
-    citizen: 'Ciudadano',
-    operator: 'Operador',
-    director: 'Director',
-    admin: 'Administrador'
+  const labels = {
+    [ROLES.CIUDADANO]: 'Ciudadano',
+    [ROLES.OPERADOR_RESCATE]: 'Operador de Rescate',
+    [ROLES.MEDICO_VETERINARIO]: 'Médico Veterinario',
+    [ROLES.COORDINADOR_ADOPCIONES]: 'Coord. Adopciones',
+    [ROLES.ADMIN_SISTEMA]: 'Admin. Sistema',
+    [ROLES.DIRECTOR]: 'Director',
   };
-  return roles[userRole.value] || 'Usuario';
+  return labels[role.value] || 'Usuario';
 });
 
-// Items del menú
+// Items del menú (mantenemos tus íconos, cambiamos solo roles y añadimos gestión de adopciones)
 const menuItems = computed(() => {
   const items = [
     {
@@ -94,31 +113,40 @@ const menuItems = computed(() => {
         <rect x="14" y="14" width="7" height="7"></rect>
         <rect x="3" y="14" width="7" height="7"></rect>
       </svg>`,
-      roles: ['operator', 'director', 'admin']
+      roles: [
+        ROLES.OPERADOR_RESCATE,
+        ROLES.MEDICO_VETERINARIO,
+        ROLES.COORDINADOR_ADOPCIONES,
+        ROLES.ADMIN_SISTEMA,
+        ROLES.DIRECTOR,
+      ]
     },
     {
       path: '/animales',
       label: 'Animales',
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M10 5.172C10 3.782 8.423 2.679 6.5 3c-2.823.47-4.113 6.006-4 7 .137 1.217.677 1.146 2 1.5.67.178 1.5.5 2.5.5s1.7-.322 2-1c.247-.558.212-1.828 1-2.5.786-.672 0-2.328 0-3.328z"></path>
-        <path d="M14 5.172C14 3.782 15.577 2.679 17.5 3c2.823.47 4.113 6.006 4 7-.137 1.217-.677 1.146-2 1.5-.67.178-1.5.5-2.5.5s-1.7-.322-2-1c-.247-.558-.212-1.828-1-2.5-.786-.672 0-2.328 0-3.328z"></path>
+        <path d="M10 5.172C10 3.782 8.423 2.679 6.5 3c-2.823.47-3.5 3.005-3.5 5 0 0-.04 1.622.5 3.5C4 13 5 15 5 16.5 5 17.5 4 19 4 19h4l1-2 1 2h4s-1-1.5-1-2.5C13 15 14 13 14.5 11.5c.54-1.878.5-3.5.5-3.5 0-1.995-.677-4.53-3.5-5-1.923-.321-3.5.782-3.5 2.172Z"></path>
         <path d="M8 14v.5"></path>
         <path d="M16 14v.5"></path>
         <path d="M11.25 16.25h1.5L12 17l-.75-.75z"></path>
-        <path d="M4.42 11.247A13.152 13.152 0 0 0 4 14.556C4 18.728 7.582 21 12 21s8-2.272 8-6.444c0-1.061-.162-2.2-.493-3.309m-9.243-6.082A8.801 8.801 0 0 1 12 5c.78 0 1.5.108 2.161.306"></path>
       </svg>`,
-      roles: ['operator', 'director', 'admin']
+      roles: [
+        ROLES.OPERADOR_RESCATE,
+        ROLES.MEDICO_VETERINARIO,
+        ROLES.COORDINADOR_ADOPCIONES,
+        ROLES.ADMIN_SISTEMA,
+      ]
     },
     {
       path: '/veterinaria',
       label: 'Veterinaria',
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path>
-        <path d="M12 5 9.04 7.96a2.17 2.17 0 0 0 0 3.08v0c.82.82 2.13.85 3 .07l2.07-1.9a2.82 2.82 0 0 1 3.79 0l2.96 2.66"></path>
-        <path d="m18 15-2-2"></path>
-        <path d="m15 18-2-2"></path>
+        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3 4.6 4.6 0 0 0 12 5.09 4.6 4.6 0 0 0 7.5 3 5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"></path>
       </svg>`,
-      roles: ['operator', 'director', 'admin']
+      roles: [
+        ROLES.MEDICO_VETERINARIO,
+        ROLES.ADMIN_SISTEMA,
+      ]
     },
     {
       path: '/denuncias',
@@ -128,9 +156,17 @@ const menuItems = computed(() => {
         <line x1="12" y1="9" x2="12" y2="13"></line>
         <line x1="12" y1="17" x2="12.01" y2="17"></line>
       </svg>`,
-      badge: 12,
+      // badge solo ilustrativo, puedes quitarlo
+      badge: 3,
       badgeClass: 'badge-danger',
-      roles: ['operator', 'director', 'admin']
+      roles: [
+        ROLES.CIUDADANO,
+        ROLES.OPERADOR_RESCATE,
+        ROLES.MEDICO_VETERINARIO,
+        ROLES.COORDINADOR_ADOPCIONES,
+        ROLES.ADMIN_SISTEMA,
+        ROLES.DIRECTOR,
+      ]
     },
     {
       path: '/adopciones',
@@ -139,21 +175,41 @@ const menuItems = computed(() => {
         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
         <polyline points="9 22 9 12 15 12 15 22"></polyline>
       </svg>`,
-      roles: ['operator', 'director', 'admin']
+      // todos los roles, porque el coordinador también puede ir a catálogo
+      roles: [
+        ROLES.CIUDADANO,
+        ROLES.OPERADOR_RESCATE,
+        ROLES.MEDICO_VETERINARIO,
+        ROLES.COORDINADOR_ADOPCIONES,
+        ROLES.ADMIN_SISTEMA,
+        ROLES.DIRECTOR,
+      ]
+    },
+    {
+      path: '/adopciones/coordinador',
+      label: 'Gestión de adopciones',
+      icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-1.42 3.42h-.09a1.65 1.65 0 0 0-1.51 1l-.2.5a2 2 0 0 1-3.74 0l-.2-.5a1.65 1.65 0 0 0-1.51-1h-.09A2 2 0 0 1 4.21 17.1l.06-.06A1.65 1.65 0 0 0 4.6 15"></path>
+        <path d="M19.4 9a1.65 1.65 0 0 0 .33-1.82l-.06-.06A2 2 0 0 0 18.25 5"></path>
+      </svg>`,
+      roles: [
+        ROLES.COORDINADOR_ADOPCIONES,
+        ROLES.ADMIN_SISTEMA,
+      ]
     },
     {
       path: '/administracion',
       label: 'Administración',
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="3"></circle>
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-1.42 3.42h-.09a1.65 1.65 0 0 0-1.51 1l-.2.5a2 2 0 0 1-3.74 0l-.2-.5a1.65 1.65 0 0 0-1.51-1h-.09A2 2 0 0 1 4.21 17.1l.06-.06A1.65 1.65 0 0 0 4.6 15"></path>
       </svg>`,
-      roles: ['director', 'admin']
+      roles: [ROLES.ADMIN_SISTEMA]
     }
   ];
 
-  // Filtrar por rol
-  return items.filter(item => item.roles.includes(userRole.value));
+  return items.filter(item => !item.roles || item.roles.includes(role.value));
 });
 
 function toggleSidebar() {
@@ -164,6 +220,7 @@ function isActive(path) {
   return route.path === path || route.path.startsWith(path + '/');
 }
 </script>
+
 
 <style scoped>
 .app-sidebar {
