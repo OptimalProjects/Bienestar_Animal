@@ -57,16 +57,19 @@
           />
 
           <!-- Cantidad aproximada -->
-          <div class="entradas-de-texto-govco">
-            <label for="animalCount">Cantidad aproximada de animales</label>
-            <input
-              type="number"
-              id="animalCount"
-              v-model="form.animalCount"
-              min="1"
-              placeholder="1"
-            />
-            <span class="info-entradas-de-texto-govco">Si no sabe, deje 1</span>
+          <DesplegableGovco
+            id="animalCount"
+            v-model="form.animalCount"
+            label="Cantidad aproximada de animales"
+            :required="false"
+            :options="animalCountOptions"
+            placeholder="Seleccionar cantidad"
+            width="100%"
+          />
+          
+          <!-- Nota informativa sobre cantidad -->
+          <div class="full-width" style="margin-top: -1rem;">
+            <span class="info-entradas-de-texto-govco">Si no conoce la cantidad exacta, seleccione la opción más cercana</span>
           </div>
 
           <!-- Descripción del caso -->
@@ -90,22 +93,26 @@
 
         <div class="form-grid">
           <!-- Dirección -->
-          <div class="entradas-de-texto-govco full-width">
-            <label for="address">Dirección o referencia<span aria-required="true">*</span></label>
-            <input
-              type="text"
-              id="address"
-              v-model="form.address"
-              placeholder="Ej: Calle 15 #23-45, Barrio El Centro, frente a la tienda..."
-            />
+          <DesplegableGovco
+            id="address"
+            v-model="form.address"
+            label="Dirección o referencia"
+            :required="true"
+            :options="[]"
+            placeholder="Ej: Calle 15 #23-45, Barrio El Centro, frente a la tienda..."
+            :alert-text="errors.address"
+            :error="!!errors.address"
+            width="100%"
+            :is-text-input="true"
+          />
+          <div class="full-width" style="margin-top: -1rem;">
             <span class="info-entradas-de-texto-govco">Incluya barrio, comuna o puntos de referencia</span>
-            <span v-if="errors.address" class="error-text">{{ errors.address }}</span>
           </div>
 
           <!-- Mapa interactivo -->
           <div class="full-width">
             <label class="label-desplegable-govco">
-              Ubicacion en el mapa<span aria-required="true">*</span>
+              Ubicación en el mapa<span aria-required="true">*</span>
             </label>
             <div class="map-container">
               <MapSelector
@@ -119,7 +126,7 @@
                   Lng: {{ form.coordinates.lng.toFixed(6) }}
                 </span>
                 <span v-else>
-                  Haga clic en el mapa o use "Mi ubicacion" para marcar el lugar del incidente
+                  Haga clic en el mapa o use "Mi ubicación" para marcar el lugar del incidente
                 </span>
               </p>
             </div>
@@ -173,47 +180,53 @@
 
           <template v-if="!form.isAnonymous">
             <!-- Nombre -->
-            <div class="entradas-de-texto-govco">
-              <label for="reporterName">Nombre completo</label>
-              <input
-                type="text"
-                id="reporterName"
-                v-model="form.reporterName"
-                placeholder="Su nombre completo"
-              />
-            </div>
+            <DesplegableGovco
+              id="reporterName"
+              v-model="form.reporterName"
+              label="Nombre completo"
+              :required="false"
+              :options="[]"
+              placeholder="Su nombre completo"
+              width="100%"
+              :is-text-input="true"
+            />
 
             <!-- Cédula -->
-            <div class="entradas-de-texto-govco">
-              <label for="reporterId">Número de cédula</label>
-              <input
-                type="text"
-                id="reporterId"
-                v-model="form.reporterId"
-                placeholder="1234567890"
-              />
-            </div>
+            <DesplegableGovco
+              id="reporterId"
+              v-model="form.reporterId"
+              label="Número de cédula"
+              :required="false"
+              :options="[]"
+              placeholder="1234567890"
+              width="100%"
+              :is-text-input="true"
+            />
 
             <!-- Teléfono -->
-            <div class="entradas-de-texto-govco">
-              <label for="reporterPhone">Teléfono de contacto</label>
-              <input
-                type="tel"
-                id="reporterPhone"
-                v-model="form.reporterPhone"
-                placeholder="3001234567"
-              />
-            </div>
+            <DesplegableGovco
+              id="reporterPhone"
+              v-model="form.reporterPhone"
+              label="Teléfono de contacto"
+              :required="false"
+              :options="[]"
+              placeholder="3001234567"
+              width="100%"
+              :is-text-input="true"
+            />
 
             <!-- Email -->
-            <div class="entradas-de-texto-govco">
-              <label for="reporterEmail">Correo electrónico</label>
-              <input
-                type="email"
-                id="reporterEmail"
-                v-model="form.reporterEmail"
-                placeholder="correo@ejemplo.com"
-              />
+            <DesplegableGovco
+              id="reporterEmail"
+              v-model="form.reporterEmail"
+              label="Correo electrónico"
+              :required="false"
+              :options="[]"
+              placeholder="correo@ejemplo.com"
+              width="100%"
+              :is-text-input="true"
+            />
+            <div class="full-width" style="margin-top: -1rem;">
               <span class="info-entradas-de-texto-govco">Para recibir notificaciones del caso</span>
             </div>
           </template>
@@ -336,6 +349,17 @@ const speciesOptions = [
   { value: 'ave', text: 'Ave' },
   { value: 'otro', text: 'Otro' },
   { value: 'desconocido', text: 'No se / Varios' }
+];
+
+const animalCountOptions = [
+  { value: 1, text: '1 animal' },
+  { value: 2, text: '2 animales' },
+  { value: 3, text: '3 animales' },
+  { value: 4, text: '4 animales' },
+  { value: 5, text: '5 animales' },
+  { value: 10, text: '6-10 animales' },
+  { value: 15, text: '11-15 animales' },
+  { value: 20, text: 'Más de 15 animales' }
 ];
 
 const form = reactive({
