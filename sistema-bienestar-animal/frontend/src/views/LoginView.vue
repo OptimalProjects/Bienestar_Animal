@@ -6,6 +6,14 @@
       <!-- Panel izquierdo - Información -->
       <div class="login-info">
         <div class="login-info-content">
+         <!-- Logo          -->
+          <div class="login-logo">
+            <img
+              src="https://cdn.www.gov.co/assets/images/logo.svg"
+              alt="GOV.CO"
+            />
+          </div>
+ 
           <h1 class="login-info-title">Sistema de Bienestar Animal</h1>
           <p class="login-info-description">
             Plataforma de gestión integral para el cuidado y protección
@@ -41,13 +49,14 @@
       <!-- Panel derecho - Formulario -->
       <div class="login-form-panel">
         <div class="login-form-container">
-          <!-- Logo -->
+          <!-- Logo 
           <div class="login-logo">
             <img
-              src="https://cdn.www.gov.co/layout/v4/images/logo-gov-co.svg"
+              src="https://cdn.www.gov.co/assets/images/logo.svg"
               alt="GOV.CO"
             />
           </div>
+          -->
 
           <!-- Títulos -->
           <h2 class="login-title h3-tipografia-govco govcolor-blue-dark">
@@ -60,6 +69,74 @@
 
           <!-- Formulario de "login" por rol -->
           <form @submit.prevent="handleLogin" class="login-form">
+            <!-- Correo electrónico -->
+            <div class="form-group-govco">
+              <label for="email" class="label-govco">
+                Correo electrónico
+                <span aria-required="true">*</span>
+              </label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                    <polyline points="22,6 12,13 2,6"></polyline>
+                  </svg>
+                </span>
+                <input
+                  type="email"
+                  id="email"
+                  v-model="email"
+                  class="input-govco input-with-icon"
+                  placeholder="ejemplo@correo.com"
+                  required
+                  :class="{ 'is-invalid': emailError }"
+                />
+              </div>
+              <span v-if="emailError" class="error-message-govco">{{ emailError }}</span>
+            </div>
+
+            <!-- Contraseña -->
+            <div class="form-group-govco">
+              <label for="password" class="label-govco">
+                Contraseña
+                <span aria-required="true">*</span>
+              </label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                </span>
+                <input
+                  :type="showPassword ? 'text' : 'password'"
+                  id="password"
+                  v-model="password"
+                  class="input-govco input-with-icon"
+                  placeholder="••••••••"
+                  required
+                  :class="{ 'is-invalid': passwordError }"
+                />
+                <button
+                  type="button"
+                  class="password-toggle"
+                  @click="showPassword = !showPassword"
+                  tabindex="-1"
+                >
+                  <svg v-if="!showPassword" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                  </svg>
+                </button>
+              </div>
+              <span v-if="passwordError" class="error-message-govco">{{ passwordError }}</span>
+            </div>
+
+            <!-- Rol -->
             <div class="form-group-govco">
               <label for="role" class="label-govco">
                 Selecciona tu rol
@@ -69,7 +146,9 @@
                 id="role"
                 v-model="selectedRole"
                 class="input-govco"
+                :class="{ 'is-invalid': roleError }"
               >
+                <option value="" disabled>Seleccionar rol...</option>
                 <option
                   v-for="opt in roleOptions"
                   :key="opt.value"
@@ -78,23 +157,42 @@
                   {{ opt.label }}
                 </option>
               </select>
-              <span class="help-text-govco">
+              <span v-if="roleError" class="error-message-govco">{{ roleError }}</span>
+              <span v-else class="help-text-govco">
                 Este selector reemplaza temporalmente el SSO (HU-024 / HU-025) para pruebas de interfaz.
               </span>
+            </div>
+
+            <!-- Opciones adicionales -->
+            <div class="form-options">
+              <div class="checkbox-wrapper">
+                <input
+                  type="checkbox"
+                  id="remember"
+                  v-model="rememberMe"
+                />
+                <label for="remember" class="checkbox-label">Recordarme</label>
+              </div>
+              <a href="#" class="forgot-password" @click.prevent="handleForgotPassword">
+                ¿Olvidaste tu contraseña?
+              </a>
             </div>
 
             <!-- Botón -->
             <button
               type="submit"
-              class="btn-govco btn-govco-primary"
+              class="btn-govco btn-govco-primary btn-block"
               :disabled="isLoading"
             >
               <span v-if="!isLoading">Ingresar</span>
-              <span v-else>Ingresando...</span>
+              <span v-else>
+                <span class="spinner"></span>
+                Ingresando...
+              </span>
             </button>
 
-            <!-- Error -->
-            <p v-if="errorMessage" class="error-message-govco mt-2">
+            <!-- Error general -->
+            <p v-if="errorMessage" class="error-message-govco mt-2" style="text-align: center;">
               {{ errorMessage }}
             </p>
           </form>
@@ -121,9 +219,19 @@ import { useRole, ROLES } from '../composables/useRol.js';
 const router = useRouter();
 const { setRole } = useRole();
 
-const selectedRole = ref(ROLES.CIUDADANO);
+// Form fields
+const email = ref('');
+const password = ref('');
+const selectedRole = ref('');
+const rememberMe = ref(false);
+const showPassword = ref(false);
+
+// Loading and errors
 const isLoading = ref(false);
 const errorMessage = ref('');
+const emailError = ref('');
+const passwordError = ref('');
+const roleError = ref('');
 
 const roleOptions = [
   { value: ROLES.CIUDADANO, label: 'Ciudadano (portal público)' },
@@ -134,33 +242,90 @@ const roleOptions = [
   { value: ROLES.DIRECTOR, label: 'Director' },
 ];
 
-async function handleLogin() {
-  errorMessage.value = '';
+// Validación de email
+function validateEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
 
+// Limpiar errores
+function clearErrors() {
+  errorMessage.value = '';
+  emailError.value = '';
+  passwordError.value = '';
+  roleError.value = '';
+}
+
+async function handleLogin() {
+  clearErrors();
+  
+  let hasError = false;
+
+  // Validar email
+  if (!email.value.trim()) {
+    emailError.value = 'El correo electrónico es obligatorio.';
+    hasError = true;
+  } else if (!validateEmail(email.value)) {
+    emailError.value = 'Ingresa un correo electrónico válido.';
+    hasError = true;
+  }
+
+  // Validar contraseña
+  if (!password.value) {
+    passwordError.value = 'La contraseña es obligatoria.';
+    hasError = true;
+  } else if (password.value.length < 6) {
+    passwordError.value = 'La contraseña debe tener al menos 6 caracteres.';
+    hasError = true;
+  }
+
+  // Validar rol
   if (!selectedRole.value) {
-    errorMessage.value = 'Selecciona un rol para continuar.';
+    roleError.value = 'Debes seleccionar un rol.';
+    hasError = true;
+  }
+
+  if (hasError) {
     return;
   }
 
   try {
     isLoading.value = true;
 
-    // Simulación de delay de login
-    await new Promise(resolve => setTimeout(resolve, 400));
+    // Simulación de delay de login (aquí iría la llamada a la API)
+    await new Promise(resolve => setTimeout(resolve, 800));
 
-    setRole(selectedRole.value);
+    // Simulación de validación de credenciales
+    // En producción, aquí se validaría contra el backend
+    if (email.value === 'demo@test.com' && password.value === 'demo123') {
+      // Login exitoso
+      setRole(selectedRole.value);
 
-    // Redirección según rol:
-    if (selectedRole.value === ROLES.CIUDADANO) {
-      router.push('/adopciones');
+      // Redirección según rol
+      if (selectedRole.value === ROLES.CIUDADANO) {
+        router.push('/adopciones');
+      } else {
+        router.push('/dashboard');
+      }
     } else {
-      router.push('/dashboard');
+      // Para el demo, aceptar cualquier credencial
+      setRole(selectedRole.value);
+      
+      if (selectedRole.value === ROLES.CIUDADANO) {
+        router.push('/adopciones');
+      } else {
+        router.push('/dashboard');
+      }
     }
   } catch (error) {
-    errorMessage.value = 'Error al iniciar sesión de prueba.';
+    errorMessage.value = 'Error al iniciar sesión. Por favor, intenta nuevamente.';
   } finally {
     isLoading.value = false;
   }
+}
+
+function handleForgotPassword() {
+  alert('Funcionalidad de recuperación de contraseña.\n\nPara el demo, usa cualquier correo y contraseña.');
 }
 </script>
 
@@ -243,6 +408,12 @@ async function handleLogin() {
 .login-logo {
   text-align: center;
   margin-bottom: 2rem;
+}
+
+.login-logo img {
+  height: 48px;
+  width: auto;
+  max-width: 100%;
 }
 
 .govco-logo {
@@ -336,6 +507,18 @@ async function handleLogin() {
   margin-top: 0.5rem;
   font-size: 0.85rem;
   color: #A80521;
+}
+
+.help-text-govco {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #666;
+  line-height: 1.4;
+}
+
+.mt-2 {
+  margin-top: 1rem;
 }
 
 /* Opciones del formulario */
