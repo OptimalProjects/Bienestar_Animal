@@ -68,37 +68,33 @@
             />
           </div>
 
-          <div class="entradas-de-texto-govco">
-            <label for="housingType">Tipo de vivienda<span>*</span></label>
-            <select
-              id="housingType"
-              v-model="form.housingType"
-              required
-            >
-              <option value="">Selecciona una opción</option>
-              <option value="casa-propia">Casa propia</option>
-              <option value="arriendo">Arriendo</option>
-              <option value="apartamento">Apartamento</option>
-              <option value="finca">Finca</option>
-            </select>
-          </div>
+          <DesplegableGovco
+            id="housingType-dropdown"
+            v-model="form.housingType"
+            label="Tipo de vivienda"
+            :options="housingOptions"
+            placeholder="Selecciona una opción"
+            :required="true"
+            width="100%"
+          />
 
-          <div class="entradas-de-texto-govco">
-            <label for="otherPets">¿Tienes otras mascotas?</label>
-            <select id="otherPets" v-model="form.otherPets">
-              <option value="">Selecciona una opción</option>
-              <option value="no">No</option>
-              <option value="si">Sí</option>
-            </select>
-          </div>
+          <DesplegableGovco
+            id="otherPets-dropdown"
+            v-model="form.otherPets"
+            label="¿Tienes otras mascotas?"
+            :options="petsOptions"
+            placeholder="Selecciona una opción"
+            width="100%"
+          />
 
           <div class="entradas-de-texto-govco full-width">
             <label for="motivation">¿Por qué quieres adoptar?<span>*</span></label>
             <textarea
               id="motivation"
               v-model="form.motivation"
-              rows="3"
+              rows="4"
               required
+              class="textarea-full"
             />
           </div>
         </div>
@@ -116,21 +112,22 @@
         </div>
 
         <div class="modal-actions">
-          <button
+          <ButtonGovco
             type="button"
-            class="govco-btn govco-btn-secondary"
+            variant="outline"
+            label="Cancelar"
+            width="auto"
             @click="$emit('close')"
-          >
-            Cancelar
-          </button>
-          <button
+          />
+          <ButtonGovco
             type="submit"
-            class="govco-btn govco-btn-primary"
+            variant="fill"
             :disabled="loading"
+            width="auto"
           >
             <span v-if="!loading">Enviar solicitud</span>
             <span v-else>Enviando...</span>
-          </button>
+          </ButtonGovco>
         </div>
       </form>
     </div>
@@ -139,6 +136,8 @@
 
 <script setup>
 import { reactive, watch } from 'vue';
+import DesplegableGovco from '../common/DesplegableGovco.vue';
+import ButtonGovco from '../common/ButtonGovCo.vue';
 
 const props = defineProps({
   animal: {
@@ -164,6 +163,19 @@ const form = reactive({
   motivation: '',
   acceptTerms: false,
 });
+
+// Opciones para los dropdowns
+const housingOptions = [
+  { value: 'casa-propia', text: 'Casa propia' },
+  { value: 'arriendo', text: 'Arriendo' },
+  { value: 'apartamento', text: 'Apartamento' },
+  { value: 'finca', text: 'Finca' }
+];
+
+const petsOptions = [
+  { value: 'no', text: 'No' },
+  { value: 'si', text: 'Sí' }
+];
 
 // Si quieres precargar nombre/email del SSO del ciudadano, aquí sería
 watch(
@@ -239,5 +251,49 @@ function onSubmit() {
   border: none;
   background: none;
   cursor: pointer;
+  font-size: 1.5rem;
+  color: #666;
+  line-height: 1;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+}
+
+.close-btn:hover {
+  color: #333;
+}
+
+/* Estilos para inputs y textarea */
+.entradas-de-texto-govco input,
+.entradas-de-texto-govco textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.textarea-full {
+  min-height: 80px;
+  resize: vertical;
+  padding: 12px;
+  border: 1px solid #dde3ea;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+.textarea-full:focus {
+  outline: none;
+  border-color: #004884;
+  box-shadow: 0 0 0 3px rgba(0, 72, 132, 0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .full-width {
+    grid-column: 1;
+  }
 }
 </style>
