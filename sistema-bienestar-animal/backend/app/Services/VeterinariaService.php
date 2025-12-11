@@ -141,27 +141,33 @@ class VeterinariaService
     public function registrarCirugia(array $data): Cirugia
     {
         return DB::transaction(function () use ($data) {
+            // Determinar la fecha de la cirugía
+            $fechaCirugia = $data['fecha_cirugia'] ?? $data['fecha_programada'] ?? now();
+
             $cirugia = Cirugia::create([
                 'historial_clinico_id' => $data['historial_clinico_id'],
-                'procedimiento_id' => $data['procedimiento_id'] ?? null,
-                'veterinario_id' => $data['veterinario_id'],
-                'fecha_cirugia' => $data['fecha_cirugia'] ?? now(),
+                'cirujano_id' => $data['veterinario_id'] ?? $data['cirujano_id'] ?? null,
+                'fecha_programada' => $fechaCirugia,
+                'fecha_realizacion' => $fechaCirugia,
                 'tipo_cirugia' => $data['tipo_cirugia'],
-                'descripcion' => $data['descripcion'],
-                'anestesia_utilizada' => $data['anestesia_utilizada'] ?? null,
-                'duracion_minutos' => $data['duracion_minutos'] ?? null,
+                'descripcion' => $data['descripcion'] ?? null,
+                'tipo_anestesia' => $data['anestesia_utilizada'] ?? $data['tipo_anestesia'] ?? null,
+                'duracion' => $data['duracion_minutos'] ?? $data['duracion'] ?? null,
                 'complicaciones' => $data['complicaciones'] ?? null,
                 'resultado' => $data['resultado'] ?? 'exitosa',
-                'notas_postoperatorias' => $data['notas_postoperatorias'] ?? null,
+                'postoperatorio' => $data['notas_postoperatorias'] ?? $data['postoperatorio'] ?? null,
+                'estado' => 'realizada',
             ]);
 
             // Actualizar estado del animal si se especifica
             if (!empty($data['estado_animal'])) {
                 $historial = HistorialClinico::find($data['historial_clinico_id']);
-                $historial->animal->update(['estado' => $data['estado_animal']]);
+                if ($historial && $historial->animal) {
+                    $historial->animal->update(['estado' => $data['estado_animal']]);
+                }
             }
 
-            return $cirugia->fresh(['procedimiento', 'veterinario.usuario']);
+            return $cirugia->fresh(['cirujano.usuario', 'historialClinico.animal']);
         });
     }
 
@@ -173,8 +179,8 @@ class VeterinariaService
         $historial = HistorialClinico::where('animal_id', $animalId)->firstOrFail();
 
         return Cirugia::where('historial_clinico_id', $historial->id)
-            ->with(['procedimiento', 'veterinario.usuario'])
-            ->orderBy('fecha_cirugia', 'desc')
+            ->with(['cirujano.usuario'])
+            ->orderBy('fecha_realizacion', 'desc')
             ->get();
     }
 
@@ -186,7 +192,7 @@ class VeterinariaService
         $consultaStats = $this->consultaRepository->getEstadisticas();
 
         $vacunasHoy = Vacuna::whereDate('fecha_aplicacion', now())->count();
-        $cirugiasHoy = Cirugia::whereDate('fecha_cirugia', now())->count();
+        $cirugiasHoy = Cirugia::whereDate('fecha_realizacion', now())->count();
 
         return array_merge($consultaStats, [
             'vacunas_hoy' => $vacunasHoy,
@@ -207,8 +213,8 @@ class VeterinariaService
                 'consultas.tratamientos',
                 'vacunas' => fn($q) => $q->orderBy('fecha_aplicacion', 'desc'),
                 'vacunas.tipoVacuna',
-                'cirugias' => fn($q) => $q->orderBy('fecha_cirugia', 'desc'),
-                'cirugias.veterinario.usuario',
+                'cirugias' => fn($q) => $q->orderBy('fecha_realizacion', 'desc'),
+                'cirugias.cirujano.usuario',
                 'examenes' => fn($q) => $q->orderBy('fecha_examen', 'desc'),
             ])
             ->firstOrFail();

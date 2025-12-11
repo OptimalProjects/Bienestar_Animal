@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\BaseController;
 use App\Services\VeterinariaService;
 use App\Models\Veterinaria\Vacuna;
 use App\Models\Veterinaria\TipoVacuna;
+use App\Models\Veterinaria\Veterinario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -22,13 +23,13 @@ class VacunaController extends BaseController
     public function tiposVacuna()
     {
         try {
-            $tipos = TipoVacuna::activas()
+            $tipos = TipoVacuna::activos()
                 ->orderBy('nombre')
                 ->get(['id', 'codigo', 'nombre', 'especie_aplicable', 'intervalo_dosis']);
 
             return $this->successResponse($tipos);
         } catch (\Exception $e) {
-            return $this->serverErrorResponse('Error al obtener tipos de vacuna');
+            return $this->serverErrorResponse('Error al obtener tipos de vacuna: ' . $e->getMessage());
         }
     }
 
@@ -143,6 +144,23 @@ class VacunaController extends BaseController
             return $this->successResponse($vacunas);
         } catch (\Exception $e) {
             return $this->serverErrorResponse('Error al obtener vacunas proximas');
+        }
+    }
+
+    /**
+     * Listar veterinarios disponibles.
+     * GET /api/v1/vacunas/veterinarios
+     */
+    public function veterinarios()
+    {
+        try {
+            $veterinarios = Veterinario::activos()
+                ->orderBy('nombres')
+                ->get(['id', 'nombres', 'apellidos', 'numero_tarjeta_profesional', 'especialidad']);
+
+            return $this->successResponse($veterinarios);
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Error al obtener veterinarios: ' . $e->getMessage());
         }
     }
 }

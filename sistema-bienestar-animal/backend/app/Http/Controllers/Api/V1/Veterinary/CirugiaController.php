@@ -39,7 +39,7 @@ class CirugiaController extends BaseController
     public function index(Request $request)
     {
         try {
-            $query = Cirugia::with(['procedimiento', 'veterinario.usuario', 'historialClinico.animal']);
+            $query = Cirugia::with(['cirujano.usuario', 'historialClinico.animal']);
 
             if ($request->has('animal_id')) {
                 $query->whereHas('historialClinico', function ($q) use ($request) {
@@ -52,14 +52,14 @@ class CirugiaController extends BaseController
             }
 
             if ($request->has('fecha_desde')) {
-                $query->whereDate('fecha_cirugia', '>=', $request->fecha_desde);
+                $query->whereDate('fecha_realizacion', '>=', $request->fecha_desde);
             }
 
             if ($request->has('fecha_hasta')) {
-                $query->whereDate('fecha_cirugia', '<=', $request->fecha_hasta);
+                $query->whereDate('fecha_realizacion', '<=', $request->fecha_hasta);
             }
 
-            $cirugias = $query->orderBy('fecha_cirugia', 'desc')
+            $cirugias = $query->orderBy('fecha_realizacion', 'desc')
                 ->paginate($request->get('per_page', 15));
 
             return $this->successResponse($cirugias);
@@ -90,11 +90,10 @@ class CirugiaController extends BaseController
     {
         $validator = Validator::make($request->all(), [
             'historial_clinico_id' => 'required|exists:historiales_clinicos,id',
-            'procedimiento_id' => 'nullable|exists:procedimientos,id',
-            'veterinario_id' => 'required|exists:veterinarios,id',
+            'veterinario_id' => 'nullable|exists:veterinarios,id',
             'fecha_cirugia' => 'nullable|date',
             'tipo_cirugia' => 'required|in:esterilizacion,castracion,ortopedica,abdominal,oftalmologica,dental,oncologica,emergencia,otra',
-            'descripcion' => 'required|string',
+            'descripcion' => 'nullable|string',
             'anestesia_utilizada' => 'nullable|string|max:200',
             'duracion_minutos' => 'nullable|integer|min:1',
             'complicaciones' => 'nullable|string',
@@ -122,7 +121,7 @@ class CirugiaController extends BaseController
     public function show(string $id)
     {
         try {
-            $cirugia = Cirugia::with(['procedimiento', 'veterinario.usuario', 'historialClinico.animal'])
+            $cirugia = Cirugia::with(['cirujano.usuario', 'historialClinico.animal'])
                 ->findOrFail($id);
 
             return $this->successResponse($cirugia);
@@ -169,12 +168,12 @@ class CirugiaController extends BaseController
     {
         try {
             $stats = [
-                'total_mes' => Cirugia::where('fecha_cirugia', '>=', now()->startOfMonth())->count(),
+                'total_mes' => Cirugia::where('fecha_realizacion', '>=', now()->startOfMonth())->count(),
                 'esterilizaciones_mes' => Cirugia::where('tipo_cirugia', 'esterilizacion')
-                    ->where('fecha_cirugia', '>=', now()->startOfMonth())
+                    ->where('fecha_realizacion', '>=', now()->startOfMonth())
                     ->count(),
                 'por_tipo' => Cirugia::selectRaw('tipo_cirugia, count(*) as cantidad')
-                    ->where('fecha_cirugia', '>=', now()->startOfMonth())
+                    ->where('fecha_realizacion', '>=', now()->startOfMonth())
                     ->groupBy('tipo_cirugia')
                     ->pluck('cantidad', 'tipo_cirugia'),
                 'tasa_exito' => $this->calcularTasaExito(),
@@ -191,14 +190,14 @@ class CirugiaController extends BaseController
      */
     protected function calcularTasaExito(): float
     {
-        $total = Cirugia::where('fecha_cirugia', '>=', now()->subMonths(3))->count();
+        $total = Cirugia::where('fecha_realizacion', '>=', now()->subMonths(3))->count();
 
         if ($total === 0) {
             return 100;
         }
 
         $exitosas = Cirugia::where('resultado', 'exitosa')
-            ->where('fecha_cirugia', '>=', now()->subMonths(3))
+            ->where('fecha_realizacion', '>=', now()->subMonths(3))
             ->count();
 
         return round(($exitosas / $total) * 100, 1);

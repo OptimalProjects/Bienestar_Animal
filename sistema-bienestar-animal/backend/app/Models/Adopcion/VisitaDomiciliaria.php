@@ -68,6 +68,14 @@ class VisitaDomiciliaria extends Model
     }
 
     /**
+     * Alias: Funcionario (para compatibilidad con repositorios).
+     */
+    public function funcionario(): BelongsTo
+    {
+        return $this->visitador();
+    }
+
+    /**
      * Scope: Visitas pre-adopcion.
      */
     public function scopePreAdopcion($query)

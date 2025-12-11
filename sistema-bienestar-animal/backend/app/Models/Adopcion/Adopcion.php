@@ -75,6 +75,14 @@ class Adopcion extends Model
     }
 
     /**
+     * Alias: Visitas (para compatibilidad con repositorios).
+     */
+    public function visitas(): HasMany
+    {
+        return $this->visitasDomiciliarias();
+    }
+
+    /**
      * Obtener visita pre-adopcion.
      */
     public function visitaPreAdopcion()

@@ -19,7 +19,11 @@
       "Bash(python3:*)",
       "Bash(npm install)",
       "Bash(docker ps:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(TOKEN=\"7|DWVa6zodXPNIFkgjzyeEK5mjFXVNQIF64XpoaTHuf71997f6\" curl -s -H \"Accept: application/json\" -H \"Authorization: Bearer $TOKEN\" \"http://localhost/api/v1/vacunas/tipos\")",
+      "Bash(TOKEN=\"20|tYw6850zK9ocfWFCWW3bh5Rn3hcgdIAzgi2z87Vh7f78503c\" curl -s -H \"Accept: application/json\" -H \"Authorization: Bearer $TOKEN\" \"http://localhost/api/v1/vacunas/tipos\")",
+      "Bash(TOKEN=\"7|DWVa6zodXPNIFkgjzyeEK5mjFXVNQIF64XpoaTHuf71997f6\" curl -s -H \"Accept: application/json\" -H \"Authorization: Bearer $TOKEN\" \"http://localhost/api/v1/adopciones?estado=aprobada\")",
+      "Bash(TOKEN=\"21|r6QOlexOHIqIeQ5zBzrKDqV1y2LvdwTFWcy4wT7M798f7c29\" curl -s -H \"Accept: application/json\" -H \"Authorization: Bearer $TOKEN\" \"http://localhost/api/v1/adopciones?estado=aprobada\")"
     ]
   }
 }

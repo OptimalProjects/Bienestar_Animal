@@ -2,6 +2,17 @@
 <!-- HU-020: Visualizar Dashboard Ejecutivo con KPIs -->
 <template>
   <section class="executive-dashboard">
+    <!-- Loading state -->
+    <div v-if="loading" class="loading-overlay">
+      <div class="loading-spinner">Cargando dashboard...</div>
+    </div>
+
+    <!-- Error state -->
+    <div v-if="error" class="error-banner">
+      {{ error }}
+      <button @click="loadDashboard" class="retry-btn">Reintentar</button>
+    </div>
+
     <div class="dashboard-header">
       <div class="header-left">
         <h2 class="h3-tipografia-govco">Dashboard Ejecutivo</h2>
@@ -198,50 +209,60 @@
         </div>
         <div class="chart-container" ref="speciesChart">
           <div class="mock-chart horizontal-bar">
-            <div class="h-bar-row">
-              <span class="h-bar-label">Perros</span>
+            <div v-for="especie in speciesData" :key="especie.label" class="h-bar-row">
+              <span class="h-bar-label">{{ especie.label }}</span>
               <div class="h-bar-container">
-                <div class="h-bar-fill" style="width: 65%; background: #3366CC"></div>
+                <div class="h-bar-fill" :style="{ width: especie.porcentaje + '%', background: especie.color }"></div>
               </div>
-              <span class="h-bar-value">1,250</span>
+              <span class="h-bar-value">{{ especie.cantidad.toLocaleString() }}</span>
             </div>
-            <div class="h-bar-row">
-              <span class="h-bar-label">Gatos</span>
-              <div class="h-bar-container">
-                <div class="h-bar-fill" style="width: 45%; background: #068460"></div>
-              </div>
-              <span class="h-bar-value">867</span>
-            </div>
-            <div class="h-bar-row">
-              <span class="h-bar-label">Equinos</span>
-              <div class="h-bar-container">
-                <div class="h-bar-fill" style="width: 15%; background: #FFAB00"></div>
-              </div>
-              <span class="h-bar-value">145</span>
-            </div>
-            <div class="h-bar-row">
-              <span class="h-bar-label">Otros</span>
-              <div class="h-bar-container">
-                <div class="h-bar-fill" style="width: 8%; background: #737373"></div>
-              </div>
-              <span class="h-bar-value">62</span>
+            <div v-if="speciesData.length === 0" class="no-data">
+              Sin datos de especies
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ALERTAS Y NOTIFICACIONES -->
-    <div class="alerts-section">
-      <h3 class="h5-tipografia-govco">Alertas del Sistema</h3>
-      <div class="alerts-list">
-        <div v-for="alert in alerts" :key="alert.id" class="alert-item" :class="`alert-${alert.type}`">
-          <span class="alert-icon">{{ getAlertIcon(alert.type) }}</span>
-          <div class="alert-content">
-            <span class="alert-title">{{ alert.title }}</span>
-            <span class="alert-description">{{ alert.description }}</span>
+    <!-- DENUNCIAS RECIENTES Y ALERTAS -->
+    <div class="bottom-grid">
+      <!-- Denuncias Recientes -->
+      <div class="recent-section">
+        <h3 class="h5-tipografia-govco">Denuncias Recientes</h3>
+        <div class="recent-list">
+          <div v-if="denunciasRecientes.length === 0" class="no-data">
+            No hay denuncias recientes
           </div>
-          <span class="alert-time">{{ alert.time }}</span>
+          <div v-for="denuncia in denunciasRecientes" :key="denuncia.id" class="recent-item">
+            <div class="recent-icon" :class="`priority-${denuncia.prioridad || 'media'}`">
+              {{ getDenunciaIcon(denuncia.tipo_denuncia) }}
+            </div>
+            <div class="recent-content">
+              <span class="recent-title">{{ formatTipoDenuncia(denuncia.tipo_denuncia) }}</span>
+              <span class="recent-subtitle">{{ denuncia.direccion || 'Sin dirección' }}</span>
+            </div>
+            <div class="recent-meta">
+              <span class="recent-status" :class="`status-${denuncia.estado}`">
+                {{ formatEstadoDenuncia(denuncia.estado) }}
+              </span>
+              <span class="recent-date">{{ formatDate(denuncia.created_at) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alertas del Sistema -->
+      <div class="alerts-section">
+        <h3 class="h5-tipografia-govco">Alertas del Sistema</h3>
+        <div class="alerts-list">
+          <div v-for="alert in alerts" :key="alert.id" class="alert-item" :class="`alert-${alert.type}`">
+            <span class="alert-icon">{{ getAlertIcon(alert.type) }}</span>
+            <div class="alert-content">
+              <span class="alert-title">{{ alert.title }}</span>
+              <span class="alert-description">{{ alert.description }}</span>
+            </div>
+            <span class="alert-time">{{ alert.time }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -249,60 +270,226 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
+import reportService from '@/services/reportService';
 
 const dateRange = ref('month');
 const customStart = ref('');
 const customEnd = ref('');
 const lastUpdate = ref('');
+const loading = ref(true);
+const error = ref(null);
 
-// Auto-refresh cada 30 segundos
+// Auto-refresh cada 60 segundos
 let refreshInterval = null;
 
-// KPIs
-const kpis = ref({
-  totalAnimals: 2324,
-  animalsTrend: 8.5,
-  adoptionsMonth: 47,
-  adoptionsTrend: 12.3,
-  activeComplaints: 23,
-  criticalComplaints: 5,
-  vaccinationRate: 85,
-  vaccinationsMonth: 312,
-  rescuesMonth: 18,
-  sterilizations: 89,
-  pendingAdoptions: 156,
-  avgResponseTime: 4.2
+// Dashboard data from backend
+const dashboardData = ref(null);
+
+// Denuncias recientes
+const denunciasRecientes = ref([]);
+
+// KPIs computed from backend data
+const kpis = computed(() => {
+  if (!dashboardData.value) {
+    return {
+      totalAnimals: 0,
+      animalsTrend: 0,
+      adoptionsMonth: 0,
+      adoptionsTrend: 0,
+      activeComplaints: 0,
+      criticalComplaints: 0,
+      vaccinationRate: 0,
+      vaccinationsMonth: 0,
+      rescuesMonth: 0,
+      sterilizations: 0,
+      pendingAdoptions: 0,
+      avgResponseTime: 0
+    };
+  }
+
+  const { animales, adopciones, denuncias, veterinaria } = dashboardData.value;
+
+  // Calcular tasa de vacunación (vacunas del mes / animales en refugio * 100)
+  const vaccinationRate = animales.en_refugio > 0
+    ? Math.round((veterinaria.vacunas_mes / animales.en_refugio) * 100)
+    : 0;
+
+  return {
+    totalAnimals: animales.total || 0,
+    animalsTrend: animales.ingresos_mes > 0 ? ((animales.ingresos_mes / animales.total) * 100).toFixed(1) : 0,
+    adoptionsMonth: adopciones.aprobadas_mes || 0,
+    adoptionsTrend: adopciones.tasa_aprobacion || 0,
+    activeComplaints: denuncias.pendientes || 0,
+    criticalComplaints: denuncias.urgentes || 0,
+    vaccinationRate: Math.min(vaccinationRate, 100),
+    vaccinationsMonth: veterinaria.vacunas_mes || 0,
+    rescuesMonth: animales.ingresos_mes || 0,
+    sterilizations: veterinaria.esterilizaciones_mes || 0,
+    pendingAdoptions: adopciones.pendientes || 0,
+    avgResponseTime: 4.2 // TODO: Calcular desde backend
+  };
 });
 
-// Datos para graficos
-const months = ['Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-const adoptionsData = ref([45, 52, 38, 61, 55, 70]);
-
-// Alertas
-const alerts = ref([
-  {
-    id: 1,
-    type: 'critical',
-    title: '5 denuncias criticas sin asignar',
-    description: 'Requieren atención inmediata',
-    time: 'Hace 15 min'
-  },
-  {
-    id: 2,
-    type: 'warning',
-    title: 'Stock bajo de vacuna antirrabica',
-    description: 'Quedan 45 dosis disponibles',
-    time: 'Hace 2 horas'
-  },
-  {
-    id: 3,
-    type: 'info',
-    title: 'Campaña de vacunación programada',
-    description: 'Barrio El Centro - Sabado 30 Nov',
-    time: 'Hace 1 dia'
+// Datos para graficos - obtenidos de tendencias
+const months = computed(() => {
+  if (!dashboardData.value?.tendencias?.adopciones) {
+    return ['Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
   }
-]);
+  return dashboardData.value.tendencias.adopciones.map(t => t.mes.split(' ')[0]);
+});
+
+const adoptionsData = computed(() => {
+  if (!dashboardData.value?.tendencias?.adopciones) {
+    return [0, 0, 0, 0, 0, 0];
+  }
+  const data = dashboardData.value.tendencias.adopciones.map(t => t.cantidad);
+  const max = Math.max(...data, 1);
+  return data.map(v => (v / max) * 100); // Normalizar a porcentaje para altura de barras
+});
+
+// Datos para gráfico de especies
+const speciesData = computed(() => {
+  if (!dashboardData.value?.animales?.por_especie) {
+    return [];
+  }
+  const especies = dashboardData.value.animales.por_especie;
+  const total = Object.values(especies).reduce((a, b) => a + b, 0);
+
+  const colors = {
+    perro: '#3366CC',
+    gato: '#068460',
+    equino: '#FFAB00',
+    otro: '#737373'
+  };
+
+  return Object.entries(especies).map(([especie, cantidad]) => ({
+    label: especie.charAt(0).toUpperCase() + especie.slice(1),
+    cantidad,
+    porcentaje: total > 0 ? Math.round((cantidad / total) * 100) : 0,
+    color: colors[especie] || '#737373'
+  })).sort((a, b) => b.cantidad - a.cantidad);
+});
+
+// Datos para gráfico de denuncias
+const complaintsData = computed(() => {
+  if (!dashboardData.value?.denuncias?.por_tipo) {
+    return [];
+  }
+  const tipos = dashboardData.value.denuncias.por_tipo;
+  const total = Object.values(tipos).reduce((a, b) => a + b, 0);
+
+  const colors = {
+    maltrato: '#A80521',
+    abandono: '#FFAB00',
+    negligencia: '#3366CC',
+    otros: '#068460'
+  };
+
+  return Object.entries(tipos).map(([tipo, cantidad]) => ({
+    label: tipo.charAt(0).toUpperCase() + tipo.slice(1),
+    cantidad,
+    porcentaje: total > 0 ? Math.round((cantidad / total) * 100) : 0,
+    color: colors[tipo] || '#737373'
+  }));
+});
+
+// Alertas dinámicas basadas en datos
+const alerts = computed(() => {
+  const alertsList = [];
+  let alertId = 1;
+
+  if (dashboardData.value) {
+    const { denuncias, veterinaria, adopciones, animales } = dashboardData.value;
+
+    // Alertas críticas (prioridad más alta)
+    if (denuncias?.urgentes > 0) {
+      alertsList.push({
+        id: alertId++,
+        type: 'critical',
+        title: `${denuncias.urgentes} denuncia(s) urgente(s)`,
+        description: 'Requieren atención inmediata (SLA < 4 horas)',
+        time: 'Ahora'
+      });
+    }
+
+    if (denuncias?.sin_asignar > 0) {
+      alertsList.push({
+        id: alertId++,
+        type: 'critical',
+        title: `${denuncias.sin_asignar} denuncia(s) sin asignar`,
+        description: 'Requieren asignación de funcionario',
+        time: 'Ahora'
+      });
+    }
+
+    // Alertas de advertencia
+    if (adopciones?.pendientes > 5) {
+      alertsList.push({
+        id: alertId++,
+        type: 'warning',
+        title: `${adopciones.pendientes} solicitudes de adopción pendientes`,
+        description: 'Esperando evaluación',
+        time: 'Ahora'
+      });
+    }
+
+    if (denuncias?.pendientes > 10) {
+      alertsList.push({
+        id: alertId++,
+        type: 'warning',
+        title: `${denuncias.pendientes} denuncias pendientes`,
+        description: 'Acumulación de casos por resolver',
+        time: 'Ahora'
+      });
+    }
+
+    // Alertas informativas
+    if (veterinaria?.consultas_hoy === 0) {
+      alertsList.push({
+        id: alertId++,
+        type: 'info',
+        title: 'Sin consultas veterinarias hoy',
+        description: 'Día disponible para programar citas',
+        time: 'Hoy'
+      });
+    }
+
+    if (animales?.ingresos_mes > 0) {
+      alertsList.push({
+        id: alertId++,
+        type: 'info',
+        title: `${animales.ingresos_mes} nuevo(s) ingreso(s) este mes`,
+        description: 'Animales registrados recientemente',
+        time: 'Este mes'
+      });
+    }
+
+    if (veterinaria?.esterilizaciones_mes > 0) {
+      alertsList.push({
+        id: alertId++,
+        type: 'info',
+        title: `${veterinaria.esterilizaciones_mes} esterilización(es) realizadas`,
+        description: 'Procedimientos completados este mes',
+        time: 'Este mes'
+      });
+    }
+  }
+
+  // Si no hay alertas dinámicas, mostrar mensaje informativo
+  if (alertsList.length === 0) {
+    alertsList.push({
+      id: 0,
+      type: 'info',
+      title: 'Sistema operando normalmente',
+      description: 'No hay alertas pendientes',
+      time: 'Ahora'
+    });
+  }
+
+  // Limitar a las 5 alertas más importantes
+  return alertsList.slice(0, 5);
+});
 
 // Helpers
 function getTrendClass(trend) {
@@ -323,6 +510,64 @@ function getAlertIcon(type) {
   return icons[type] || 'ℹ️';
 }
 
+function getDenunciaIcon(tipo) {
+  const icons = {
+    maltrato: '🔴',
+    abandono: '🟠',
+    animal_herido: '🏥',
+    animal_peligroso: '⚠️',
+    negligencia: '⚡',
+    otro: '📋'
+  };
+  return icons[tipo] || '📋';
+}
+
+function formatTipoDenuncia(tipo) {
+  const labels = {
+    maltrato: 'Maltrato Animal',
+    abandono: 'Abandono',
+    animal_herido: 'Animal Herido',
+    animal_peligroso: 'Animal Peligroso',
+    negligencia: 'Negligencia',
+    otro: 'Otro'
+  };
+  return labels[tipo] || tipo || 'Sin tipo';
+}
+
+function formatEstadoDenuncia(estado) {
+  const labels = {
+    recibida: 'Recibida',
+    en_proceso: 'En proceso',
+    en_revision: 'En revisión',
+    asignada: 'Asignada',
+    en_atencion: 'En atención',
+    resuelta: 'Resuelta',
+    cerrada: 'Cerrada',
+    desestimada: 'Desestimada'
+  };
+  return labels[estado] || estado || 'Sin estado';
+}
+
+function formatDate(dateString) {
+  if (!dateString) return '';
+  try {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now - date;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+
+    if (hours < 1) return 'Hace menos de 1 hora';
+    if (hours < 24) return `Hace ${hours} hora${hours > 1 ? 's' : ''}`;
+
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `Hace ${days} día${days > 1 ? 's' : ''}`;
+
+    return date.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch {
+    return dateString;
+  }
+}
+
 function updateLastUpdate() {
   const now = new Date();
   lastUpdate.value = now.toLocaleTimeString('es-CO', {
@@ -332,21 +577,71 @@ function updateLastUpdate() {
 }
 
 function exportChart(chartName) {
-  // Simular exportacion
-  alert(`Exportando grafico "${chartName}" como PNG...`);
+  console.log(`Exportando gráfico "${chartName}" como PNG...`);
+  // TODO: Implementar exportación real con html2canvas
 }
 
-function refreshData() {
-  // Simular actualizacion de datos
-  kpis.value.activeComplaints = Math.floor(Math.random() * 10) + 20;
-  kpis.value.adoptionsMonth = Math.floor(Math.random() * 20) + 40;
-  updateLastUpdate();
+async function loadDashboard() {
+  loading.value = true;
+  error.value = null;
+  try {
+    // Cargar datos del dashboard y denuncias recientes en paralelo
+    const [dashboardResponse, denunciasResponse] = await Promise.allSettled([
+      reportService.getDashboard(),
+      reportService.getDenunciasRecientes(5)
+    ]);
+
+    // Procesar respuesta del dashboard
+    if (dashboardResponse.status === 'fulfilled') {
+      dashboardData.value = dashboardResponse.value.data || dashboardResponse.value;
+    }
+
+    // Procesar denuncias recientes
+    if (denunciasResponse.status === 'fulfilled') {
+      const responseData = denunciasResponse.value;
+      // La respuesta puede ser: { success, data: { data: [...] } } (paginado) o { success, data: [...] } (array directo)
+      let denunciasArray = [];
+
+      if (responseData?.data?.data && Array.isArray(responseData.data.data)) {
+        // Formato paginado: { data: { data: [...], current_page, ... } }
+        denunciasArray = responseData.data.data;
+      } else if (Array.isArray(responseData?.data)) {
+        // Formato array directo: { data: [...] }
+        denunciasArray = responseData.data;
+      } else if (Array.isArray(responseData)) {
+        // Array directo sin wrapper
+        denunciasArray = responseData;
+      }
+
+      // Mapear campos del backend al formato esperado por el template
+      denunciasRecientes.value = denunciasArray.map(denuncia => ({
+        id: denuncia.id,
+        tipo_denuncia: denuncia.tipo_denuncia,
+        prioridad: denuncia.prioridad,
+        estado: denuncia.estado,
+        direccion: denuncia.ubicacion || denuncia.direccion,
+        created_at: denuncia.created_at || denuncia.fecha_denuncia,
+        numero_ticket: denuncia.numero_ticket
+      }));
+    }
+
+    updateLastUpdate();
+  } catch (err) {
+    console.error('Error al cargar dashboard:', err);
+    error.value = 'Error al cargar los datos del dashboard';
+  } finally {
+    loading.value = false;
+  }
 }
 
-onMounted(() => {
-  updateLastUpdate();
-  // Auto-refresh cada 30 segundos
-  refreshInterval = setInterval(refreshData, 30000);
+async function refreshData() {
+  await loadDashboard();
+}
+
+onMounted(async () => {
+  await loadDashboard();
+  // Auto-refresh cada 60 segundos
+  refreshInterval = setInterval(refreshData, 60000);
 });
 
 onBeforeUnmount(() => {
@@ -790,6 +1085,106 @@ onBeforeUnmount(() => {
   color: #004884;
 }
 
+/* Bottom Grid - Denuncias y Alertas */
+.bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+/* Recent Section (Denuncias Recientes) */
+.recent-section {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.recent-section h3 {
+  margin: 0 0 1rem 0;
+  color: #004884;
+}
+
+.recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.recent-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  background: #f9f9f9;
+  border-left: 4px solid #D0D0D0;
+  transition: all 0.2s;
+}
+
+.recent-item:hover {
+  background: #f0f0f0;
+}
+
+.recent-icon {
+  font-size: 1.5rem;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #f0f0f0;
+}
+
+.recent-icon.priority-urgente,
+.recent-icon.priority-alta { background: #FFEBEE; }
+.recent-icon.priority-media { background: #FFF8E1; }
+.recent-icon.priority-baja { background: #E8F5E9; }
+
+.recent-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.recent-title {
+  font-weight: 600;
+  color: #333;
+}
+
+.recent-subtitle {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.recent-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.recent-status {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.recent-status.status-recibida,
+.recent-status.status-en_proceso { background: #FFF8E1; color: #F57C00; }
+.recent-status.status-asignada,
+.recent-status.status-en_atencion { background: #E8F0FE; color: #3366CC; }
+.recent-status.status-resuelta,
+.recent-status.status-cerrada { background: #E8F5E9; color: #2E7D32; }
+.recent-status.status-desestimada { background: #f0f0f0; color: #666; }
+
+.recent-date {
+  font-size: 0.75rem;
+  color: #999;
+}
+
 /* Alerts Section */
 .alerts-section {
   background: white;
@@ -873,6 +1268,10 @@ onBeforeUnmount(() => {
   .charts-grid {
     grid-template-columns: 1fr;
   }
+
+  .bottom-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
@@ -902,5 +1301,52 @@ onBeforeUnmount(() => {
     flex-direction: column;
     gap: 1rem;
   }
+}
+
+/* Loading and Error states */
+.loading-overlay {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.8);
+  margin-bottom: 1rem;
+  border-radius: 8px;
+}
+
+.loading-spinner {
+  font-size: 1.2rem;
+  color: #004884;
+}
+
+.error-banner {
+  background: #f8d7da;
+  color: #842029;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.retry-btn {
+  padding: 0.5rem 1rem;
+  background: #842029;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.retry-btn:hover {
+  background: #6a1a23;
+}
+
+.no-data {
+  text-align: center;
+  color: #666;
+  padding: 2rem;
+  font-style: italic;
 }
 </style>

@@ -60,10 +60,10 @@ class ReporteService
         return [
             'pendientes' => Adopcion::pendientes()->count(),
             'aprobadas_mes' => Adopcion::where('estado', 'aprobada')
-                ->where('fecha_evaluacion', '>=', $inicioMes)
+                ->where('fecha_aprobacion', '>=', $inicioMes)
                 ->count(),
             'rechazadas_mes' => Adopcion::where('estado', 'rechazada')
-                ->where('fecha_evaluacion', '>=', $inicioMes)
+                ->where('updated_at', '>=', $inicioMes)
                 ->count(),
             'tasa_aprobacion' => $this->calcularTasaAprobacion(),
         ];
@@ -97,12 +97,12 @@ class ReporteService
         $hoy = now()->toDateString();
 
         return [
-            'consultas_hoy' => Consulta::delDia()->count(),
+            'consultas_hoy' => Consulta::deHoy()->count(),
             'consultas_mes' => Consulta::where('fecha_consulta', '>=', now()->startOfMonth())->count(),
             'vacunas_mes' => Vacuna::where('fecha_aplicacion', '>=', now()->startOfMonth())->count(),
-            'cirugias_mes' => Cirugia::where('fecha_cirugia', '>=', now()->startOfMonth())->count(),
+            'cirugias_mes' => Cirugia::where('fecha_realizacion', '>=', now()->startOfMonth())->count(),
             'esterilizaciones_mes' => Cirugia::where('tipo_cirugia', 'esterilizacion')
-                ->where('fecha_cirugia', '>=', now()->startOfMonth())
+                ->where('fecha_realizacion', '>=', now()->startOfMonth())
                 ->count(),
         ];
     }
@@ -123,7 +123,7 @@ class ReporteService
 
         return [
             'ingresos_animales' => $this->getTendenciaPorMes(Animal::class, 'created_at', $meses),
-            'adopciones' => $this->getTendenciaPorMes(Adopcion::class, 'fecha_evaluacion', $meses, ['estado' => 'aprobada']),
+            'adopciones' => $this->getTendenciaPorMes(Adopcion::class, 'fecha_aprobacion', $meses, ['estado' => 'aprobada']),
             'denuncias' => $this->getTendenciaPorMes(Denuncia::class, 'created_at', $meses),
             'consultas' => $this->getTendenciaPorMes(Consulta::class, 'fecha_consulta', $meses),
         ];
@@ -155,7 +155,7 @@ class ReporteService
     protected function calcularTasaAprobacion(): float
     {
         $total = Adopcion::whereIn('estado', ['aprobada', 'rechazada'])
-            ->where('fecha_evaluacion', '>=', now()->subMonths(3))
+            ->where('updated_at', '>=', now()->subMonths(3))
             ->count();
 
         if ($total === 0) {
@@ -163,7 +163,7 @@ class ReporteService
         }
 
         $aprobadas = Adopcion::where('estado', 'aprobada')
-            ->where('fecha_evaluacion', '>=', now()->subMonths(3))
+            ->where('fecha_aprobacion', '>=', now()->subMonths(3))
             ->count();
 
         return round(($aprobadas / $total) * 100, 1);
@@ -229,10 +229,10 @@ class ReporteService
             'adopciones' => [
                 'solicitudes' => Adopcion::whereBetween('fecha_solicitud', [$fechaInicio, $fechaFin])->count(),
                 'aprobadas' => Adopcion::where('estado', 'aprobada')
-                    ->whereBetween('fecha_evaluacion', [$fechaInicio, $fechaFin])
+                    ->whereBetween('fecha_aprobacion', [$fechaInicio, $fechaFin])
                     ->count(),
                 'rechazadas' => Adopcion::where('estado', 'rechazada')
-                    ->whereBetween('fecha_evaluacion', [$fechaInicio, $fechaFin])
+                    ->whereBetween('updated_at', [$fechaInicio, $fechaFin])
                     ->count(),
             ],
             'denuncias' => [
@@ -249,7 +249,7 @@ class ReporteService
             'veterinaria' => [
                 'consultas' => Consulta::whereBetween('fecha_consulta', [$fechaInicio, $fechaFin])->count(),
                 'vacunas' => Vacuna::whereBetween('fecha_aplicacion', [$fechaInicio, $fechaFin])->count(),
-                'cirugias' => Cirugia::whereBetween('fecha_cirugia', [$fechaInicio, $fechaFin])->count(),
+                'cirugias' => Cirugia::whereBetween('fecha_realizacion', [$fechaInicio, $fechaFin])->count(),
             ],
             'generado_en' => now()->toDateTimeString(),
         ];

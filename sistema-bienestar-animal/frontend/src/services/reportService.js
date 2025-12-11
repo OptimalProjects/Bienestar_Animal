@@ -37,7 +37,7 @@ export const reportService = {
     const response = await api.get('/denuncias', {
       params: {
         per_page: limit,
-        order_by: 'fecha_recepcion',
+        order_by: 'created_at',
         order: 'desc'
       }
     });

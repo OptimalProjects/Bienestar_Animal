@@ -92,6 +92,7 @@ Route::prefix('v1')->group(function () {
 
         Route::prefix('vacunas')->group(function () {
             Route::get('/tipos', [VacunaController::class, 'tiposVacuna']);
+            Route::get('/veterinarios', [VacunaController::class, 'veterinarios']);
             Route::get('/proximas', [VacunaController::class, 'proximasVacunas']);
             Route::get('/animal/{animalId}', [VacunaController::class, 'vacunasAnimal']);
             Route::get('/', [VacunaController::class, 'index']);

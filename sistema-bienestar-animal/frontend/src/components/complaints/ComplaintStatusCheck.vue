@@ -139,7 +139,9 @@
 
 <script setup>
 import { ref } from 'vue';
-import api from '@/services/api';
+import { useComplaintsStore } from '@/stores/complaints';
+
+const complaintsStore = useComplaintsStore();
 
 const caseNumber = ref('');
 const isSearching = ref(false);
@@ -148,95 +150,9 @@ const complaint = ref(null);
 const notFound = ref(false);
 const searchedCase = ref('');
 
-// Mock data para demostración
-const mockComplaints = {
-  'DEN-202411-0001': {
-    caso_numero: 'DEN-202411-0001',
-    tipo_denuncia: 'maltrato_fisico',
-    urgencia: 'critico',
-    especie_animal: 'perro',
-    cantidad_animales: 1,
-    fecha_recepcion: '2024-11-15T10:30:00',
-    estado: 'en_atencion',
-    es_anonimo: false,
-    equipo_asignado: true,
-    timeline: [
-      {
-        tipo: 'recepcion',
-        fecha: '2024-11-15T10:30:00',
-        titulo: 'Denuncia recibida',
-        descripcion: 'Su denuncia ha sido registrada en el sistema y será revisada por nuestro equipo.'
-      },
-      {
-        tipo: 'revision',
-        fecha: '2024-11-15T11:45:00',
-        titulo: 'En revisión',
-        descripcion: 'El caso está siendo evaluado para determinar la prioridad y asignar recursos.'
-      },
-      {
-        tipo: 'asignacion',
-        fecha: '2024-11-15T14:00:00',
-        titulo: 'Equipo asignado',
-        descripcion: 'Se ha asignado un equipo de rescate para atender el caso.'
-      },
-      {
-        tipo: 'en_camino',
-        fecha: '2024-11-15T14:30:00',
-        titulo: 'Operativo en curso',
-        descripcion: 'El equipo de rescate se dirige a la ubicación reportada.'
-      }
-    ]
-  },
-  'DEN-202411-0002': {
-    caso_numero: 'DEN-202411-0002',
-    tipo_denuncia: 'abandono',
-    urgencia: 'medio',
-    especie_animal: 'gato',
-    cantidad_animales: 3,
-    fecha_recepcion: '2024-11-10T08:15:00',
-    estado: 'cerrada',
-    es_anonimo: true,
-    equipo_asignado: true,
-    resultado: 'rescatado',
-    resultado_descripcion: 'Los 3 gatos fueron rescatados exitosamente y trasladados al centro de bienestar animal para evaluación veterinaria y posterior adopción.',
-    timeline: [
-      {
-        tipo: 'recepcion',
-        fecha: '2024-11-10T08:15:00',
-        titulo: 'Denuncia recibida',
-        descripcion: 'Su denuncia ha sido registrada en el sistema.'
-      },
-      {
-        tipo: 'revision',
-        fecha: '2024-11-10T09:00:00',
-        titulo: 'En revisión',
-        descripcion: 'Caso evaluado y clasificado como prioridad media.'
-      },
-      {
-        tipo: 'asignacion',
-        fecha: '2024-11-11T08:00:00',
-        titulo: 'Equipo asignado',
-        descripcion: 'Equipo de rescate programado para visita.'
-      },
-      {
-        tipo: 'operativo',
-        fecha: '2024-11-11T10:30:00',
-        titulo: 'Operativo realizado',
-        descripcion: 'Se realizó visita al lugar y se encontraron los animales reportados.'
-      },
-      {
-        tipo: 'cierre',
-        fecha: '2024-11-11T15:00:00',
-        titulo: 'Caso cerrado',
-        descripcion: 'Rescate exitoso. Animales en centro de bienestar.'
-      }
-    ]
-  }
-};
-
 async function searchCase() {
   if (!caseNumber.value.trim()) {
-    searchError.value = 'Ingrese un número de caso';
+    searchError.value = 'Ingrese un numero de caso';
     return;
   }
 
@@ -247,27 +163,68 @@ async function searchCase() {
   searchedCase.value = caseNumber.value.trim().toUpperCase();
 
   try {
-    // Simular llamada a API
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log('Buscando denuncia con ticket:', searchedCase.value);
 
-    // TODO: Integrar con API real
-    // const response = await fetch(`${API_BASE_URL}/complaints/${searchedCase.value}/status`);
-    // const data = await response.json();
+    const data = await complaintsStore.consultarTicket(searchedCase.value);
 
-    const data = mockComplaints[searchedCase.value];
+    console.log('Respuesta del backend:', data);
 
     if (data) {
-      complaint.value = data;
+      // Mapear datos del backend al formato del componente
+      complaint.value = {
+        caso_numero: data.ticket,
+        tipo_denuncia: data.tipo,
+        urgencia: data.prioridad,
+        fecha_recepcion: data.fecha_registro,
+        estado: data.estado,
+        fecha_resolucion: data.fecha_resolucion,
+        resultado_descripcion: data.resolucion,
+        // Generar timeline basico segun el estado
+        timeline: generarTimeline(data)
+      };
     } else {
       notFound.value = true;
     }
 
   } catch (error) {
     console.error('Error al buscar caso:', error);
-    searchError.value = 'Error al consultar el caso. Intente nuevamente.';
+    notFound.value = true;
+    searchError.value = '';
   } finally {
     isSearching.value = false;
   }
+}
+
+// Generar timeline basico segun el estado de la denuncia
+function generarTimeline(data) {
+  const timeline = [
+    {
+      tipo: 'recepcion',
+      fecha: data.fecha_registro,
+      titulo: 'Denuncia recibida',
+      descripcion: 'Su denuncia ha sido registrada en el sistema.'
+    }
+  ];
+
+  if (data.estado === 'en_proceso' || data.estado === 'resuelta') {
+    timeline.push({
+      tipo: 'revision',
+      fecha: data.fecha_registro,
+      titulo: 'En proceso',
+      descripcion: 'El caso esta siendo atendido por nuestro equipo.'
+    });
+  }
+
+  if (data.estado === 'resuelta') {
+    timeline.push({
+      tipo: 'cierre',
+      fecha: data.fecha_resolucion || data.fecha_registro,
+      titulo: 'Caso resuelto',
+      descripcion: data.resolucion || 'El caso ha sido resuelto exitosamente.'
+    });
+  }
+
+  return timeline;
 }
 
 // Helpers para labels

@@ -89,7 +89,7 @@ class AdopcionRepository extends BaseRepository implements AdopcionRepositoryInt
                 'animal',
                 'adoptante',
                 'visitas' => function ($query) {
-                    $query->orderBy('fecha_visita', 'desc');
+                    $query->orderBy('fecha_programada', 'desc');
                 },
                 'visitas.funcionario',
                 'evaluador',

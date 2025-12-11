@@ -15,6 +15,7 @@ export const useVeterinaryStore = defineStore('veterinary', () => {
   const consultasPendientes = ref([]);
   const vacunas = ref([]);
   const tiposVacuna = ref([]);
+  const veterinarios = ref([]);
   const cirugias = ref([]);
   const procedimientos = ref([]);
   const pagination = ref({
@@ -123,6 +124,17 @@ export const useVeterinaryStore = defineStore('veterinary', () => {
       throw err;
     } finally {
       loading.value = false;
+    }
+  }
+
+  // Actions - Veterinarios
+  async function fetchVeterinarios() {
+    try {
+      const response = await veterinaryService.getVeterinarios();
+      veterinarios.value = response.data || [];
+      return veterinarios.value;
+    } catch (err) {
+      console.error('Error al cargar veterinarios:', err);
     }
   }
 
@@ -235,6 +247,7 @@ export const useVeterinaryStore = defineStore('veterinary', () => {
     consultasPendientes,
     vacunas,
     tiposVacuna,
+    veterinarios,
     cirugias,
     procedimientos,
     pagination,
@@ -251,6 +264,7 @@ export const useVeterinaryStore = defineStore('veterinary', () => {
     fetchConsultasPendientes,
     fetchConsulta,
     crearConsulta,
+    fetchVeterinarios,
     fetchTiposVacuna,
     fetchVacunasAnimal,
     crearVacuna,

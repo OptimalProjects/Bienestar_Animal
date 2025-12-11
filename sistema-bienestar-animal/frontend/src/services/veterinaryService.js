@@ -7,6 +7,18 @@ import api from './api';
 
 export const veterinaryService = {
   // ============================================
+  // VETERINARIOS
+  // ============================================
+
+  /**
+   * Obtener lista de veterinarios
+   */
+  async getVeterinarios() {
+    const response = await api.get('/vacunas/veterinarios');
+    return response.data;
+  },
+
+  // ============================================
   // CONSULTAS
   // ============================================
 

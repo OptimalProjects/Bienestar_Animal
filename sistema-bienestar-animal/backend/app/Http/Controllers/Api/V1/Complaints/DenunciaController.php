@@ -29,6 +29,8 @@ class DenunciaController extends BaseController
                 'fecha_desde',
                 'fecha_hasta',
                 'busqueda',
+                'order_by',
+                'order',
             ]);
 
             $denuncias = $this->denunciaService->listar(

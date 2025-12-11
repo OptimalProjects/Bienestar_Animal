@@ -171,7 +171,7 @@ class DenunciaRepository extends BaseRepository implements DenunciaRepositoryInt
     public function paginateWithFilters(int $perPage, array $filters = [])
     {
         $query = $this->model->query()
-            ->with(['denunciante', 'asignadoA']);
+            ->with(['denunciante', 'responsable']);
 
         if (!empty($filters['estado'])) {
             $query->where('estado', $filters['estado']);
@@ -186,7 +186,7 @@ class DenunciaRepository extends BaseRepository implements DenunciaRepositoryInt
         }
 
         if (!empty($filters['asignado_a'])) {
-            $query->where('asignado_a', $filters['asignado_a']);
+            $query->where('responsable_id', $filters['asignado_a']);
         }
 
         if (!empty($filters['comuna'])) {
@@ -210,9 +210,26 @@ class DenunciaRepository extends BaseRepository implements DenunciaRepositoryInt
             });
         }
 
-        // Ordenar por prioridad y fecha
-        $query->orderByRaw("FIELD(prioridad, 'urgente', 'alta', 'media', 'baja')")
-              ->orderBy('created_at', 'asc');
+        // Soporte para ordenamiento personalizado
+        $orderBy = $filters['order_by'] ?? 'created_at';
+        $order = $filters['order'] ?? 'desc';
+
+        // Validar campos permitidos para ordenar
+        $allowedOrderFields = ['created_at', 'fecha_denuncia', 'prioridad', 'estado'];
+        if (!in_array($orderBy, $allowedOrderFields)) {
+            $orderBy = 'created_at';
+        }
+
+        // Validar direccion de orden
+        $order = strtolower($order) === 'asc' ? 'asc' : 'desc';
+
+        // Si no se especifica orden personalizado, usar orden por prioridad
+        if (empty($filters['order_by'])) {
+            $query->orderByRaw("FIELD(prioridad, 'urgente', 'alta', 'media', 'baja')")
+                  ->orderBy('created_at', 'desc');
+        } else {
+            $query->orderBy($orderBy, $order);
+        }
 
         return $query->paginate($perPage);
     }

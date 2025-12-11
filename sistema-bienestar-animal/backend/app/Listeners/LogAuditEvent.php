@@ -231,7 +231,7 @@ class LogAuditEvent
             modulo: 'veterinaria',
             detalles: [
                 'cirugia_id' => $event->cirugia->id,
-                'procedimiento_id' => $event->cirugia->procedimiento_id,
+                'tipo_cirugia' => $event->cirugia->tipo_cirugia,
                 'historial_clinico_id' => $event->cirugia->historial_clinico_id,
             ]
         );

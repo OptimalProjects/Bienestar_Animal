@@ -19,10 +19,12 @@ class UsuarioController extends BaseController
     public function index(Request $request)
     {
         try {
-            $query = Usuario::with('rol');
+            $query = Usuario::with('roles');
 
             if ($request->has('rol_id')) {
-                $query->where('rol_id', $request->rol_id);
+                $query->whereHas('roles', function ($q) use ($request) {
+                    $q->where('roles.id', $request->rol_id);
+                });
             }
 
             if ($request->has('activo')) {
