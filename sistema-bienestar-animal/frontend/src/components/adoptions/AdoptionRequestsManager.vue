@@ -271,74 +271,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-
-/**
- * DATA FALSA
- */
-const mockRequests = [
-  {
-    id: 1,
-    status: 'pending',
-    applicant: {
-      name: 'María González',
-      idNumber: '123456789',
-      phone: '3001234567',
-      email: 'maria@example.com',
-    },
-    animal: {
-      id: 101,
-      name: 'Luna',
-      species: 'Perro',
-      microchip: 'MC-0001',
-    },
-    createdAt: '2025-02-01',
-    homeVisit: null,
-  },
-  {
-    id: 2,
-    status: 'in_evaluation',
-    applicant: {
-      name: 'Carlos Pérez',
-      idNumber: '987654321',
-      phone: '3017654321',
-      email: 'carlos@example.com',
-    },
-    animal: {
-      id: 102,
-      name: 'Michi',
-      species: 'Gato',
-      microchip: 'MC-0002',
-    },
-    createdAt: '2025-01-28',
-    homeVisit: {
-      date: '2025-02-05',
-      time: '15:00',
-      observations: 'Buen entorno, patio cerrado.',
-    },
-  },
-  {
-    id: 3,
-    status: 'approved',
-    applicant: {
-      name: 'Laura Ramírez',
-      idNumber: '1122334455',
-      phone: '3021239876',
-      email: 'laura@example.com',
-    },
-    animal: {
-      id: 103,
-      name: 'Rocky',
-      species: 'Perro',
-      microchip: 'MC-0003',
-    },
-    createdAt: '2025-01-20',
-    homeVisit: {
-      date: '2025-01-25',
-      time: '10:00',
-      observations: 'Excelente condición.',
-    },
-  },
-];
+import adoptionService from '@/services/adoptionService';
 
 const filters = ref({
   status: '',
@@ -347,6 +280,7 @@ const filters = ref({
 
 const requests = ref([]);
 const loading = ref(false);
+const error = ref(null);
 
 const selectedRequest = ref(null);
 const showModal = ref(false);
@@ -364,6 +298,61 @@ const decision = ref({
   justification: '',
 });
 
+// Mapeo de estados del backend al frontend
+const statusMap = {
+  'pendiente': 'pending',
+  'en_evaluacion': 'in_evaluation',
+  'aprobada': 'approved',
+  'rechazada': 'rejected',
+  'completada': 'approved'
+};
+
+const reverseStatusMap = {
+  'pending': 'pendiente',
+  'in_evaluation': 'en_evaluacion',
+  'approved': 'aprobada',
+  'rejected': 'rechazada'
+};
+
+// Transforma los datos del backend al formato del frontend
+function transformRequest(backendRequest) {
+  return {
+    id: backendRequest.id,
+    status: statusMap[backendRequest.estado] || backendRequest.estado,
+    applicant: {
+      name: backendRequest.adoptante?.nombre_completo || backendRequest.nombre_adoptante || 'Sin nombre',
+      idNumber: backendRequest.adoptante?.documento_identidad || '',
+      phone: backendRequest.adoptante?.telefono || '',
+      email: backendRequest.adoptante?.email || '',
+      address: backendRequest.adoptante?.direccion || '',
+      housingType: backendRequest.adoptante?.tipo_vivienda || 'No especificado',
+      petExperience: backendRequest.adoptante?.experiencia_mascotas || 'No especificado',
+    },
+    animal: {
+      id: backendRequest.animal?.id,
+      name: backendRequest.animal?.nombre || 'Sin nombre',
+      species: backendRequest.animal?.especie || '',
+      breed: backendRequest.animal?.raza || '',
+      microchip: backendRequest.animal?.numero_chip || 'Sin chip',
+      age: backendRequest.animal?.edad_formato || 'Desconocida',
+      photoUrl: backendRequest.animal?.url_foto_principal,
+    },
+    createdAt: backendRequest.created_at || backendRequest.fecha_solicitud,
+    homeVisit: {
+      scheduled: !!backendRequest.fecha_visita,
+      date: backendRequest.fecha_visita || '',
+      time: backendRequest.hora_visita || '',
+      observations: backendRequest.observaciones_visita || '',
+      completed: backendRequest.visita_realizada || false,
+    },
+    decision: {
+      evaluator: backendRequest.evaluador?.nombre_completo || '',
+      date: backendRequest.fecha_evaluacion || '',
+      justification: backendRequest.observaciones || '',
+    }
+  };
+}
+
 const filteredRequests = computed(() => {
   return requests.value.filter((r) => {
     if (filters.value.status && r.status !== filters.value.status) {
@@ -380,15 +369,36 @@ const filteredRequests = computed(() => {
 
 async function loadRequests() {
   loading.value = true;
+  error.value = null;
   try {
-    // Aquí usas directamente los mocks
-    requests.value = mockRequests;
+    const params = {};
+    if (filters.value.status) {
+      params.estado = reverseStatusMap[filters.value.status] || filters.value.status;
+    }
+    if (filters.value.search) {
+      params.busqueda = filters.value.search;
+    }
+
+    const response = await adoptionService.fetchAdoptionRequests(params);
+    const data = response.data || response;
+
+    // Manejar paginación si existe
+    const rawRequests = data.data || data || [];
+    requests.value = rawRequests.map(transformRequest);
+  } catch (err) {
+    console.error('Error al cargar solicitudes:', err);
+    error.value = err.response?.data?.message || 'Error al cargar solicitudes de adopción';
+    requests.value = [];
   } finally {
     loading.value = false;
   }
 }
 
-function openRequest(request) {
+function applyFilters() {
+  loadRequests();
+}
+
+function viewDetails(request) {
   selectedRequest.value = JSON.parse(JSON.stringify(request));
   homeVisit.value = {
     date: request.homeVisit?.date || '',
@@ -407,52 +417,189 @@ function closeModal() {
   selectedRequest.value = null;
 }
 
-async function handleScheduleVisit() {
+async function scheduleVisit() {
+  if (!selectedRequest.value || !homeVisit.value.date || !homeVisit.value.time) {
+    if (window.$toast) {
+      window.$toast.warning('Atención', 'Debe completar la fecha y hora de visita');
+    } else {
+      alert('Debe completar la fecha y hora de visita');
+    }
+    return;
+  }
+
+  try {
+    await adoptionService.scheduleFollowUpVisit({
+      adopcion_id: selectedRequest.value.id,
+      fecha_programada: homeVisit.value.date,
+      hora_programada: homeVisit.value.time,
+      tipo: 'previa',
+      observaciones: homeVisit.value.observations
+    });
+
+    selectedRequest.value.homeVisit = {
+      scheduled: true,
+      date: homeVisit.value.date,
+      time: homeVisit.value.time,
+      observations: homeVisit.value.observations,
+      completed: false
+    };
+
+    if (window.$toast) {
+      window.$toast.success('Éxito', 'Visita domiciliaria programada exitosamente');
+    } else {
+      alert('Visita domiciliaria programada exitosamente');
+    }
+
+    await loadRequests();
+  } catch (err) {
+    console.error('Error al programar visita:', err);
+    const errorMsg = err.response?.data?.message || 'Error al programar la visita';
+    if (window.$toast) {
+      window.$toast.error('Error', errorMsg);
+    } else {
+      alert(errorMsg);
+    }
+  }
+}
+
+async function completeVisit() {
+  if (!selectedRequest.value || !homeVisit.value.observations) {
+    if (window.$toast) {
+      window.$toast.warning('Atención', 'Debe completar las observaciones de la visita');
+    } else {
+      alert('Debe completar las observaciones de la visita');
+    }
+    return;
+  }
+
+  // Marcar visita como completada - esto dependerá de si hay una visita_id
+  // Por ahora actualizamos localmente
+  selectedRequest.value.homeVisit.completed = true;
+  selectedRequest.value.homeVisit.observations = homeVisit.value.observations;
+
+  if (window.$toast) {
+    window.$toast.success('Éxito', 'Visita registrada como completada');
+  } else {
+    alert('Visita registrada como completada');
+  }
+}
+
+async function approveRequest() {
+  if (!selectedRequest.value || !decision.value.justification) {
+    if (window.$toast) {
+      window.$toast.warning('Atención', 'Debe proporcionar una justificación');
+    } else {
+      alert('Debe proporcionar una justificación');
+    }
+    return;
+  }
+
+  try {
+    await adoptionService.approveAdoptionRequest(
+      selectedRequest.value.id,
+      decision.value.justification
+    );
+
+    if (window.$toast) {
+      window.$toast.success('Éxito', 'Solicitud de adopción aprobada exitosamente');
+    } else {
+      alert('Solicitud de adopción aprobada exitosamente');
+    }
+
+    closeModal();
+    await loadRequests();
+  } catch (err) {
+    console.error('Error al aprobar solicitud:', err);
+    const errorMsg = err.response?.data?.message || 'Error al aprobar la solicitud';
+    if (window.$toast) {
+      window.$toast.error('Error', errorMsg);
+    } else {
+      alert(errorMsg);
+    }
+  }
+}
+
+async function rejectRequest() {
+  if (!selectedRequest.value || !decision.value.justification) {
+    if (window.$toast) {
+      window.$toast.warning('Atención', 'Debe proporcionar una justificación');
+    } else {
+      alert('Debe proporcionar una justificación');
+    }
+    return;
+  }
+
+  try {
+    await adoptionService.rejectAdoptionRequest(
+      selectedRequest.value.id,
+      decision.value.justification
+    );
+
+    if (window.$toast) {
+      window.$toast.success('Éxito', 'Solicitud de adopción rechazada');
+    } else {
+      alert('Solicitud de adopción rechazada');
+    }
+
+    closeModal();
+    await loadRequests();
+  } catch (err) {
+    console.error('Error al rechazar solicitud:', err);
+    const errorMsg = err.response?.data?.message || 'Error al rechazar la solicitud';
+    if (window.$toast) {
+      window.$toast.error('Error', errorMsg);
+    } else {
+      alert(errorMsg);
+    }
+  }
+}
+
+async function generateContract() {
   if (!selectedRequest.value) return;
 
-  // Actualizamos directamente en el mock
-  selectedRequest.value.homeVisit = {
-    date: homeVisit.value.date,
-    time: homeVisit.value.time,
-    observations: homeVisit.value.observations,
+  try {
+    const blob = await adoptionService.generateAdoptionContract(selectedRequest.value.id);
+
+    // Descargar el PDF
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `contrato-adopcion-${selectedRequest.value.id}.pdf`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+
+    if (window.$toast) {
+      window.$toast.success('Éxito', 'Contrato generado y descargado');
+    }
+  } catch (err) {
+    console.error('Error al generar contrato:', err);
+    const errorMsg = err.response?.data?.message || 'Error al generar el contrato';
+    if (window.$toast) {
+      window.$toast.error('Error', errorMsg);
+    } else {
+      alert(errorMsg);
+    }
+  }
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return 'Sin fecha';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('es-CO', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+}
+
+function getStatusLabel(status) {
+  const labels = {
+    'pending': 'Pendiente',
+    'in_evaluation': 'En evaluación',
+    'approved': 'Aprobada',
+    'rejected': 'Rechazada'
   };
-
-  const idx = requests.value.findIndex((r) => r.id === selectedRequest.value.id);
-  if (idx !== -1) {
-    requests.value[idx] = { ...selectedRequest.value };
-  }
-
-  alert('✓ Visita domiciliaria registrada (mock).');
-}
-
-async function handleApprove() {
-  if (!selectedRequest.value || !decision.value.justification) return;
-
-  selectedRequest.value.status = 'approved';
-  const idx = requests.value.findIndex((r) => r.id === selectedRequest.value.id);
-  if (idx !== -1) {
-    requests.value[idx] = { ...selectedRequest.value };
-  }
-
-  alert(
-    '✓ Solicitud aprobada (mock). Aquí en real se notificaría al ciudadano y se registraría en sci-audit.'
-  );
-  closeModal();
-}
-
-async function handleReject() {
-  if (!selectedRequest.value || !decision.value.justification) return;
-
-  selectedRequest.value.status = 'rejected';
-  const idx = requests.value.findIndex((r) => r.id === selectedRequest.value.id);
-  if (idx !== -1) {
-    requests.value[idx] = { ...selectedRequest.value };
-  }
-
-  alert(
-    '✓ Solicitud rechazada (mock). Aquí en real se notificaría al ciudadano y se registraría en sci-audit.'
-  );
-  closeModal();
+  return labels[status] || status;
 }
 
 onMounted(loadRequests);

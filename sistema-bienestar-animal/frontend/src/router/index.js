@@ -155,8 +155,18 @@ router.beforeEach((to, from, next) => {
   const role = getCurrentRole();
   const isInternalRole = role !== ROLES.CIUDADANO;
 
+  console.log('🛣️ Router Guard:', {
+    to: to.path,
+    from: from.path,
+    role: role,
+    isInternalRole: isInternalRole,
+    requiresAuth: to.meta.requiresAuth,
+    metaRoles: to.meta.roles
+  });
+
   // 1) Bloquear rutas internas para ciudadano
   if (to.meta.requiresAuth && !isInternalRole) {
+    console.log('❌ Bloqueado: requiresAuth pero no es rol interno');
     if (to.name === 'adoptions-coordinator') {
       return next({ name: 'adoptions' });
     }
@@ -166,6 +176,7 @@ router.beforeEach((to, from, next) => {
   // 2) Validar roles específicos
   if (to.meta.roles && to.meta.roles.length) {
     const allowed = to.meta.roles.includes(role);
+    console.log('🔐 Validando roles:', { allowed, role, metaRoles: to.meta.roles });
     if (!allowed) {
       if (role === ROLES.CIUDADANO) {
         return next({ name: 'home' });
@@ -174,6 +185,7 @@ router.beforeEach((to, from, next) => {
     }
   }
 
+  console.log('✅ Navegación permitida a:', to.path);
   next();
 });
 

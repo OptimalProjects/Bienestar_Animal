@@ -5,7 +5,13 @@
       <p class="text2-tipografia-govco">Complete los datos de la vacuna aplicada</p>
     </div>
 
-    <form ref="formEl" @submit.prevent="onSubmit" novalidate>
+    <!-- Indicador de carga -->
+    <div v-if="loadingData" class="loading-overlay">
+      <div class="spinner"></div>
+      <p>Cargando datos...</p>
+    </div>
+
+    <form v-else ref="formEl" @submit.prevent="onSubmit" novalidate>
       
       <!-- SECCIÓN 1: IDENTIFICACIÓN -->
       <div class="form-section">
@@ -279,9 +285,15 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed, onMounted } from 'vue';
+import { reactive, ref, computed, onMounted, nextTick, watch } from 'vue';
 import DesplegableGovco from '../common/DesplegableGovco.vue';
 import CalendarioGovco from '../common/CalendarioGovco.vue';
+import { useVeterinaryStore } from '@/stores/veterinary';
+import { useAnimalsStore } from '@/stores/animals';
+import animalService from '@/services/animalService';
+
+const veterinaryStore = useVeterinaryStore();
+const animalsStore = useAnimalsStore();
 
 const formEl = ref(null);
 const animalDropdownRef = ref(null);
@@ -292,35 +304,151 @@ const routeRef = ref(null);
 const doseNumberRef = ref(null);
 const nextDoseDateRef = ref(null);
 const veterinarianRef = ref(null);
+const isSubmitting = ref(false);
+const loadingData = ref(true);
 
-// Mock data
-const animals = ref([
-  { id: 1, name: 'Firulais', microchip: 'MC123456789' },
-  { id: 2, name: 'Michi', microchip: 'MC987654321' }
-]);
+// Data from API
+const animals = ref([]);
+const veterinarians = ref([]);
+const tiposVacunaApi = ref([]);
 
-const veterinarians = ref([
-  { id: 1, name: 'Dr. Juan Pérez', license: '12345' },
-  { id: 2, name: 'Dra. María López', license: '67890' }
-]);
+// Función para reinicializar componentes GOV.CO
+function initGovCoComponents() {
+  console.log('🔄 VaccinationForm: Inicializando componentes GOV.CO...');
 
-const animalOptions = computed(() => 
+  nextTick(() => {
+    // Intentar con window.GOVCo
+    if (window.GOVCo?.init) {
+      const dropdowns = document.querySelectorAll('.vaccination-form .desplegable-govco');
+      console.log(`📦 Encontrados ${dropdowns.length} dropdowns`);
+      dropdowns.forEach((dd, index) => {
+        try {
+          window.GOVCo.init(dd.parentElement || dd);
+          console.log(`✅ Dropdown ${index + 1} inicializado`);
+        } catch (e) {
+          console.warn(`⚠️ Error en dropdown ${index + 1}:`, e);
+        }
+      });
+    }
+
+    // Intentar con reinitGovCo global
+    if (window.reinitGovCo) {
+      setTimeout(() => {
+        window.reinitGovCo();
+        console.log('✅ reinitGovCo ejecutado');
+      }, 100);
+    }
+  });
+}
+
+// Cargar datos iniciales
+async function loadInitialData() {
+  loadingData.value = true;
+  console.log('🔄 VaccinationForm: Cargando datos iniciales...');
+
+  try {
+    // Cargar animales
+    console.log('📦 Cargando animales...');
+    let animalsData = [];
+
+    try {
+      await animalsStore.fetchAnimals({ per_page: 100 });
+      animalsData = animalsStore.animals || [];
+      console.log('✅ Animales desde store:', animalsData.length);
+    } catch (storeError) {
+      console.warn('⚠️ Error con store, intentando servicio directo:', storeError);
+      const animalsResponse = await animalService.getAll();
+      animalsData = animalsResponse?.data?.data || animalsResponse?.data || [];
+      console.log('✅ Animales desde servicio:', animalsData.length);
+    }
+
+    animals.value = animalsData.map(animal => ({
+      ...animal,
+      historial_clinico_id: animal.historial_clinico?.id || animal.historial_clinico_id
+    }));
+
+    console.log('✅ Animales procesados:', animals.value.length);
+
+    // Cargar tipos de vacuna
+    console.log('📦 Cargando tipos de vacuna...');
+    try {
+      const tiposData = await veterinaryStore.fetchTiposVacuna();
+      if (tiposData && tiposData.length > 0) {
+        tiposVacunaApi.value = tiposData;
+        console.log('✅ Tipos de vacuna cargados:', tiposData.length);
+      } else {
+        console.log('⚠️ Usando tipos de vacuna por defecto');
+      }
+    } catch (tiposError) {
+      console.warn('⚠️ Error cargando tipos de vacuna:', tiposError);
+    }
+
+    // Cargar veterinarios
+    console.log('📦 Cargando veterinarios...');
+    try {
+      const vetsData = await veterinaryStore.fetchVeterinarios();
+      veterinarians.value = vetsData || veterinaryStore.veterinarios || [];
+      console.log('✅ Veterinarios cargados:', veterinarians.value.length, veterinarians.value);
+    } catch (vetsError) {
+      console.error('❌ Error cargando veterinarios:', vetsError);
+    }
+
+    // Reinicializar GOV.CO después de cargar datos
+    await nextTick();
+    setTimeout(() => {
+      initGovCoComponents();
+    }, 200);
+
+  } catch (error) {
+    console.error('❌ Error cargando datos iniciales:', error);
+    alert('Error al cargar datos. Por favor recargue la página.');
+  } finally {
+    loadingData.value = false;
+    console.log('✅ VaccinationForm: Carga de datos completada');
+  }
+}
+
+// Observar cuando se cargan los datos para reinicializar GOV.CO
+watch(() => veterinarians.value.length, async (newLength) => {
+  if (newLength > 0) {
+    console.log('📦 Veterinarios actualizados, reinicializando GOV.CO...');
+    await nextTick();
+    setTimeout(() => {
+      initGovCoComponents();
+    }, 100);
+  }
+});
+
+const animalOptions = computed(() =>
   animals.value.map(animal => ({
     value: animal.id,
-    text: `${animal.name} - ${animal.microchip}`
+    text: `${animal.nombre} - ${animal.numero_chip || 'Sin chip'}`,
+    historialClinicoId: animal.historial_clinico?.id || animal.historial_clinico_id
   }))
 );
 
-const vaccineTypeOptions = [
-  { value: 'rabia', text: 'Rabia' },
-  { value: 'quintuple', text: 'Quíntuple (DHPPL)' },
-  { value: 'sextuple', text: 'Séxtuple (DHPPL + Corona)' },
-  { value: 'triple_felina', text: 'Triple Felina' },
-  { value: 'leucemia_felina', text: 'Leucemia Felina' },
-  { value: 'parvovirus', text: 'Parvovirus' },
-  { value: 'bordetella', text: 'Bordetella (Tos de las perreras)' },
-  { value: 'otra', text: 'Otra' }
-];
+// Tipos de vacuna desde API (fallback a lista fija si la API no devuelve datos)
+const vaccineTypeOptions = computed(() => {
+  if (tiposVacunaApi.value.length > 0) {
+    return tiposVacunaApi.value.map(tipo => ({
+      value: tipo.id,
+      text: tipo.nombre,
+      codigo: tipo.codigo,
+      intervalo: tipo.intervalo_dosis
+    }));
+  }
+  // Fallback si no hay tipos desde API
+  return [
+    { value: 'rabia', text: 'Rabia' },
+    { value: 'quintuple', text: 'Quíntuple (DHPPL)' },
+    { value: 'sextuple', text: 'Séxtuple (DHPPL + Corona)' },
+    { value: 'triple_felina', text: 'Triple Felina' },
+    { value: 'leucemia_felina', text: 'Leucemia Felina' },
+    { value: 'parvovirus', text: 'Parvovirus' },
+    { value: 'bordetella', text: 'Bordetella (Tos de las perreras)' },
+    { value: 'otra', text: 'Otra' }
+  ];
+});
 
 const routeOptions = [
   { value: 'subcutanea', text: 'Subcutánea' },
@@ -335,10 +463,10 @@ const doseNumberOptions = [
   { value: 'refuerzo', text: 'Refuerzo anual' }
 ];
 
-const veterinarianOptions = computed(() => 
+const veterinarianOptions = computed(() =>
   veterinarians.value.map(vet => ({
     value: vet.id,
-    text: `${vet.name} - TP ${vet.license}`
+    text: `${vet.usuario?.nombres || vet.nombre_completo || vet.nombres || 'Dr.'} ${vet.usuario?.apellidos || vet.apellidos || ''} - TP ${vet.tarjeta_profesional || vet.numero_tarjeta_profesional || 'N/A'}`
   }))
 );
 
@@ -510,14 +638,57 @@ async function onSubmit() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return;
   }
-  
+
+  if (isSubmitting.value) return;
+  isSubmitting.value = true;
+
   try {
-    console.log('Guardando vacunación:', form);
-    alert('Vacunación registrada exitosamente');
+    // Obtener el historial clinico del animal seleccionado
+    const selectedAnimal = animalOptions.value.find(a => a.value === form.animalId);
+
+    // Convertir fecha DD/MM/YYYY a YYYY-MM-DD para el backend
+    const convertirFecha = (fechaStr) => {
+      if (!fechaStr) return null;
+      const parts = fechaStr.split('/');
+      if (parts.length === 3) {
+        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+      return fechaStr;
+    };
+
+    // Preparar datos para el backend
+    const vacunaData = {
+      historial_clinico_id: selectedAnimal?.historialClinicoId,
+      tipo_vacuna_id: form.vaccineType,
+      veterinario_id: form.veterinarianId,
+      fecha_aplicacion: convertirFecha(form.applicationDate),
+      fecha_proxima: form.requiresNextDose ? convertirFecha(form.nextDoseDate) : null,
+      lote: form.batchNumber,
+      fabricante: form.laboratory,
+      observaciones: form.observations || null
+    };
+
+    console.log('Enviando vacunación:', vacunaData);
+
+    await veterinaryStore.crearVacuna(vacunaData);
+
+    if (window.$toast) {
+      window.$toast.success('Éxito', 'Vacunación registrada exitosamente');
+    } else {
+      alert('Vacunación registrada exitosamente');
+    }
+
     resetForm();
   } catch (error) {
     console.error('Error al registrar vacunación:', error);
-    alert('Error al registrar la vacunación');
+    const errorMsg = error.response?.data?.message || 'Error al registrar la vacunación';
+    if (window.$toast) {
+      window.$toast.error('Error', errorMsg);
+    } else {
+      alert(errorMsg);
+    }
+  } finally {
+    isSubmitting.value = false;
   }
 }
 
@@ -575,7 +746,9 @@ function preventScrollOnInteractions() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  console.log('📍 VaccinationForm mounted');
+
   fixButtonTypes();
   preventScrollOnInteractions();
 
@@ -585,6 +758,9 @@ onMounted(() => {
       preventScrollOnInteractions();
     });
   }
+
+  // Cargar datos iniciales
+  await loadInitialData();
 });
 </script>
 
@@ -768,6 +944,33 @@ textarea.input-govco {
 .btn-secondary:hover {
   transform: translateY(-2px);
   opacity: 0.9;
+}
+
+.loading-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  min-height: 300px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3366cc;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 :deep(.desplegable-govco .desplegable-items) {

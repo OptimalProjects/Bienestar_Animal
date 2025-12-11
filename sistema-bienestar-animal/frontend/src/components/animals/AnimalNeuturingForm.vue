@@ -13,13 +13,23 @@
           <!-- Animal ID (para vincular) -->
           <div class="entradas-de-texto-govco">
             <label for="animalId">ID/Microchip del animal*</label>
-            <input
-              type="text"
-              id="animalId"
-              v-model="form.animalId"
-              placeholder="MC123456789"
-            />
+            <div class="input-with-button">
+              <input
+                type="text"
+                id="animalId"
+                v-model="form.animalId"
+                placeholder="MC123456789 o código del animal"
+                @blur="buscarAnimal"
+                @keyup.enter="buscarAnimal"
+              />
+              <button type="button" class="btn-search" @click="buscarAnimal" :disabled="buscandoAnimal">
+                {{ buscandoAnimal ? '...' : '🔍' }}
+              </button>
+            </div>
             <span v-if="errors.animalId" class="error-text">{{ errors.animalId }}</span>
+            <span v-if="animalEncontrado" class="success-text">
+              ✅ {{ animalEncontrado.animal?.nombre || 'Animal' }} - {{ animalEncontrado.animal?.especie || '' }}
+            </span>
           </div>
 
           <!-- Fecha de esterilización -->
@@ -48,12 +58,17 @@
           <!-- Veterinario responsable -->
           <div class="entradas-de-texto-govco">
             <label for="neutVet">Veterinario responsable*</label>
-            <input
-              type="text"
+            <select
               id="neutVet"
-              v-model="form.neuteringVet"
-              placeholder="Nombre completo"
-            />
+              v-model="form.veterinario_id"
+              class="select-govco"
+            >
+              <option value="">Seleccione un veterinario</option>
+              <option v-for="vet in veterinarios" :key="vet.id" :value="vet.id">
+                {{ vet.usuario?.nombres || vet.nombre || 'Veterinario' }} {{ vet.usuario?.apellidos || '' }}
+                {{ vet.tarjeta_profesional ? `(${vet.tarjeta_profesional})` : '' }}
+              </option>
+            </select>
             <span v-if="errors.neuteringVet" class="error-text">
               {{ errors.neuteringVet }}
             </span>
@@ -127,11 +142,11 @@
 
       <!-- BOTONES -->
       <div class="form-actions">
-        <button type="button" @click="resetForm" class="govco-btn govco-bg-concrete">
+        <button type="button" @click="resetForm" class="govco-btn govco-bg-concrete" :disabled="isSubmitting">
           Limpiar formulario
         </button>
-        <button type="submit" class="govco-btn govco-bg-elf-green">
-          Registrar esterilización
+        <button type="submit" class="govco-btn govco-bg-elf-green" :disabled="isSubmitting">
+          {{ isSubmitting ? 'Registrando...' : 'Registrar esterilización' }}
         </button>
       </div>
     </form>
@@ -140,13 +155,23 @@
 
 <script setup>
 import { reactive, ref, computed, onMounted } from 'vue';
+import { useVeterinaryStore } from '@/stores/veterinary';
+import api from '@/services/api';
 
+const emit = defineEmits(['sterilizationRegistered']);
+
+const veterinaryStore = useVeterinaryStore();
 const formEl = ref(null);
+const isSubmitting = ref(false);
+const veterinarios = ref([]);
+const animalEncontrado = ref(null);
+const buscandoAnimal = ref(false);
 
 const form = reactive({
   animalId: '',
   neuteringDate: '',
   neuteringVet: '',
+  veterinario_id: '',
   neuteringCertificate: null,
   notes: ''
 });
@@ -157,6 +182,57 @@ const errors = reactive({
   neuteringVet: '',
   neuteringCertificate: ''
 });
+
+// Cargar veterinarios al montar
+async function loadVeterinarios() {
+  try {
+    await veterinaryStore.fetchVeterinarios();
+    veterinarios.value = veterinaryStore.veterinarios;
+  } catch (err) {
+    console.error('Error al cargar veterinarios:', err);
+  }
+}
+
+// Buscar animal por microchip/código
+async function buscarAnimal() {
+  if (!form.animalId || form.animalId.trim().length < 3) {
+    animalEncontrado.value = null;
+    return;
+  }
+
+  buscandoAnimal.value = true;
+  try {
+    // Primero intentar buscar por chip
+    const responseChip = await api.get(`/historial-clinico/buscar-chip/${form.animalId}`);
+    if (responseChip.data?.data) {
+      animalEncontrado.value = responseChip.data.data;
+      errors.animalId = '';
+      return;
+    }
+  } catch (err) {
+    // Si no encuentra por chip, buscar en animales por código
+    try {
+      const responseAnimales = await api.get('/animals', { params: { search: form.animalId } });
+      const animales = responseAnimales.data?.data?.data || responseAnimales.data?.data || [];
+      if (animales.length > 0) {
+        const animal = animales[0];
+        animalEncontrado.value = {
+          animal: animal,
+          historial_clinico_id: animal.historial_clinico?.id || null
+        };
+        errors.animalId = '';
+        return;
+      }
+    } catch (err2) {
+      console.error('Error buscando animal:', err2);
+    }
+  } finally {
+    buscandoAnimal.value = false;
+  }
+
+  animalEncontrado.value = null;
+  errors.animalId = 'Animal no encontrado';
+}
 
 // Funciones para el componente de carga de archivos de GOV.CO
 if (typeof window !== 'undefined') {
@@ -274,6 +350,9 @@ onMounted(() => {
   fixNonSubmitButtons();
   initializeCalendars();
 
+  // Cargar veterinarios al iniciar
+  loadVeterinarios();
+
   // Configurar validación del componente de carga de archivo
   if (window.setValidationParameters) {
     window.setValidationParameters(
@@ -292,11 +371,34 @@ onMounted(() => {
     certInput.classList.add('active');
   }
 
+  // Agregar listener para sincronizar cambios en el input de fecha
+  const dateInput = document.getElementById('neutDate');
+  if (dateInput) {
+    // Escuchar eventos de cambio, input y blur
+    ['change', 'input', 'blur'].forEach(event => {
+      dateInput.addEventListener(event, () => {
+        if (dateInput.value) {
+          form.neuteringDate = dateInput.value;
+          errors.neuteringDate = ''; // Limpiar error si hay valor
+        }
+      });
+    });
+
+    // Usar MutationObserver para detectar cambios hechos por el calendario GOV.CO
+    const observer = new MutationObserver(() => {
+      if (dateInput.value && dateInput.value !== form.neuteringDate) {
+        form.neuteringDate = dateInput.value;
+        errors.neuteringDate = '';
+      }
+    });
+    observer.observe(dateInput, { attributes: true, attributeFilter: ['value'] });
+  }
+
   if (typeof window !== 'undefined') {
     window.addEventListener('load', () => {
       fixNonSubmitButtons();
       initializeCalendars();
-      
+
       // Agregar listener al botón de carga
       const uploadButton = document.querySelector('.button-loader-carga-de-archivo-govco');
       if (uploadButton) {
@@ -318,25 +420,44 @@ const certificateLabel = computed(() =>
   form.neuteringCertificate ? form.neuteringCertificate.name : 'Sin archivo seleccionado'
 );
 
+function syncDateFromInput() {
+  // Sincronizar valor del input del calendario con form.neuteringDate
+  const dateInput = document.getElementById('neutDate');
+  if (dateInput && dateInput.value) {
+    form.neuteringDate = dateInput.value;
+  }
+}
+
 function validate() {
+  // Sincronizar fecha antes de validar
+  syncDateFromInput();
+
   Object.keys(errors).forEach(k => errors[k] = '');
-  
+
   if (!form.animalId || !form.animalId.trim()) {
     errors.animalId = 'Campo requerido';
+  } else if (!animalEncontrado.value) {
+    errors.animalId = 'Debe buscar y seleccionar un animal válido';
   }
-  
-  if (!form.neuteringDate || form.neuteringDate === '') {
+
+  // Validar fecha - verificar tanto el form como el input directamente
+  const dateInput = document.getElementById('neutDate');
+  const dateValue = form.neuteringDate || (dateInput ? dateInput.value : '');
+
+  if (!dateValue || dateValue.trim() === '') {
     errors.neuteringDate = 'Campo requerido';
   }
-  
-  if (!form.neuteringVet || !form.neuteringVet.trim()) {
-    errors.neuteringVet = 'Campo requerido';
+
+  // Validar veterinario (ahora es un select con ID)
+  if (!form.veterinario_id) {
+    errors.neuteringVet = 'Seleccione un veterinario';
   }
-  
-  if (!form.neuteringCertificate) {
-    errors.neuteringCertificate = 'Certificado requerido';
-  }
-  
+
+  // El certificado es opcional para el backend
+  // if (!form.neuteringCertificate) {
+  //   errors.neuteringCertificate = 'Certificado requerido';
+  // }
+
   return !Object.values(errors).some(e => e);
 }
 
@@ -355,14 +476,92 @@ function resetForm() {
   }
 }
 
-function onSubmit() {
+async function onSubmit() {
   if (!validate()) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return;
   }
-  
-  console.log('Registro de esterilización:', form);
-  alert('Esterilización registrada exitosamente (simulación)');
+
+  // Verificar que tenemos el animal
+  if (!animalEncontrado.value) {
+    errors.animalId = 'Debe buscar y seleccionar un animal válido';
+    return;
+  }
+
+  // Obtener historial_clinico_id
+  const historialClinicoId = animalEncontrado.value.historial_clinico_id ||
+    animalEncontrado.value.animal?.historial_clinico?.id ||
+    animalEncontrado.value.id;
+
+  if (!historialClinicoId) {
+    errors.animalId = 'El animal no tiene historial clínico asociado';
+    return;
+  }
+
+  isSubmitting.value = true;
+
+  try {
+    // Sincronizar fecha antes de enviar
+    syncDateFromInput();
+
+    // Convertir fecha de DD/MM/YYYY a YYYY-MM-DD
+    let fechaCirugia = form.neuteringDate;
+    if (fechaCirugia && fechaCirugia.includes('/')) {
+      const parts = fechaCirugia.split('/');
+      if (parts.length === 3) {
+        fechaCirugia = `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+    }
+
+    const cirugiaData = {
+      historial_clinico_id: historialClinicoId,
+      veterinario_id: form.veterinario_id || null,
+      fecha_cirugia: fechaCirugia,
+      tipo_cirugia: 'esterilizacion',
+      descripcion: `Esterilización realizada. ${form.notes || ''}`.trim(),
+      resultado: 'exitosa',
+      notas_postoperatorias: form.notes || null
+    };
+
+    console.log('📝 Enviando esterilización:', cirugiaData);
+
+    const response = await veterinaryStore.crearCirugia(cirugiaData);
+
+    console.log('✅ Esterilización registrada:', response);
+
+    // Mostrar mensaje de éxito
+    if (window.$toast) {
+      window.$toast.success(
+        '¡Esterilización registrada!',
+        'El procedimiento ha sido registrado exitosamente en el historial médico del animal.'
+      );
+    } else {
+      alert('✅ Esterilización registrada exitosamente');
+    }
+
+    emit('sterilizationRegistered', response);
+    resetForm();
+
+  } catch (error) {
+    console.error('❌ Error al registrar esterilización:', error);
+
+    let errorMessage = 'No se pudo registrar la esterilización. Intente nuevamente.';
+
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.response?.data?.errors) {
+      const firstError = Object.values(error.response.data.errors)[0];
+      errorMessage = Array.isArray(firstError) ? firstError[0] : firstError;
+    }
+
+    if (window.$toast) {
+      window.$toast.error('Error al registrar', errorMessage);
+    } else {
+      alert(`❌ Error: ${errorMessage}`);
+    }
+  } finally {
+    isSubmitting.value = false;
+  }
 }
 </script>
 
@@ -435,13 +634,61 @@ function onSubmit() {
   height: 44px;
 }
 
-.error-text, 
-.alert-desplegable-govco { 
-  display: block; 
-  color: #b00020; 
-  font-size: 0.85rem; 
-  margin-top: 0.5rem; 
-  font-weight: 500; 
+.error-text,
+.alert-desplegable-govco {
+  display: block;
+  color: #b00020;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  font-weight: 500;
+}
+
+.success-text {
+  display: block;
+  color: #069169;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  font-weight: 500;
+}
+
+.input-with-button {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.input-with-button input {
+  flex: 1;
+}
+
+.btn-search {
+  padding: 0.5rem 1rem;
+  background: #3366CC;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.btn-search:hover {
+  background: #2952A3;
+}
+
+.btn-search:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.select-govco {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #D0D0D0;
+  border-radius: 4px;
+  font-size: 1rem;
+  line-height: 1.5;
+  box-sizing: border-box;
+  background: white;
+  height: 44px;
 }
 
 .form-actions { 

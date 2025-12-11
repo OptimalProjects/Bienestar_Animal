@@ -78,7 +78,11 @@ function setLocation(latlng) {
 
 function locateUser() {
   if (!hasGeolocation.value) {
-    alert('Tu navegador no soporta geolocalización.');
+    if (window.$toast) {
+      window.$toast.warning('Geolocalizacion', 'Tu navegador no soporta geolocalizacion.');
+    } else {
+      alert('Tu navegador no soporta geolocalización.');
+    }
     return;
   }
 
@@ -117,15 +121,19 @@ function locateUser() {
         errorMsg = 'La solicitud tardó demasiado (>10s). Verifica tu conexión de internet.';
       }
       
-      alert(errorMsg);
-      
+      if (window.$toast) {
+        window.$toast.error('Error de ubicacion', errorMsg, 8000);
+      } else {
+        alert(errorMsg);
+      }
+
       if (btn) {
         btn.disabled = false;
         btn.style.opacity = '1';
       }
     },
     {
-      enableHighAccuracy: true,    
+      enableHighAccuracy: true,
       timeout: 2000,               
       maximumAge: 0                 
     }

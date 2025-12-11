@@ -12,7 +12,17 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        // Middleware para API
+        $middleware->api(prepend: [
+            \App\Http\Middleware\LogAuditEvent::class,
+        ]);
+
+        // Alias de middleware personalizados
+        $middleware->alias([
+            'permission' => \App\Http\Middleware\CheckPermission::class,
+            'role' => \App\Http\Middleware\CheckRole::class,
+            'mfa' => \App\Http\Middleware\RequireMfa::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

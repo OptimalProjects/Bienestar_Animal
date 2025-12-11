@@ -197,12 +197,13 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
+import { useComplaintsStore } from '@/stores/complaints';
 import RescueMap from './RescueMap.vue';
 import DesplegableGovco from '../common/DesplegableGovco.vue';
 
 const emit = defineEmits(['select', 'assign']);
+const complaintsStore = useComplaintsStore();
 
-const isLoading = ref(false);
 const sortBy = ref('urgency');
 
 const filters = reactive({
@@ -211,6 +212,9 @@ const filters = reactive({
   type: '',
   caseNumber: ''
 });
+
+// Usar loading del store
+const isLoading = computed(() => complaintsStore.loading);
 
 // Opciones para los filtros
 const statusOptions = [
@@ -236,79 +240,8 @@ const typeOptions = [
   { value: 'envenenamiento', text: 'Envenenamiento' }
 ];
 
-// Mock data
-const complaints = ref([
-  {
-    id: 1,
-    caso_numero: 'DEN-202411-0001',
-    tipo_denuncia: 'maltrato_fisico',
-    urgencia: 'critico',
-    especie_animal: 'perro',
-    cantidad_animales: 1,
-    descripcion: 'Perro encadenado sin agua ni comida, visiblemente desnutrido y con heridas en el cuello por la cadena. El animal llora constantemente y los vecinos reportan que lleva semanas en esa situación.',
-    direccion: 'Calle 15 #23-45, Barrio El Centro',
-    coordenadas: { lat: 3.4516, lng: -76.5319 },
-    fecha_recepcion: '2024-11-15T10:30:00',
-    estado: 'recibida',
-    equipo_asignado: false
-  },
-  {
-    id: 2,
-    caso_numero: 'DEN-202411-0002',
-    tipo_denuncia: 'abandono',
-    urgencia: 'alto',
-    especie_animal: 'gato',
-    cantidad_animales: 3,
-    descripcion: 'Familia se mudó y dejó 3 gatos encerrados en el apartamento. Los vecinos escuchan maullidos de hambre desde hace 3 días.',
-    direccion: 'Carrera 8 #42-10, Apto 301, Barrio San Fernando',
-    coordenadas: { lat: 3.4450, lng: -76.5250 },
-    fecha_recepcion: '2024-11-14T08:15:00',
-    estado: 'en_revision',
-    equipo_asignado: false
-  },
-  {
-    id: 3,
-    caso_numero: 'DEN-202411-0003',
-    tipo_denuncia: 'animal_herido',
-    urgencia: 'critico',
-    especie_animal: 'perro',
-    cantidad_animales: 1,
-    descripcion: 'Perro atropellado en la vía, aún con vida pero no puede moverse. Está en la acera junto a la gasolinera.',
-    direccion: 'Avenida 6N con Calle 25, junto a Gasolinera Terpel',
-    coordenadas: { lat: 3.4600, lng: -76.5400 },
-    fecha_recepcion: '2024-11-15T14:20:00',
-    estado: 'asignada',
-    equipo_asignado: true
-  },
-  {
-    id: 4,
-    caso_numero: 'DEN-202411-0004',
-    tipo_denuncia: 'negligencia',
-    urgencia: 'medio',
-    especie_animal: 'perro',
-    cantidad_animales: 2,
-    descripcion: 'Dos perros en terraza pequeña, expuestos al sol todo el día sin sombra ni agua suficiente. Se ven muy delgados.',
-    direccion: 'Calle 70 #1-50, Casa esquinera, Barrio Ciudad Jardin',
-    coordenadas: { lat: 3.4300, lng: -76.5450 },
-    fecha_recepcion: '2024-11-13T16:45:00',
-    estado: 'en_atencion',
-    equipo_asignado: true
-  },
-  {
-    id: 5,
-    caso_numero: 'DEN-202411-0005',
-    tipo_denuncia: 'hacinamiento',
-    urgencia: 'alto',
-    especie_animal: 'gato',
-    cantidad_animales: 15,
-    descripcion: 'Casa con acumulación de gatos, mal olor y condiciones insalubres. Los vecinos reportan que hay aproximadamente 15 gatos o más.',
-    direccion: 'Carrera 24 #5-30, Barrio Obrero',
-    coordenadas: { lat: 3.4380, lng: -76.5180 },
-    fecha_recepcion: '2024-11-12T11:00:00',
-    estado: 'recibida',
-    equipo_asignado: false
-  }
-]);
+// Usar datos del store
+const complaints = computed(() => complaintsStore.denuncias || []);
 
 // Estadisticas
 const stats = computed(() => ({
@@ -365,8 +298,14 @@ function clearFilters() {
   filters.caseNumber = '';
 }
 
-function applyFilters() {
-  console.log('Filtros aplicados:', filters);
+async function applyFilters() {
+  const params = {};
+  if (filters.status) params.estado = filters.status;
+  if (filters.urgency) params.urgencia = filters.urgency;
+  if (filters.type) params.tipo = filters.type;
+  if (filters.caseNumber) params.buscar = filters.caseNumber;
+
+  await complaintsStore.fetchDenuncias(params);
 }
 
 // Helpers
@@ -441,11 +380,8 @@ function truncateText(text, maxLength) {
   return text.substring(0, maxLength) + '...';
 }
 
-onMounted(() => {
-  isLoading.value = true;
-  setTimeout(() => {
-    isLoading.value = false;
-  }, 500);
+onMounted(async () => {
+  await complaintsStore.fetchDenuncias();
 });
 </script>
 

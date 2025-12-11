@@ -50,56 +50,7 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { RouterLink } from 'vue-router';
 import AdoptionList from '../components/adoptions/AdoptionList.vue';
 import AdoptionForm from '../components/adoptions/AdoptionForm.vue';
-
-/**
- * 🐾 MASCOTAS DE PRUEBA
- */
-const mockAnimals = [
-  {
-    id: 1,
-    name: 'Luna',
-    species: 'perro',
-    sex: 'hembra',
-    size: 'mediano',
-    ageInYears: 2,
-    photoUrl: 'https://images.pexels.com/photos/4587991/pexels-photo-4587991.jpeg',
-    statusLabel: 'Disponible',
-    shortDescription: 'Perrita juguetona, sociable con otros perros y niños.'
-  },
-  {
-    id: 2,
-    name: 'Rocky',
-    species: 'perro',
-    sex: 'macho',
-    size: 'grande',
-    ageInYears: 4,
-    photoUrl: 'https://images.pexels.com/photos/7210261/pexels-photo-7210261.jpeg',
-    statusLabel: 'Disponible',
-    shortDescription: 'Perro guardián muy noble, ideal para casa con patio.'
-  },
-  {
-    id: 3,
-    name: 'Michi',
-    species: 'gato',
-    sex: 'hembra',
-    size: 'pequeño',
-    ageInYears: 1,
-    photoUrl: 'https://images.pexels.com/photos/45201/kitty-cat-kitten-pet-45201.jpeg',
-    statusLabel: 'Disponible',
-    shortDescription: 'Gatita curiosa y cariñosa, se adapta fácil a espacios pequeños.'
-  },
-  {
-    id: 4,
-    name: 'Simón',
-    species: 'gato',
-    sex: 'macho',
-    size: 'pequeño',
-    ageInYears: 6,
-    photoUrl: 'https://images.pexels.com/photos/617278/pexels-photo-617278.jpeg',
-    statusLabel: 'Disponible',
-    shortDescription: 'Gato tranquilo, perfecto para compañía en apartamento.'
-  }
-];
+import animalService from '@/services/animalService';
 
 // Filtros de catálogo (estado global de filtros)
 const filters = reactive({
@@ -121,27 +72,50 @@ const submitting = ref(false);
 // Lista filtrada (filtrado en el front)
 const filteredAnimals = computed(() => {
   return animals.value.filter((animal) => {
-    if (filters.species && animal.species !== filters.species) return false;
-    if (filters.size && animal.size !== filters.size) return false;
-    if (filters.sex && animal.sex !== filters.sex) return false;
+    // Mapear campos del backend a los esperados por el filtro
+    const especie = animal.especie || animal.species;
+    const tamanio = animal.tamanio || animal.size;
+    const sexo = animal.sexo || animal.sex;
+    const edad = animal.edad_aproximada ? Math.floor(animal.edad_aproximada / 12) : (animal.ageInYears ?? animal.age);
+
+    if (filters.species && especie !== filters.species) return false;
+    if (filters.size && tamanio !== filters.size) return false;
+    if (filters.sex && sexo !== filters.sex) return false;
 
     if (filters.ageRange) {
-      const age = animal.ageInYears ?? animal.age;
-      if (filters.ageRange === 'young' && age >= 2) return false;
-      if (filters.ageRange === 'adult' && (age < 2 || age > 8)) return false;
-      if (filters.ageRange === 'senior' && age <= 8) return false;
+      if (filters.ageRange === 'young' && edad >= 2) return false;
+      if (filters.ageRange === 'adult' && (edad < 2 || edad > 8)) return false;
+      if (filters.ageRange === 'senior' && edad <= 8) return false;
     }
 
     return true;
   });
 });
 
-function loadAnimals() {
+async function loadAnimals() {
   loadingAnimals.value = true;
-  setTimeout(() => {
-    animals.value = mockAnimals;
+  try {
+    const response = await animalService.getCatalogoAdopcion();
+    // Mapear datos del backend al formato esperado por el componente
+    const data = response.data || response;
+    animals.value = (Array.isArray(data) ? data : data.data || []).map(animal => ({
+      ...animal,
+      // Mapear campos para compatibilidad con el template
+      name: animal.nombre || animal.name,
+      species: animal.especie || animal.species,
+      sex: animal.sexo || animal.sex,
+      size: animal.tamanio || animal.size,
+      ageInYears: animal.edad_aproximada ? Math.floor(animal.edad_aproximada / 12) : animal.ageInYears,
+      photoUrl: animal.url_foto_principal || animal.foto_principal || animal.photoUrl,
+      statusLabel: animal.estado === 'en_adopcion' ? 'Disponible' : (animal.estado || 'Disponible'),
+      shortDescription: animal.observaciones || animal.shortDescription || `${animal.raza || 'Mestizo'} de ${animal.color || 'varios colores'}.`
+    }));
+  } catch (error) {
+    console.error('Error al cargar animales:', error);
+    animals.value = [];
+  } finally {
     loadingAnimals.value = false;
-  }, 300);
+  }
 }
 
 // 👉 Esta función se llama cuando cambias un filtro en AdoptionList
@@ -164,7 +138,11 @@ async function handleAdoptionSubmitted(formData) {
     ...formData,
     animalId: selectedAnimal.value?.id,
   });
-  alert('✅ Tu solicitud de adopción fue enviada (mock).');
+  if (window.$toast) {
+    window.$toast.success('Solicitud enviada', 'Tu solicitud de adopcion fue enviada correctamente. Te contactaremos pronto.');
+  } else {
+    alert('Tu solicitud de adopción fue enviada (mock).');
+  }
   closeAdoptionForm();
 }
 

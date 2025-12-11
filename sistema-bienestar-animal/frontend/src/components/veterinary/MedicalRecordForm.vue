@@ -5,7 +5,13 @@
       <p class="text2-tipografia-govco">Registro de atención médica</p>
     </div>
 
-    <form ref="formEl" @submit.prevent="onSubmit" novalidate>
+    <!-- Indicador de carga -->
+    <div v-if="loadingData" class="loading-overlay">
+      <div class="spinner"></div>
+      <p>Cargando datos...</p>
+    </div>
+
+    <form v-else ref="formEl" @submit.prevent="onSubmit" novalidate>
       
       <!-- SECCIÓN 1: DATOS DE LA CONSULTA -->
       <div class="form-section">
@@ -276,45 +282,166 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed, onMounted, nextTick } from 'vue';
+import { reactive, ref, computed, onMounted, nextTick, watch } from 'vue';
 import VitalSignsInput from './VitalSignsInput.vue';
 import MedicationPrescription from './MedicationPrescription.vue';
 import FileUploader from '../common/FileUploader.vue';
 import DesplegableGovco from '../common/DesplegableGovco.vue';
 import CalendarioGovco from '../common/CalendarioGovco.vue';
+import { useVeterinaryStore } from '@/stores/veterinary';
+import { useAnimalsStore } from '@/stores/animals';
+import animalService from '@/services/animalService';
+
+const emit = defineEmits(['consulta-saved', 'cancel']);
+const props = defineProps({
+  animalId: {
+    type: String,
+    default: null
+  },
+  historialClinicoId: {
+    type: String,
+    default: null
+  }
+});
+
+const veterinaryStore = useVeterinaryStore();
+const animalsStore = useAnimalsStore();
 
 const formEl = ref(null);
+const isSubmitting = ref(false);
 
-// Mock data - reemplazar con llamadas a API
-const animals = ref([
-  { id: 1, name: 'Firulais', microchip: 'MC123456789' },
-  { id: 2, name: 'Michi', microchip: 'MC987654321' }
-]);
+// Datos reactivos desde APIs
+const animals = ref([]);
+const veterinarians = ref([]);
+const medicationInventory = ref([]);
+const loadingData = ref(true);
 
-const veterinarians = ref([
-  { id: 1, name: 'Dr. Juan Pérez', license: '12345' },
-  { id: 2, name: 'Dra. María López', license: '67890' }
-]);
+// Función para reinicializar componentes GOV.CO
+function initGovCoComponents() {
+  console.log('🔄 MedicalRecordForm: Inicializando componentes GOV.CO...');
 
-const medicationInventory = ref([
-  { id: 1, name: 'Amoxicilina 500mg', stock: 50, unit: 'tabletas' },
-  { id: 2, name: 'Ivermectina 1%', stock: 20, unit: 'ml' }
-]);
+  nextTick(() => {
+    if (window.GOVCo?.init) {
+      const dropdowns = document.querySelectorAll('.medical-form .desplegable-govco');
+      console.log(`📦 Encontrados ${dropdowns.length} dropdowns`);
+      dropdowns.forEach((dd, index) => {
+        try {
+          window.GOVCo.init(dd.parentElement || dd);
+          console.log(`✅ Dropdown ${index + 1} inicializado`);
+        } catch (e) {
+          console.warn(`⚠️ Error en dropdown ${index + 1}:`, e);
+        }
+      });
+    }
+
+    if (window.reinitGovCo) {
+      setTimeout(() => {
+        window.reinitGovCo();
+        console.log('✅ reinitGovCo ejecutado');
+      }, 100);
+    }
+  });
+}
+
+// Cargar datos al montar
+async function loadInitialData() {
+  loadingData.value = true;
+  console.log('🔄 MedicalRecordForm: Cargando datos iniciales...');
+
+  try {
+    // Cargar animales
+    console.log('📦 Cargando animales...');
+    let animalsData = [];
+
+    try {
+      await animalsStore.fetchAnimals({ per_page: 100 });
+      animalsData = animalsStore.animals || [];
+      console.log('✅ Animales desde store:', animalsData.length);
+    } catch (storeError) {
+      console.warn('⚠️ Error con store, intentando servicio directo:', storeError);
+      const animalsResponse = await animalService.getAll();
+      animalsData = animalsResponse?.data?.data || animalsResponse?.data || [];
+      console.log('✅ Animales desde servicio:', animalsData.length);
+    }
+
+    animals.value = animalsData;
+    console.log('✅ Animales procesados:', animals.value.length);
+
+    // Cargar veterinarios
+    console.log('📦 Cargando veterinarios...');
+    try {
+      const vetsData = await veterinaryStore.fetchVeterinarios();
+      veterinarians.value = vetsData || veterinaryStore.veterinarios || [];
+      console.log('✅ Veterinarios cargados:', veterinarians.value.length);
+    } catch (vetsError) {
+      console.error('❌ Error cargando veterinarios:', vetsError);
+    }
+
+    // Cargar medicamentos del inventario
+    console.log('📦 Cargando medicamentos...');
+    try {
+      await veterinaryStore.fetchMedicamentos();
+      medicationInventory.value = (veterinaryStore.medicamentos || []).map(m => ({
+        id: m.id,
+        name: m.nombre || m.name,
+        stock: m.stock_actual || m.stock || 0,
+        unit: m.unidad_medida || 'unidades'
+      }));
+      console.log('✅ Medicamentos cargados:', medicationInventory.value.length);
+    } catch (medsError) {
+      console.warn('⚠️ Error cargando medicamentos:', medsError);
+    }
+
+    // Si se pasó un animalId, pre-seleccionar
+    if (props.animalId) {
+      form.animalId = props.animalId;
+      console.log('🎯 Animal pre-seleccionado:', props.animalId);
+    }
+
+    if (props.historialClinicoId) {
+      form.historialClinicoId = props.historialClinicoId;
+    }
+
+    // Reinicializar GOV.CO después de cargar datos
+    await nextTick();
+    setTimeout(() => {
+      initGovCoComponents();
+    }, 200);
+
+  } catch (error) {
+    console.error('❌ Error cargando datos iniciales:', error);
+    alert('Error al cargar datos. Por favor recargue la página.');
+  } finally {
+    loadingData.value = false;
+    console.log('✅ MedicalRecordForm: Carga de datos completada');
+  }
+}
+
+// Observar cuando se cargan los datos para reinicializar GOV.CO
+watch(() => animals.value.length, async (newLength) => {
+  if (newLength > 0) {
+    console.log('📦 Animales actualizados, reinicializando GOV.CO...');
+    await nextTick();
+    setTimeout(() => {
+      initGovCoComponents();
+    }, 100);
+  }
+});
 
 // Opciones computadas para los dropdowns
-const animalOptions = computed(() => 
+const animalOptions = computed(() =>
   animals.value.map(animal => ({
     value: animal.id,
-    text: `${animal.name} - ${animal.microchip}`
+    text: `${animal.nombre || animal.name} - ${animal.codigo_unico || animal.microchip || 'Sin chip'}`
   }))
 );
 
+// Valores aceptados por el backend: general, emergencia, seguimiento, especializada
 const consultTypeOptions = [
-  { value: 'primera_vez', text: 'Primera vez' },
-  { value: 'control', text: 'Control' },
+  { value: 'general', text: 'Consulta general' },
   { value: 'emergencia', text: 'Emergencia' },
-  { value: 'vacunacion', text: 'Vacunación' },
-  { value: 'cirugia', text: 'Pre-quirúrgica' }
+  { value: 'seguimiento', text: 'Seguimiento / Control' },
+  { value: 'especializada', text: 'Especializada' }
 ];
 
 const prognosisOptions = [
@@ -325,15 +452,16 @@ const prognosisOptions = [
   { value: 'grave', text: 'Grave' }
 ];
 
-const veterinarianOptions = computed(() => 
+const veterinarianOptions = computed(() =>
   veterinarians.value.map(vet => ({
     value: vet.id,
-    text: `${vet.name} - Tarjeta Prof. ${vet.license}`
+    text: `${vet.usuario?.nombres || vet.name || 'Dr.'} ${vet.usuario?.apellidos || ''} - Tarjeta Prof. ${vet.tarjeta_profesional || vet.license || 'N/A'}`
   }))
 );
 
 const form = reactive({
   animalId: '',
+  historialClinicoId: '',
   consultDate: '',
   consultType: '',
   reason: '',
@@ -375,9 +503,47 @@ const errors = reactive({
 });
 
 // Handlers para los eventos de cambio de los dropdowns
-function onAnimalChange(value) {
-  console.log('Animal seleccionado:', value);
+async function onAnimalChange(value) {
+  console.log('🔍 Animal seleccionado:', value);
   form.animalId = value;
+
+  if (value) {
+    // Buscar el animal en la lista
+    const selectedAnimal = animals.value.find(a => a.id === value);
+    console.log('🐾 Datos del animal:', selectedAnimal);
+
+    if (selectedAnimal) {
+      // Si el animal tiene historial_clinico_id en sus datos, usarlo
+      if (selectedAnimal.historial_clinico_id) {
+        form.historialClinicoId = selectedAnimal.historial_clinico_id;
+        console.log('✅ historial_clinico_id encontrado en animal:', form.historialClinicoId);
+      } else if (selectedAnimal.historial_clinico?.id) {
+        form.historialClinicoId = selectedAnimal.historial_clinico.id;
+        console.log('✅ historial_clinico_id encontrado en relación:', form.historialClinicoId);
+      } else {
+        // Si no tiene, intentar obtenerlo del backend
+        try {
+          console.log('📡 Obteniendo historial clínico del backend...');
+          const historial = await veterinaryStore.fetchHistorialClinico(value);
+
+          if (historial && historial.id) {
+            form.historialClinicoId = historial.id;
+            console.log('✅ historial_clinico_id obtenido del backend:', historial.id);
+          } else {
+            console.warn('⚠️ Animal no tiene historial clínico');
+            form.historialClinicoId = '';
+            alert('Este animal no tiene historial clínico. Por favor, cree uno primero.');
+          }
+        } catch (error) {
+          console.error('❌ Error al obtener historial:', error);
+          form.historialClinicoId = '';
+          alert('Error al obtener el historial clínico del animal.');
+        }
+      }
+    }
+  } else {
+    form.historialClinicoId = '';
+  }
 }
 
 function onConsultDateChange(value) {
@@ -596,7 +762,13 @@ function validate() {
     errors.animalId = 'Debe seleccionar un animal';
     isValid = false;
   }
-  
+
+  // Verificar que el animal tenga historial clínico
+  if (!form.historialClinicoId) {
+    errors.animalId = 'El animal seleccionado no tiene historial clínico';
+    isValid = false;
+  }
+
   if (!form.consultDate) {
     errors.consultDate = 'Campo requerido';
     isValid = false;
@@ -672,28 +844,114 @@ function resetForm() {
   });
 }
 
+/**
+ * Formatear fecha para backend (YYYY-MM-DD)
+ */
+function formatDateForBackend(dateString) {
+  if (!dateString) return new Date().toISOString().split('T')[0];
+
+  // Si viene en formato DD/MM/YYYY
+  if (dateString.includes('/')) {
+    const [day, month, year] = dateString.split('/');
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+
+  // Si ya está en formato correcto YYYY-MM-DD
+  return dateString;
+}
+
 async function onSubmit() {
   if (!validate()) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return;
   }
-  
+
+  // Verificar que tengamos historial_clinico_id
+  if (!form.historialClinicoId) {
+    console.error('❌ historial_clinico_id está vacío');
+    alert('Error: No se ha seleccionado un animal con historial clínico válido.');
+    return;
+  }
+
+  isSubmitting.value = true;
+
   try {
-    console.log('Guardando consulta:', form);
-    
+    // Preparar datos para el backend
+    const consultaData = {
+      historial_clinico_id: form.historialClinicoId,
+      veterinario_id: String(form.veterinarianId), // Asegurar que sea string
+      fecha_consulta: formatDateForBackend(form.consultDate),
+      tipo_consulta: form.consultType, // Ya está con valores correctos: general, emergencia, seguimiento, especializada
+      motivo_consulta: form.reason,
+      sintomas: form.physicalExam || null,
+      diagnostico: form.diagnosis || null,
+      observaciones: form.veterinarianNotes || null,
+      peso: form.vitalSigns.weight ? parseFloat(form.vitalSigns.weight) : null,
+      temperatura: form.vitalSigns.temperature ? parseFloat(form.vitalSigns.temperature) : null,
+      frecuencia_cardiaca: form.vitalSigns.heartRate ? parseInt(form.vitalSigns.heartRate) : null,
+      frecuencia_respiratoria: form.vitalSigns.respiratoryRate ? parseInt(form.vitalSigns.respiratoryRate) : null,
+      estado_salud: form.prognosis || null,
+      tratamientos: form.medications.length > 0 ? form.medications.map(med => ({
+        medicamento_id: med.medicationId,
+        descripcion: med.instructions || form.treatment,
+        dosis: med.dose,
+        frecuencia: med.frequency,
+        duracion_dias: med.duration ? parseInt(med.duration) : null
+      })) : []
+    };
+
+    // Si hay fecha de seguimiento, agregar
+    if (form.requiresFollowup && form.followupDate) {
+      consultaData.proxima_cita = formatDateForBackend(form.followupDate);
+      consultaData.notas_seguimiento = form.followupNotes;
+    }
+
+    console.log('📤 Enviando consulta:', consultaData);
+
+    // Verificar datos antes de enviar
+    if (!consultaData.historial_clinico_id) {
+      throw new Error('historial_clinico_id es requerido');
+    }
+    if (!consultaData.veterinario_id) {
+      throw new Error('veterinario_id es requerido');
+    }
+
+    // Guardar consulta usando el store
+    const result = await veterinaryStore.crearConsulta(consultaData);
+
+    // Actualizar inventario localmente para cada medicamento prescrito
     form.medications.forEach(med => {
       updateInventoryStock(med.medicationId, med.totalQuantity);
     });
-    
+
     alert('Consulta veterinaria guardada exitosamente');
+    emit('consulta-saved', result);
     resetForm();
   } catch (error) {
-    console.error('Error al guardar consulta:', error);
-    alert('Error al guardar la consulta');
+    console.error('❌ Error al guardar consulta:', error);
+
+    // Mostrar error más detallado
+    let errorMessage = 'Error al guardar la consulta';
+    if (error.response?.data?.errors) {
+      const errores = error.response.data.errors;
+      const primerError = Object.values(errores)[0];
+      errorMessage = Array.isArray(primerError) ? primerError[0] : primerError;
+    } else if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
+    alert(errorMessage);
+  } finally {
+    isSubmitting.value = false;
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // Cargar datos iniciales
+  await loadInitialData();
+
   fixNonSubmitButtons();
   preventScrollOnInteractions();
 
@@ -704,20 +962,77 @@ onMounted(() => {
     });
   }
 });
+
+// Watch para cuando cambie el animalId desde props
+watch(() => props.animalId, async (newAnimalId) => {
+  if (newAnimalId) {
+    form.animalId = newAnimalId;
+    // Obtener historial clínico del animal
+    try {
+      const historial = await veterinaryStore.fetchHistorialClinico(newAnimalId);
+      if (historial && historial.id) {
+        form.historialClinicoId = historial.id;
+      }
+    } catch (error) {
+      console.error('Error al obtener historial clínico:', error);
+    }
+  }
+});
+
+// Watch para cuando se seleccione un animal desde el dropdown
+watch(() => form.animalId, async (newAnimalId) => {
+  if (newAnimalId && !form.historialClinicoId) {
+    try {
+      const historial = await veterinaryStore.fetchHistorialClinico(newAnimalId);
+      if (historial && historial.id) {
+        form.historialClinicoId = historial.id;
+      }
+    } catch (error) {
+      console.error('Error al obtener historial clínico:', error);
+    }
+  }
+});
 </script>
 
 <style scoped>
-.medical-form { 
-  max-width: 1200px; 
-  margin: 0 auto; 
-  padding: 2rem; 
-  background: #f5f7fb; 
+.medical-form {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: #f5f7fb;
 }
 
-.form-header { 
-  margin-bottom: 2rem; 
-  padding-bottom: 1rem; 
-  border-bottom: 3px solid #3366CC; 
+.form-header {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 3px solid #3366CC;
+}
+
+.loading-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  min-height: 300px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3366cc;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .form-section { 

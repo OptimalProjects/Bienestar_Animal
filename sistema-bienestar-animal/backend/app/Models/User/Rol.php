@@ -37,8 +37,8 @@ class Rol extends Model
     public function usuarios(): BelongsToMany
     {
         return $this->belongsToMany(Usuario::class, 'usuario_rol', 'rol_id', 'usuario_id')
-            ->withPivot('asignado_por', 'fecha_asignacion', 'fecha_expiracion', 'activo')
-            ->withTimestamps();
+            ->using(UsuarioRol::class)
+            ->withPivot('asignado_por', 'fecha_asignacion', 'fecha_expiracion', 'activo');
     }
 
     /**
@@ -47,8 +47,8 @@ class Rol extends Model
     public function permisos(): BelongsToMany
     {
         return $this->belongsToMany(Permiso::class, 'rol_permiso', 'rol_id', 'permiso_id')
-            ->withPivot('asignado_por', 'fecha_asignacion')
-            ->withTimestamps();
+            ->using(RolPermiso::class)
+            ->withPivot('asignado_por', 'fecha_asignacion');
     }
 
     /**

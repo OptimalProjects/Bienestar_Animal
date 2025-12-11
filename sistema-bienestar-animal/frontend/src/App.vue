@@ -21,11 +21,15 @@
 
     <!-- Footer GOV.CO (siempre visible) -->
     <GovcoFooter />
+
+    <!-- Componentes globales de notificacion -->
+    <Toast ref="toastRef" />
+    <ConfirmDialog ref="confirmRef" />
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { ref, computed, onMounted, getCurrentInstance } from 'vue';
 import { useRoute } from 'vue-router';
 
 // Componentes de layout
@@ -33,12 +37,38 @@ import GovcoHeader from './components/layout/GovcoHeader.vue';
 import GovcoFooter from './components/layout/GovcoFooter.vue';
 import AppSidebar from './components/layout/AppSidebar.vue';
 
+// Componentes globales de notificacion
+import Toast from './components/common/Toast.vue';
+import ConfirmDialog from './components/common/ConfirmDialog.vue';
+
 const route = useRoute();
+
+// Referencias a los componentes de notificacion
+const toastRef = ref(null);
+const confirmRef = ref(null);
 
 // Mostrar sidebar solo en rutas con layout 'app' y que requieren autenticación
 const showSidebar = computed(() => {
   const appRoutes = ['/dashboard', '/animales', '/veterinaria', '/denuncias', '/adopciones', '/administración'];
   return appRoutes.some(r => route.path.startsWith(r));
+});
+
+// Registrar componentes globalmente al montar
+onMounted(() => {
+  const instance = getCurrentInstance();
+  if (instance) {
+    // Registrar Toast
+    if (toastRef.value) {
+      instance.appContext.config.globalProperties.$toast = toastRef.value;
+      // Tambien exponer globalmente para uso fuera de componentes Vue
+      window.$toast = toastRef.value;
+    }
+    // Registrar ConfirmDialog
+    if (confirmRef.value) {
+      instance.appContext.config.globalProperties.$confirm = confirmRef.value;
+      window.$confirm = confirmRef.value;
+    }
+  }
 });
 </script>
 

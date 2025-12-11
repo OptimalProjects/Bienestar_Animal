@@ -1,39 +1,65 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+
+// Controllers
+use App\Http\Controllers\Api\V1\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Animal\AnimalController;
+use App\Http\Controllers\Api\V1\Veterinary\ConsultaController;
+use App\Http\Controllers\Api\V1\Veterinary\VacunaController;
+use App\Http\Controllers\Api\V1\Veterinary\CirugiaController;
+use App\Http\Controllers\Api\V1\Veterinary\HistorialClinicoController;
+use App\Http\Controllers\Api\V1\Adoptions\AdopcionController;
+use App\Http\Controllers\Api\V1\Adoptions\VisitaSeguimientoController;
+use App\Http\Controllers\Api\V1\Complaints\DenunciaController;
+use App\Http\Controllers\Api\V1\Complaints\RescateController;
+use App\Http\Controllers\Api\V1\Admin\ReporteController;
+use App\Http\Controllers\Api\V1\Admin\UsuarioController;
+use App\Http\Controllers\Api\V1\Admin\InventarioController;
+use App\Http\Controllers\Api\V1\HealthController;
 
 /*
 |--------------------------------------------------------------------------
 | API Routes - Version 1
 |--------------------------------------------------------------------------
 | Base URL: /api/v1
-| Autenticación: Bearer Token (Sanctum)
+| Autenticacion: Bearer Token (Sanctum)
 */
 
 Route::prefix('v1')->group(function () {
-    
+
     // ============================================
-    // RUTAS PÚBLICAS (Sin autenticación)
-    // ⚠️ TEMPORALMENTE COMENTADAS - AuthController no existe aún
+    // RUTAS PUBLICAS (Sin autenticacion)
     // ============================================
-    
-    // Route::post('/login', [AuthController::class, 'login']);
-    // Route::post('/register', [AuthController::class, 'register']);
-    
+
+    // Health check
+    Route::get('/health', [HealthController::class, 'check']);
+
+    // Autenticacion
+    Route::post('/auth/login', [LoginController::class, 'login']);
+    Route::post('/auth/mfa/verify', [LoginController::class, 'verificarMfa']);
+
+    // Catalogo de adopcion (publico)
+    Route::get('/animals/catalogo-adopcion', [AnimalController::class, 'index'])
+        ->defaults('estado', 'en_adopcion');
+
+    // Denuncias publicas
+    Route::post('/denuncias', [DenunciaController::class, 'store']);
+    Route::get('/denuncias/consultar/{ticket}', [DenunciaController::class, 'consultarTicket']);
+
     // ============================================
-    // RUTAS PROTEGIDAS (Requieren autenticación)
-    // ⚠️ TEMPORALMENTE DESHABILITADO PARA PRUEBAS
+    // RUTAS PROTEGIDAS (Requieren autenticacion)
     // ============================================
-    
-    // Route::middleware(['auth:sanctum'])->group(function () {
-        
-        // Autenticación
-        // Route::post('/logout', [AuthController::class, 'logout']);
-        // Route::get('/me', [AuthController::class, 'me']);
-        
+
+    Route::middleware(['auth:sanctum'])->group(function () {
+
+        // Autenticacion
+        Route::post('/auth/logout', [LoginController::class, 'logout']);
+        Route::post('/auth/refresh', [LoginController::class, 'refresh']);
+        Route::get('/auth/me', [LoginController::class, 'me']);
+
         // ============================================
-        // MÓDULO: ANIMALES
+        // MODULO: ANIMALES
         // ============================================
         Route::prefix('animals')->group(function () {
             Route::get('/statistics', [AnimalController::class, 'statistics']);
@@ -42,80 +68,135 @@ Route::prefix('v1')->group(function () {
             Route::get('/{id}', [AnimalController::class, 'show']);
             Route::put('/{id}', [AnimalController::class, 'update']);
             Route::delete('/{id}', [AnimalController::class, 'destroy']);
+
+            // Historial clinico
+            Route::get('/{animalId}/historial-clinico', [HistorialClinicoController::class, 'show']);
+            Route::put('/{animalId}/historial-clinico', [HistorialClinicoController::class, 'update']);
+            Route::post('/{animalId}/chip', [HistorialClinicoController::class, 'registrarChip']);
         });
-        
+
+        // Busqueda por chip
+        Route::get('/historial-clinico/buscar-chip/{chip}', [HistorialClinicoController::class, 'buscarPorChip']);
+
         // ============================================
-        // MÓDULO: VETERINARIA
-        // ⚠️ TEMPORALMENTE COMENTADO - Controladores no existen aún
+        // MODULO: VETERINARIA
         // ============================================
-        /*
-        Route::prefix('veterinaria')->group(function () {
-            // Consultas
-            Route::apiResource('consultas', ConsultaController::class);
-            
-            // Vacunas
-            Route::apiResource('vacunas', VacunaController::class);
-            Route::get('tipos-vacunas', [TipoVacunaController::class, 'index']);
-            
-            // Tratamientos
-            Route::apiResource('tratamientos', TratamientoController::class);
-            
-            // Cirugías
-            Route::apiResource('cirugias', CirugiaController::class);
+        Route::prefix('consultas')->group(function () {
+            Route::get('/estadisticas', [ConsultaController::class, 'estadisticas']);
+            Route::get('/hoy', [ConsultaController::class, 'consultasHoy']);
+            Route::get('/pendientes', [ConsultaController::class, 'pendientes']);
+            Route::get('/', [ConsultaController::class, 'index']);
+            Route::post('/', [ConsultaController::class, 'store']);
+            Route::get('/{id}', [ConsultaController::class, 'show']);
         });
-        */
-        
+
+        Route::prefix('vacunas')->group(function () {
+            Route::get('/tipos', [VacunaController::class, 'tiposVacuna']);
+            Route::get('/veterinarios', [VacunaController::class, 'veterinarios']);
+            Route::get('/proximas', [VacunaController::class, 'proximasVacunas']);
+            Route::get('/animal/{animalId}', [VacunaController::class, 'vacunasAnimal']);
+            Route::get('/', [VacunaController::class, 'index']);
+            Route::post('/', [VacunaController::class, 'store']);
+            Route::get('/{id}', [VacunaController::class, 'show']);
+        });
+
+        Route::prefix('cirugias')->group(function () {
+            Route::get('/procedimientos', [CirugiaController::class, 'procedimientos']);
+            Route::get('/estadisticas', [CirugiaController::class, 'estadisticas']);
+            Route::get('/animal/{animalId}', [CirugiaController::class, 'cirugiasAnimal']);
+            Route::get('/', [CirugiaController::class, 'index']);
+            Route::post('/', [CirugiaController::class, 'store']);
+            Route::get('/{id}', [CirugiaController::class, 'show']);
+            Route::put('/{id}', [CirugiaController::class, 'update']);
+        });
+
         // ============================================
-        // MÓDULO: ADOPCIONES
-        // ⚠️ TEMPORALMENTE COMENTADO - Controladores no existen aún
+        // MODULO: ADOPCIONES
         // ============================================
-        /*
         Route::prefix('adopciones')->group(function () {
-            Route::apiResource('adoptantes', AdoptanteController::class);
-            Route::apiResource('adopciones', AdopcionController::class);
-            
-            // Acciones especiales
-            Route::post('adopciones/{id}/aprobar', [AdopcionController::class, 'aprobar']);
-            Route::post('adopciones/{id}/rechazar', [AdopcionController::class, 'rechazar']);
-            
-            // Visitas domiciliarias
-            Route::apiResource('visitas', VisitaDomiciliariaController::class);
+            Route::get('/estadisticas', [AdopcionController::class, 'estadisticas']);
+            Route::get('/pendientes', [AdopcionController::class, 'pendientes']);
+            Route::get('/', [AdopcionController::class, 'index']);
+            Route::post('/', [AdopcionController::class, 'store']);
+            Route::get('/{id}', [AdopcionController::class, 'show']);
+            Route::put('/{id}/evaluar', [AdopcionController::class, 'evaluar']);
+            Route::get('/{id}/contrato', [AdopcionController::class, 'contrato']);
         });
-        */
-        
+
+        Route::prefix('visitas-seguimiento')->group(function () {
+            Route::get('/pendientes', [VisitaSeguimientoController::class, 'pendientes']);
+            Route::get('/requieren-visita', [VisitaSeguimientoController::class, 'requierenVisita']);
+            Route::get('/', [VisitaSeguimientoController::class, 'index']);
+            Route::post('/', [VisitaSeguimientoController::class, 'store']);
+            Route::get('/{id}', [VisitaSeguimientoController::class, 'show']);
+            Route::put('/{id}/registrar', [VisitaSeguimientoController::class, 'registrar']);
+            Route::put('/{id}/cancelar', [VisitaSeguimientoController::class, 'cancelar']);
+            Route::put('/{id}/reprogramar', [VisitaSeguimientoController::class, 'reprogramar']);
+        });
+
         // ============================================
-        // MÓDULO: DENUNCIAS
-        // ⚠️ TEMPORALMENTE COMENTADO - Controladores no existen aún
+        // MODULO: DENUNCIAS
         // ============================================
-        /*
         Route::prefix('denuncias')->group(function () {
-            Route::apiResource('denuncias', DenunciaController::class);
-            Route::post('denuncias/{id}/asignar', [DenunciaController::class, 'asignar']);
-            
-            Route::apiResource('rescates', RescateController::class);
+            Route::get('/estadisticas', [DenunciaController::class, 'estadisticas']);
+            Route::get('/urgentes', [DenunciaController::class, 'urgentes']);
+            Route::get('/mis-asignaciones', [DenunciaController::class, 'misAsignaciones']);
+            Route::get('/mapa-calor', [DenunciaController::class, 'mapaCalor']);
+            Route::get('/', [DenunciaController::class, 'index']);
+            Route::get('/{id}', [DenunciaController::class, 'show']);
+            Route::put('/{id}/asignar', [DenunciaController::class, 'asignar']);
+            Route::put('/{id}/estado', [DenunciaController::class, 'actualizarEstado']);
         });
-        */
-        
-        // ============================================
-        // MÓDULO: ADMINISTRACIÓN
-        // ⚠️ TEMPORALMENTE COMENTADO - Controladores no existen aún
-        // ============================================
-        /*
-        Route::prefix('admin')->group(function () {  // ->middleware(['role:admin']) ⚠️ Comentado temporalmente
-            Route::get('/dashboard', [AdminController::class, 'dashboard']);
-            Route::get('/reportes', [AdminController::class, 'reportes']);
-            Route::apiResource('inventarios', InventarioController::class);
-            Route::apiResource('indicadores', IndicadorController::class);
+
+        Route::prefix('rescates')->group(function () {
+            Route::get('/estadisticas', [RescateController::class, 'estadisticas']);
+            Route::get('/', [RescateController::class, 'index']);
+            Route::post('/', [RescateController::class, 'store']);
+            Route::get('/{id}', [RescateController::class, 'show']);
+            Route::put('/{id}', [RescateController::class, 'update']);
+            Route::put('/{id}/vincular-animal', [RescateController::class, 'vincularAnimal']);
         });
-        */
-        
+
         // ============================================
-        // MÓDULO: AUDITORÍA
-        // ⚠️ TEMPORALMENTE COMENTADO - Controladores no existen aún
+        // MODULO: ADMINISTRACION
         // ============================================
-        /*
-        Route::get('/auditoria', [AuditoriaController::class, 'index']);
-            // ->middleware(['role:admin']);  // ⚠️ Comentado temporalmente
-        */
-    // });  // ⚠️ Comentado temporalmente el cierre de auth:sanctum
+
+        // Usuarios
+        Route::prefix('usuarios')->group(function () {
+            Route::get('/roles', [UsuarioController::class, 'roles']);
+            Route::get('/', [UsuarioController::class, 'index']);
+            Route::post('/', [UsuarioController::class, 'store']);
+            Route::get('/{id}', [UsuarioController::class, 'show']);
+            Route::put('/{id}', [UsuarioController::class, 'update']);
+            Route::put('/{id}/password', [UsuarioController::class, 'cambiarPassword']);
+            Route::put('/{id}/toggle-activo', [UsuarioController::class, 'toggleActivo']);
+            Route::delete('/{id}', [UsuarioController::class, 'destroy']);
+        });
+
+        // Inventario
+        Route::prefix('inventario')->group(function () {
+            Route::get('/estadisticas', [InventarioController::class, 'estadisticas']);
+            Route::get('/stock-bajo', [InventarioController::class, 'stockBajo']);
+            Route::get('/proximos-vencer', [InventarioController::class, 'proximosVencer']);
+            Route::get('/vencidos', [InventarioController::class, 'vencidos']);
+            Route::get('/verificar-stock', [InventarioController::class, 'verificarStock']);
+            Route::get('/insumos', [InventarioController::class, 'insumos']);
+            Route::get('/', [InventarioController::class, 'index']);
+            Route::post('/', [InventarioController::class, 'store']);
+            Route::put('/{id}', [InventarioController::class, 'update']);
+            Route::post('/{id}/entrada', [InventarioController::class, 'registrarEntrada']);
+            Route::post('/{id}/salida', [InventarioController::class, 'registrarSalida']);
+        });
+
+        // Reportes
+        Route::prefix('reportes')->group(function () {
+            Route::get('/dashboard', [ReporteController::class, 'dashboard']);
+            Route::get('/indicadores', [ReporteController::class, 'indicadores']);
+            Route::post('/indicadores/{indicadorId}/punto', [ReporteController::class, 'registrarIndicador']);
+            Route::get('/periodo', [ReporteController::class, 'reportePeriodo']);
+            Route::get('/exportar', [ReporteController::class, 'exportar']);
+        });
+
+    }); // Fin middleware auth:sanctum
+
 });

@@ -31,10 +31,13 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
+import { reactive, ref, computed } from 'vue';
+import { useAnimalsStore } from '@/stores/animals';
 import SearchFilters from '../common/SearchFilters.vue';
 import SearchResults from '../common/SearchResults.vue';
 import AnimalDetailModal from './AnimalDetail.vue';
+
+const animalsStore = useAnimalsStore();
 
 const filters = reactive({
   microchip: '',
@@ -50,80 +53,27 @@ const filters = reactive({
 });
 
 const hasSearched = ref(false);
-const isSearching = ref(false);
 const selectedAnimal = ref(null);
-const filteredResults = ref([]);
 
-// Datos de ejemplo
-const mockAnimals = [
-  {
-    id: 1,
-    microchip: 'MC123456789',
-    species: 'perro',
-    breed: 'Criollo',
-    color: 'Café',
-    sex: 'macho',
-    estimatedAge: '2 años',
-    status: 'refugio',
-    rescueDate: '15/10/2024',
-    coordinates: { lat: 3.4516, lng: -76.5319 },
-    healthCondition: 'Buen estado general, desnutrición leve',
-    neutered: true,
-    neuteringDate: '20/10/2024',
-    neuteringVet: 'Dra. María González',
-    photoUrl: null
-  },
-  {
-    id: 2,
-    microchip: 'MC987654321',
-    species: 'gato',
-    breed: 'Mestizo',
-    color: 'Blanco y negro',
-    sex: 'hembra',
-    estimatedAge: '6 meses',
-    status: 'adoptado',
-    rescueDate: '03/11/2024',
-    coordinates: { lat: 3.4450, lng: -76.5200 },
-    healthCondition: 'Excelente estado',
-    neutered: true,
-    neuteringDate: '10/11/2024',
-    neuteringVet: 'Dr. Carlos Pérez',
-    photoUrl: null
-  },
-  {
-    id: 3,
-    microchip: 'MC555666777',
-    species: 'perro',
-    breed: 'Pitbull',
-    color: 'Atigrado',
-    sex: 'hembra',
-    estimatedAge: '4 años',
-    status: 'en_calle',
-    rescueDate: '01/11/2024',
-    coordinates: { lat: 3.4600, lng: -76.5400 },
-    healthCondition: 'Heridas leves, requiere atención',
-    neutered: false,
-    photoUrl: null
-  }
-];
+// Usar estado del store
+const isSearching = computed(() => animalsStore.loading);
+const filteredResults = computed(() => animalsStore.animales || []);
 
-function handleSearch() {
-  isSearching.value = true;
+async function handleSearch() {
   hasSearched.value = true;
 
-  setTimeout(() => {
-    filteredResults.value = mockAnimals.filter(animal => {
-      if (filters.microchip && !animal.microchip.toLowerCase().includes(filters.microchip.toLowerCase())) return false;
-      if (filters.species && animal.species !== filters.species) return false;
-      if (filters.breed && !animal.breed.toLowerCase().includes(filters.breed.toLowerCase())) return false;
-      if (filters.color && !animal.color.toLowerCase().includes(filters.color.toLowerCase())) return false;
-      if (filters.sex && animal.sex !== filters.sex) return false;
-      if (filters.status && animal.status !== filters.status) return false;
-      if (filters.onlyNeutered && !animal.neutered) return false;
-      return true;
-    });
-    isSearching.value = false;
-  }, 800);
+  // Construir parametros de busqueda
+  const params = {};
+  if (filters.microchip) params.chip = filters.microchip;
+  if (filters.species) params.especie = filters.species;
+  if (filters.breed) params.raza = filters.breed;
+  if (filters.color) params.color = filters.color;
+  if (filters.sex) params.sexo = filters.sex;
+  if (filters.status) params.estado = filters.status;
+  if (filters.dateFrom) params.fecha_desde = filters.dateFrom;
+  if (filters.dateTo) params.fecha_hasta = filters.dateTo;
+
+  await animalsStore.fetchAnimals(params);
 }
 
 function clearFilters() {
@@ -131,7 +81,7 @@ function clearFilters() {
     filters[key] = typeof filters[key] === 'boolean' ? false : '';
   });
   hasSearched.value = false;
-  filteredResults.value = [];
+  animalsStore.clearAnimals();
 }
 
 function selectAnimal(animal) {

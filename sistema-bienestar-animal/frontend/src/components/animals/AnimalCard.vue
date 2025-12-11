@@ -2,23 +2,23 @@
 <template>
   <div class="animal-card" @click="$emit('click')">
     <div class="card-image">
-      <img :src="animal.photoUrl || '/placeholder-animal.jpg'" :alt="`Foto de ${animal.microchip}`" />
-      <span class="status-badge" :class="`status-${animal.status}`">
-        {{ getStatusLabel(animal.status) }}
+      <img :src="photoUrl" :alt="`Foto de ${displayId}`" />
+      <span class="status-badge" :class="`status-${animalStatus}`">
+        {{ getStatusLabel(animalStatus) }}
       </span>
     </div>
-    
+
     <div class="card-content">
-      <h4 class="h6-tipografia-govco">{{ animal.microchip }}</h4>
-      
+      <h4 class="h6-tipografia-govco">{{ displayId }}</h4>
+
       <div class="card-details">
-        <p><strong>Especie:</strong> {{ animal.species }}</p>
-        <p><strong>Raza:</strong> {{ animal.breed }}</p>
-        <p><strong>Color:</strong> {{ animal.color }}</p>
-        <p><strong>Sexo:</strong> {{ animal.sex }}</p>
-        <p><strong>Edad:</strong> {{ animal.estimatedAge }}</p>
-        <p><strong>Rescate:</strong> {{ animal.rescueDate }}</p>
-        <p v-if="animal.neutered" class="neutered-badge"><strong>✓ Esterilizado</strong></p>
+        <p><strong>Especie:</strong> {{ displayEspecie }}</p>
+        <p><strong>Raza:</strong> {{ displayRaza }}</p>
+        <p><strong>Color:</strong> {{ displayColor }}</p>
+        <p><strong>Sexo:</strong> {{ displaySexo }}</p>
+        <p><strong>Edad:</strong> {{ displayEdad }}</p>
+        <p><strong>Rescate:</strong> {{ displayFechaRescate }}</p>
+        <p v-if="isNeutered" class="neutered-badge"><strong>✓ Esterilizado</strong></p>
       </div>
 
       <button class="view-details-btn govco-bg-blue-light">Ver detalles completos</button>
@@ -27,20 +27,92 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue';
+
+const props = defineProps({
   animal: Object
 });
 
 defineEmits(['click']);
 
+// Mapeo de campos - soporta tanto nombres en español (backend) como inglés
+const photoUrl = computed(() =>
+  props.animal?.url_foto_principal || props.animal?.foto_principal || props.animal?.photoUrl || '/placeholder-animal.jpg'
+);
+
+const displayId = computed(() =>
+  props.animal?.codigo_unico || props.animal?.numero_chip || props.animal?.microchip || 'Sin ID'
+);
+
+const animalStatus = computed(() =>
+  props.animal?.estado || props.animal?.status || ''
+);
+
+const displayEspecie = computed(() => {
+  const especie = props.animal?.especie || props.animal?.species || '';
+  const labels = { canino: 'Canino', felino: 'Felino', equino: 'Equino', otro: 'Otro' };
+  return labels[especie?.toLowerCase()] || especie || 'No especificada';
+});
+
+const displayRaza = computed(() =>
+  props.animal?.raza || props.animal?.breed || 'No especificada'
+);
+
+const displayColor = computed(() =>
+  props.animal?.color || 'No especificado'
+);
+
+const displaySexo = computed(() => {
+  const sexo = props.animal?.sexo || props.animal?.sex || '';
+  const labels = { macho: 'Macho', hembra: 'Hembra', desconocido: 'Desconocido' };
+  return labels[sexo?.toLowerCase()] || sexo || 'No especificado';
+});
+
+const displayEdad = computed(() => {
+  // Usar edad_formato si está disponible (viene del backend como accessor)
+  if (props.animal?.edad_formato) {
+    return props.animal.edad_formato;
+  }
+  // Fallback: calcular desde edad_aproximada (en meses)
+  const edadMeses = props.animal?.edad_aproximada || props.animal?.estimatedAge;
+  if (!edadMeses) return 'Desconocida';
+
+  const anios = Math.floor(edadMeses / 12);
+  const meses = edadMeses % 12;
+  const partes = [];
+  if (anios > 0) partes.push(`${anios} año${anios > 1 ? 's' : ''}`);
+  if (meses > 0) partes.push(`${meses} mes${meses > 1 ? 'es' : ''}`);
+  return partes.join(' y ') || 'Desconocida';
+});
+
+const displayFechaRescate = computed(() => {
+  const fecha = props.animal?.fecha_rescate || props.animal?.rescueDate;
+  if (!fecha) return 'No registrada';
+  // Formatear fecha si viene en formato ISO
+  try {
+    const date = new Date(fecha);
+    if (isNaN(date.getTime())) return fecha;
+    return date.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch {
+    return fecha;
+  }
+});
+
+const isNeutered = computed(() =>
+  props.animal?.esterilizado || props.animal?.neutered || false
+);
+
 function getStatusLabel(status) {
   const labels = {
     en_calle: 'En calle',
+    en_refugio: 'En refugio',
     refugio: 'En refugio',
+    en_adopcion: 'En adopción',
     adoptado: 'Adoptado',
-    fallecido: 'Fallecido'
+    fallecido: 'Fallecido',
+    en_tratamiento: 'En tratamiento'
   };
-  return labels[status] || status;
+  return labels[status] || status || 'Sin estado';
 }
 </script>
 

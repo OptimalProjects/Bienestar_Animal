@@ -274,8 +274,7 @@
 import { reactive, ref, computed, onMounted, nextTick } from 'vue';
 import MapSelector from '../common/MapSelector.vue';
 import InputGovCo from '../common/InputGovCo.vue';
-
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+import api from '@/services/api';
 
 const formEl = ref(null);
 const photosInput = ref(null);
@@ -696,40 +695,38 @@ function prepareAnimalData() {
 // Función para registrar el animal en la API
 async function registerAnimal() {
   isSubmitting.value = true;
-  
+
   try {
     const animalData = prepareAnimalData();
-    
+
     console.log('Enviando datos a la API:', animalData);
-    
-    const response = await fetch(`${API_BASE_URL}/animals`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify(animalData)
-    });
-    
-    const result = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(result.message || 'Error al registrar el animal');
-    }
-    
+
+    const response = await api.post('/animals', animalData);
+    const result = response.data;
+
     console.log('Animal registrado exitosamente:', result.data);
-    
-    // Mostrar mensaje de éxito
-    alert(`✅ Animal registrado exitosamente!\n\nCódigo: ${result.data.codigo_unico}\nID: ${result.data.id}`);
-    
+
+    // Mostrar mensaje de éxito usando toast si está disponible
+    if (window.$toast) {
+      window.$toast.success('¡Animal registrado!', `Código: ${result.data.codigo_unico}`);
+    } else {
+      alert(`✅ Animal registrado exitosamente!\n\nCódigo: ${result.data.codigo_unico}\nID: ${result.data.id}`);
+    }
+
     // Limpiar el formulario
     resetForm();
-    
+
     return result.data;
-    
+
   } catch (error) {
     console.error('Error al registrar animal:', error);
-    alert(`❌ Error al registrar el animal:\n${error.message}`);
+    const errorMessage = error.response?.data?.message || error.message || 'Error desconocido';
+
+    if (window.$toast) {
+      window.$toast.error('Error al registrar', errorMessage);
+    } else {
+      alert(`❌ Error al registrar el animal:\n${errorMessage}`);
+    }
     throw error;
   } finally {
     isSubmitting.value = false;

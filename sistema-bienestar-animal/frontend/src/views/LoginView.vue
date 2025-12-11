@@ -63,12 +63,11 @@
             Ingresar al sistema
           </h2>
           <p class="login-subtitle text2-tipografia-govco">
-            Para esta versión demo, selecciona un rol para simular el acceso
-            con SSO y permisos RBAC.
+            Ingresa tus credenciales para acceder al sistema.
           </p>
 
-          <!-- Formulario de "login" por rol -->
-          <form @submit.prevent="handleLogin" class="login-form">
+          <!-- Formulario de login -->
+          <form v-if="!showMfaForm" @submit.prevent="handleLogin" class="login-form">
             <!-- Correo electrónico -->
             <div class="form-group-govco">
               <label for="email" class="label-govco">
@@ -136,33 +135,6 @@
               <span v-if="passwordError" class="error-message-govco">{{ passwordError }}</span>
             </div>
 
-            <!-- Rol -->
-            <div class="form-group-govco">
-              <label for="role" class="label-govco">
-                Selecciona tu rol
-                <span aria-required="true">*</span>
-              </label>
-              <select
-                id="role"
-                v-model="selectedRole"
-                class="input-govco"
-                :class="{ 'is-invalid': roleError }"
-              >
-                <option value="" disabled>Seleccionar rol...</option>
-                <option
-                  v-for="opt in roleOptions"
-                  :key="opt.value"
-                  :value="opt.value"
-                >
-                  {{ opt.label }}
-                </option>
-              </select>
-              <span v-if="roleError" class="error-message-govco">{{ roleError }}</span>
-              <span v-else class="help-text-govco">
-                Este selector reemplaza temporalmente el SSO (HU-024 / HU-025) para pruebas de interfaz.
-              </span>
-            </div>
-
             <!-- Opciones adicionales -->
             <div class="form-options">
               <div class="checkbox-wrapper">
@@ -197,6 +169,63 @@
             </p>
           </form>
 
+          <!-- Formulario MFA -->
+          <form v-else @submit.prevent="handleMfaVerify" class="login-form">
+            <div class="mfa-info">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#3366CC" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+              <h3>Verificación de seguridad</h3>
+              <p>Hemos enviado un código de 6 dígitos a tu correo electrónico.</p>
+            </div>
+
+            <div class="form-group-govco">
+              <label for="mfaCode" class="label-govco">
+                Código de verificación
+                <span aria-required="true">*</span>
+              </label>
+              <input
+                type="text"
+                id="mfaCode"
+                v-model="mfaCode"
+                class="input-govco mfa-input"
+                placeholder="000000"
+                maxlength="6"
+                pattern="[0-9]*"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+              />
+            </div>
+
+            <!-- Botones MFA -->
+            <button
+              type="submit"
+              class="btn-govco btn-govco-primary btn-block"
+              :disabled="isLoading"
+            >
+              <span v-if="!isLoading">Verificar código</span>
+              <span v-else>
+                <span class="spinner"></span>
+                Verificando...
+              </span>
+            </button>
+
+            <button
+              type="button"
+              class="btn-govco btn-govco-secondary btn-block mt-2"
+              @click="cancelMfa"
+              :disabled="isLoading"
+            >
+              Cancelar
+            </button>
+
+            <!-- Error general -->
+            <p v-if="errorMessage" class="error-message-govco mt-2" style="text-align: center;">
+              {{ errorMessage }}
+            </p>
+          </form>
+
           <!-- Volver al inicio -->
           <router-link to="/" class="back-link">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -214,38 +243,32 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useRole, ROLES } from '../composables/useRol.js';
+import { useAuthStore } from '@/stores/auth';
 
 const router = useRouter();
-const { setRole } = useRole();
+const authStore = useAuthStore();
 
 // Form fields
 const email = ref('');
 const password = ref('');
-const selectedRole = ref('');
 const rememberMe = ref(false);
 const showPassword = ref(false);
+
+// MFA fields
+const showMfaForm = ref(false);
+const mfaCode = ref('');
+const mfaEmail = ref('');
 
 // Loading and errors
 const isLoading = ref(false);
 const errorMessage = ref('');
 const emailError = ref('');
 const passwordError = ref('');
-const roleError = ref('');
-
-const roleOptions = [
-  { value: ROLES.CIUDADANO, label: 'Ciudadano (portal público)' },
-  { value: ROLES.OPERADOR_RESCATE, label: 'Operador de Rescate' },
-  { value: ROLES.MEDICO_VETERINARIO, label: 'Médico Veterinario' },
-  { value: ROLES.COORDINADOR_ADOPCIONES, label: 'Coordinador de Adopciones' },
-  { value: ROLES.ADMIN_SISTEMA, label: 'Administrador del Sistema' },
-  { value: ROLES.DIRECTOR, label: 'Director' },
-];
 
 // Validación de email
-function validateEmail(email) {
+function validateEmail(emailValue) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
+  return emailRegex.test(emailValue);
 }
 
 // Limpiar errores
@@ -253,12 +276,11 @@ function clearErrors() {
   errorMessage.value = '';
   emailError.value = '';
   passwordError.value = '';
-  roleError.value = '';
 }
 
 async function handleLogin() {
   clearErrors();
-  
+
   let hasError = false;
 
   // Validar email
@@ -279,12 +301,6 @@ async function handleLogin() {
     hasError = true;
   }
 
-  // Validar rol
-  if (!selectedRole.value) {
-    roleError.value = 'Debes seleccionar un rol.';
-    hasError = true;
-  }
-
   if (hasError) {
     return;
   }
@@ -292,40 +308,79 @@ async function handleLogin() {
   try {
     isLoading.value = true;
 
-    // Simulación de delay de login (aquí iría la llamada a la API)
-    await new Promise(resolve => setTimeout(resolve, 800));
+    // Llamar al API real de autenticación
+    const result = await authStore.login(email.value, password.value);
 
-    // Simulación de validación de credenciales
-    // En producción, aquí se validaría contra el backend
-    if (email.value === 'demo@test.com' && password.value === 'demo123') {
-      // Login exitoso
-      setRole(selectedRole.value);
-
-      // Redirección según rol
-      if (selectedRole.value === ROLES.CIUDADANO) {
-        router.push('/adopciones');
-      } else {
-        router.push('/dashboard');
-      }
-    } else {
-      // Para el demo, aceptar cualquier credencial
-      setRole(selectedRole.value);
-      
-      if (selectedRole.value === ROLES.CIUDADANO) {
-        router.push('/adopciones');
-      } else {
-        router.push('/dashboard');
-      }
+    if (result.requiresMfa) {
+      // El usuario requiere verificación MFA
+      showMfaForm.value = true;
+      mfaEmail.value = email.value;
+      return;
     }
+
+    // Login exitoso - redirigir según rol
+    redirectByRole();
+
   } catch (error) {
-    errorMessage.value = 'Error al iniciar sesión. Por favor, intenta nuevamente.';
+    // Mostrar mensaje de error del backend
+    errorMessage.value = authStore.error || 'Credenciales incorrectas. Por favor, verifica tu correo y contraseña.';
   } finally {
     isLoading.value = false;
   }
 }
 
+async function handleMfaVerify() {
+  if (!mfaCode.value || mfaCode.value.length !== 6) {
+    errorMessage.value = 'Ingresa el código de 6 dígitos enviado a tu correo.';
+    return;
+  }
+
+  try {
+    isLoading.value = true;
+    await authStore.verifyMfa(mfaCode.value);
+
+    // Login exitoso después de MFA - redirigir según rol
+    redirectByRole();
+
+  } catch (error) {
+    errorMessage.value = authStore.error || 'Código MFA inválido o expirado.';
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+function redirectByRole() {
+  const userRole = authStore.userRole?.toLowerCase();
+  console.log('🚀 redirectByRole - userRole:', userRole);
+  console.log('🔑 localStorage sba-role:', localStorage.getItem('sba-role'));
+
+  // Roles que van al dashboard administrativo
+  const adminRoles = ['administrador', 'admin', 'director', 'veterinario', 'operador', 'coordinador'];
+  const isAdmin = adminRoles.some(r => userRole?.includes(r));
+  console.log('👤 ¿Es admin?:', isAdmin);
+
+  if (isAdmin) {
+    console.log('➡️ Redirigiendo a /dashboard...');
+    router.push('/dashboard');
+  } else {
+    console.log('➡️ Redirigiendo a /adopciones...');
+    router.push('/adopciones');
+  }
+}
+
+function cancelMfa() {
+  showMfaForm.value = false;
+  mfaCode.value = '';
+  mfaEmail.value = '';
+  errorMessage.value = '';
+}
+
 function handleForgotPassword() {
-  alert('Funcionalidad de recuperación de contraseña.\n\nPara el demo, usa cualquier correo y contraseña.');
+  if (window.$toast) {
+    window.$toast.info('Recuperar contrasena', 'Para recuperar tu contrasena, contacta al administrador del sistema.');
+  } else {
+    alert('Para recuperar tu contraseña, contacta al administrador del sistema.');
+  }
 }
 </script>
 
@@ -620,6 +675,45 @@ function handleForgotPassword() {
 
 .back-link:hover {
   color: #3366CC;
+}
+
+/* MFA Form */
+.mfa-info {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.mfa-info svg {
+  margin-bottom: 1rem;
+}
+
+.mfa-info h3 {
+  color: #004884;
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+}
+
+.mfa-info p {
+  color: #666;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.mfa-input {
+  text-align: center;
+  font-size: 1.5rem;
+  letter-spacing: 0.5rem;
+  font-weight: 600;
+}
+
+.btn-govco-secondary {
+  background: white;
+  color: #3366CC;
+  border: 1px solid #3366CC;
+}
+
+.btn-govco-secondary:hover {
+  background: #f5f7fb;
 }
 
 /* Responsive */

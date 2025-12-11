@@ -1,0 +1,186 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # Base de Datos MySQL 8.0
+  # ============================================
+  mysql:
+    image: mysql:8.0
+    container_name: bienestar_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_secure_2025}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-bienestar_animal}
+      MYSQL_USER: ${MYSQL_USER:-bienestar_admin}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-Ba_2025_Secure!}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init-scripts:/docker-entrypoint-initdb.d:ro
+      - ./mysql/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    networks:
+      - bienestar_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root_secure_2025}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  # ============================================
+  # Cache Redis 7
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: bienestar_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - bienestar_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+  # ============================================
+  # Backend Laravel (PHP 8.3 + FPM)
+  # ============================================
+  backend:
+    build:
+      context: ./php
+      dockerfile: Dockerfile
+    container_name: bienestar_backend
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ../backend:/var/www/html
+      - ./php/local.ini:/usr/local/etc/php/conf.d/local.ini:ro
+    environment:
+      - APP_ENV=${APP_ENV:-local}
+      - APP_DEBUG=${APP_DEBUG:-true}
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=${MYSQL_DATABASE:-bienestar_animal}
+      - DB_USERNAME=${MYSQL_USER:-bienestar_admin}
+      - DB_PASSWORD=${MYSQL_PASSWORD:-Ba_2025_Secure!}
+      - CACHE_DRIVER=redis
+      - SESSION_DRIVER=redis
+      - QUEUE_CONNECTION=redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - bienestar_network
+
+  # ============================================
+  # Frontend Vue.js (Dev Server)
+  # ============================================
+  frontend:
+    image: node:20-alpine
+    container_name: bienestar_frontend
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ../frontend:/app
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:${NGINX_PORT:-80}/api/v1
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    networks:
+      - bienestar_network
+
+  # ============================================
+  # Nginx Reverse Proxy
+  # ============================================
+  nginx:
+    image: nginx:alpine
+    container_name: bienestar_nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_PORT:-80}:80"
+      - "${NGINX_SSL_PORT:-443}:443"
+    volumes:
+      - ../backend:/var/www/html:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - bienestar_network
+
+  # ============================================
+  # phpMyAdmin (Solo desarrollo)
+  # ============================================
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: bienestar_phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "${PHPMYADMIN_PORT:-8080}:80"
+    environment:
+      - PMA_HOST=mysql
+      - PMA_USER=${MYSQL_USER:-bienestar_admin}
+      - PMA_PASSWORD=${MYSQL_PASSWORD:-Ba_2025_Secure!}
+      - UPLOAD_LIMIT=100M
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - bienestar_network
+    profiles:
+      - dev
+
+  # ============================================
+  # Redis Commander (Solo desarrollo)
+  # ============================================
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: bienestar_redis_commander
+    restart: unless-stopped
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8081}:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - bienestar_network
+    profiles:
+      - dev
+
+# ============================================
+# Volumenes persistentes
+# ============================================
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  frontend_node_modules:
+    driver: local
+
+# ============================================
+# Red interna
+# ============================================
+networks:
+  bienestar_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

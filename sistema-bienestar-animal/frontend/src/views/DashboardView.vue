@@ -235,17 +235,32 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+import { useAnimalsStore } from '@/stores/animals';
+import { useComplaintsStore } from '@/stores/complaints';
+import { useVeterinaryStore } from '@/stores/veterinary';
+import { useAdoptionsStore } from '@/stores/adoptions';
 
-// Datos del usuario
-const userName = ref('Dr. Juan Pérez');
+// Stores
+const authStore = useAuthStore();
+const animalsStore = useAnimalsStore();
+const complaintsStore = useComplaintsStore();
+const veterinaryStore = useVeterinaryStore();
+const adoptionsStore = useAdoptionsStore();
 
-// KPIs
-const kpis = ref({
-  totalAnimals: 1250,
-  adoptions: 45,
-  pendingComplaints: 12,
-  sterilizations: 89
-});
+// Estado de carga
+const loading = ref(true);
+
+// Datos del usuario desde auth store
+const userName = computed(() => authStore.userName || 'Usuario');
+
+// KPIs - Datos reales de los stores
+const kpis = computed(() => ({
+  totalAnimals: animalsStore.statistics?.total || animalsStore.totalAnimales || 0,
+  adoptions: adoptionsStore.estadisticas?.adoptados_mes || 0,
+  pendingComplaints: complaintsStore.totalPendientes || 0,
+  sterilizations: veterinaryStore.estadisticas?.esterilizaciones_mes || 0
+}));
 
 // Última actualización
 const lastUpdate = computed(() => {
@@ -255,43 +270,70 @@ const lastUpdate = computed(() => {
   });
 });
 
-// Denuncias recientes
-const recentComplaints = ref([
-  {
-    id: 1,
-    caseNumber: 'DEN-2024-0156',
-    type: 'Maltrato animal',
-    date: '27/11/2024',
-    status: 'Pendiente',
-    urgency: 'critical'
-  },
-  {
-    id: 2,
-    caseNumber: 'DEN-2024-0155',
-    type: 'Abandono',
-    date: '26/11/2024',
-    status: 'En proceso',
-    urgency: 'high'
-  },
-  {
-    id: 3,
-    caseNumber: 'DEN-2024-0154',
-    type: 'Negligencia',
-    date: '25/11/2024',
-    status: 'Resuelto',
-    urgency: 'medium'
-  },
-  {
-    id: 4,
-    caseNumber: 'DEN-2024-0153',
-    type: 'Animal en peligro',
-    date: '24/11/2024',
-    status: 'En proceso',
-    urgency: 'high'
+// Denuncias recientes - Datos reales del store
+const recentComplaints = computed(() => {
+  return complaintsStore.denuncias.slice(0, 4).map(d => ({
+    id: d.id,
+    caseNumber: d.ticket || `DEN-${d.id?.substring(0, 8)}`,
+    type: d.tipo_denuncia || 'Sin clasificar',
+    date: formatDate(d.fecha_recepcion),
+    status: getStatusLabel(d.estado),
+    urgency: getPriorityLevel(d.prioridad)
+  }));
+});
+
+// Cargar datos al montar el componente
+onMounted(async () => {
+  loading.value = true;
+  try {
+    // Cargar datos en paralelo
+    await Promise.all([
+      animalsStore.fetchAnimals({ per_page: 1 }), // Solo para obtener total
+      animalsStore.fetchStatistics().catch(() => {}),
+      complaintsStore.fetchDenuncias({ per_page: 5 }),
+      complaintsStore.fetchEstadisticas().catch(() => {}),
+      veterinaryStore.fetchEstadisticas().catch(() => {}),
+      adoptionsStore.fetchEstadisticas().catch(() => {}),
+    ]);
+  } catch (error) {
+    console.error('Error cargando datos del dashboard:', error);
+  } finally {
+    loading.value = false;
   }
-]);
+});
 
 // Funciones de utilidad
+function formatDate(dateStr) {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('es-CO', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+}
+
+function getStatusLabel(estado) {
+  const labels = {
+    recibida: 'Pendiente',
+    en_proceso: 'En proceso',
+    resuelta: 'Resuelto',
+    cerrada: 'Cerrado',
+    archivada: 'Archivado'
+  };
+  return labels[estado] || estado || 'Pendiente';
+}
+
+function getPriorityLevel(prioridad) {
+  const levels = {
+    urgente: 'critical',
+    alta: 'high',
+    media: 'medium',
+    baja: 'low'
+  };
+  return levels[prioridad] || 'medium';
+}
+
 function getStatusClass(urgency) {
   const classes = {
     critical: 'status-critical',
@@ -306,7 +348,9 @@ function getBadgeClass(status) {
   const classes = {
     'Pendiente': 'badge-govco-danger',
     'En proceso': 'badge-govco-warning',
-    'Resuelto': 'badge-govco-success'
+    'Resuelto': 'badge-govco-success',
+    'Cerrado': 'badge-govco-secondary',
+    'Archivado': 'badge-govco-secondary'
   };
   return classes[status] || 'badge-govco-primary';
 }

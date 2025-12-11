@@ -86,7 +86,9 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+import { useComplaintsStore } from '@/stores/complaints';
 
 // Componentes del módulo de denuncias
 import ComplaintForm from '../components/complaints/ComplaintForm.vue';
@@ -98,6 +100,10 @@ import ComplaintDetailModal from '../components/complaints/ComplaintDetailModal.
 import RescueAssignmentModal from '../components/complaints/RescueAssignmentModal.vue';
 import RescueResultModal from '../components/complaints/RescueResultModal.vue';
 
+// Stores
+const authStore = useAuthStore();
+const complaintsStore = useComplaintsStore();
+
 const activeTab = ref('report');
 
 // Estado para modales
@@ -107,12 +113,29 @@ const complaintToAssign = ref(null);
 const showResultModal = ref(false);
 const complaintForResult = ref(null);
 
-// Simular rol del usuario (conectar con auth real)
-const userRole = ref('operator'); // 'citizen', 'operator', 'director', 'admin'
+// Rol del usuario desde auth store
+const userRole = computed(() => {
+  const rol = authStore.userRole?.toLowerCase() || '';
+  if (rol.includes('admin') || rol.includes('administrador')) return 'admin';
+  if (rol.includes('director')) return 'director';
+  if (rol.includes('operador')) return 'operator';
+  return 'citizen';
+});
 
-// Contadores para badges (conectar con API real)
-const pendingComplaints = ref(12);
-const activeOperations = ref(5);
+// Contadores para badges - Datos reales del store
+const pendingComplaints = computed(() => complaintsStore.totalPendientes || 0);
+const activeOperations = computed(() => complaintsStore.rescates?.length || 0);
+
+// Cargar datos al montar
+onMounted(async () => {
+  if (userRole.value !== 'citizen') {
+    await Promise.all([
+      complaintsStore.fetchDenuncias({ per_page: 10 }).catch(() => {}),
+      complaintsStore.fetchUrgentes().catch(() => {}),
+      complaintsStore.fetchRescates().catch(() => {}),
+    ]);
+  }
+});
 
 const tabs = [
   {
@@ -184,7 +207,11 @@ const visibleTabs = computed(() => {
 
 // Handlers
 function onComplaintSubmitted(caseNumber) {
-  alert(`Denuncia registrada exitosamente.\n\nNúmero de caso: ${caseNumber}\n\nGuarde este número para consultar el estado de su denuncia.`);
+  if (window.$toast) {
+    window.$toast.success('Denuncia registrada', `Numero de caso: ${caseNumber}. Guarde este numero para consultar el estado de su denuncia.`, 10000);
+  } else {
+    alert(`Denuncia registrada exitosamente.\n\nNúmero de caso: ${caseNumber}\n\nGuarde este número para consultar el estado de su denuncia.`);
+  }
   activeTab.value = 'status';
 }
 
