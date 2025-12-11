@@ -93,21 +93,16 @@
 
         <div class="form-grid">
           <!-- Dirección -->
-          <DesplegableGovco
+          <InputGovCo
             id="address"
             v-model="form.address"
             label="Dirección o referencia"
             :required="true"
-            :options="[]"
             placeholder="Ej: Calle 15 #23-45, Barrio El Centro, frente a la tienda..."
             :alert-text="errors.address"
             :error="!!errors.address"
-            width="100%"
-            :is-text-input="true"
+            help-text="Incluya barrio, comuna o puntos de referencia"
           />
-          <div class="full-width" style="margin-top: -1rem;">
-            <span class="info-entradas-de-texto-govco">Incluya barrio, comuna o puntos de referencia</span>
-          </div>
 
           <!-- Mapa interactivo -->
           <div class="full-width">
@@ -180,55 +175,39 @@
 
           <template v-if="!form.isAnonymous">
             <!-- Nombre -->
-            <DesplegableGovco
+            <InputGovCo
               id="reporterName"
               v-model="form.reporterName"
               label="Nombre completo"
-              :required="false"
-              :options="[]"
               placeholder="Su nombre completo"
-              width="100%"
-              :is-text-input="true"
             />
 
             <!-- Cédula -->
-            <DesplegableGovco
+            <InputGovCo
               id="reporterId"
               v-model="form.reporterId"
               label="Número de cédula"
-              :required="false"
-              :options="[]"
               placeholder="1234567890"
-              width="100%"
-              :is-text-input="true"
             />
 
             <!-- Teléfono -->
-            <DesplegableGovco
+            <InputGovCo
               id="reporterPhone"
               v-model="form.reporterPhone"
               label="Teléfono de contacto"
-              :required="false"
-              :options="[]"
+              type="tel"
               placeholder="3001234567"
-              width="100%"
-              :is-text-input="true"
             />
 
             <!-- Email -->
-            <DesplegableGovco
+            <InputGovCo
               id="reporterEmail"
               v-model="form.reporterEmail"
               label="Correo electrónico"
-              :required="false"
-              :options="[]"
+              type="email"
               placeholder="correo@ejemplo.com"
-              width="100%"
-              :is-text-input="true"
+              help-text="Para recibir notificaciones del caso"
             />
-            <div class="full-width" style="margin-top: -1rem;">
-              <span class="info-entradas-de-texto-govco">Para recibir notificaciones del caso</span>
-            </div>
           </template>
 
           <div v-else class="anonymous-notice full-width">
@@ -312,25 +291,26 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue';
+import { reactive, ref, nextTick } from 'vue';
 import MapSelector from '../common/MapSelector.vue';
 import DesplegableGovco from '../common/DesplegableGovco.vue';
+import InputGovCo from '../common/InputGovCo.vue';
 import FileUploader from '../common/FileUploader.vue';
+import { useComplaintsStore } from '@/stores/complaints';
 
 const emit = defineEmits(['submitted']);
+const complaintsStore = useComplaintsStore();
 
 const formEl = ref(null);
 const isSubmitting = ref(false);
 
-// Opciones para los dropdowns
+// Opciones para los dropdowns (valores deben coincidir con backend)
 const complaintTypeOptions = [
-  { value: 'maltrato_fisico', text: 'Maltrato fisico' },
+  { value: 'maltrato', text: 'Maltrato fisico' },
   { value: 'abandono', text: 'Abandono' },
-  { value: 'negligencia', text: 'Negligencia (falta de alimento/agua/refugio)' },
-  { value: 'hacinamiento', text: 'Hacinamiento' },
-  { value: 'pelea_animales', text: 'Pelea de animales' },
+  { value: 'condiciones_inadecuadas', text: 'Condiciones inadecuadas (falta de alimento/agua/refugio)' },
   { value: 'animal_herido', text: 'Animal herido en via publica' },
-  { value: 'envenenamiento', text: 'Posible envenenamiento' },
+  { value: 'animal_peligroso', text: 'Animal peligroso' },
   { value: 'otro', text: 'Otro' }
 ];
 
@@ -471,29 +451,56 @@ function classifyUrgency() {
   return form.urgency;
 }
 
-// Preparar datos para envio
+// Preparar datos para envio al backend
+// Mapeo de campos frontend -> backend segun DenunciaController@store
 function prepareComplaintData() {
-  return {
-    caso_numero: generateCaseNumber(),
+  // Mapeo de especie: frontend -> backend
+  const speciesMap = {
+    'perro': 'perro',
+    'gato': 'gato',
+    'equino': 'equino',
+    'bovino': 'bovino',
+    'ave': 'ave',
+    'otro': 'otro',
+    'desconocido': 'otro'
+  };
+
+  const data = {
+    // Campos requeridos por backend
     tipo_denuncia: form.complaintType,
-    urgencia: classifyUrgency(),
-    especie_animal: form.animalSpecies,
-    cantidad_animales: form.animalCount || 1,
     descripcion: form.description,
     direccion: form.address,
-    ubicacion_lat: form.coordinates?.lat,
-    ubicacion_lng: form.coordinates?.lng,
-    es_anonimo: form.isAnonymous,
-    denunciante_nombre: form.isAnonymous ? null : form.reporterName,
-    denunciante_cedula: form.isAnonymous ? null : form.reporterId,
-    denunciante_telefono: form.isAnonymous ? null : form.reporterPhone,
-    denunciante_email: form.isAnonymous ? null : form.reporterEmail,
-    conoce_responsable: form.knowsResponsible,
-    info_responsable: form.knowsResponsible ? form.responsibleInfo : null,
-    observaciones: form.additionalNotes,
-    estado: 'recibida',
-    fecha_recepcion: new Date().toISOString()
+
+    // Campos de ubicacion
+    coordenadas_lat: form.coordinates?.lat || null,
+    coordenadas_lng: form.coordinates?.lng || null,
+
+    // Campos opcionales
+    especie_animal: speciesMap[form.animalSpecies] || 'otro',
+    cantidad_animales: form.animalCount || 1,
+
+    // Anonimato
+    anonima: form.isAnonymous,
+
+    // Denunciante (solo si no es anonima)
+    denunciante: form.isAnonymous ? null : {
+      nombre_completo: form.reporterName || null,
+      telefono: form.reporterPhone || null,
+      email: form.reporterEmail || null,
+      tipo_documento: form.reporterId ? 'CC' : null,
+      documento_identidad: form.reporterId || null,
+    },
+
+    // Campos adicionales - cada uno a su lugar correcto
+    punto_referencia: form.additionalNotes?.substring(0, 200) || null,
   };
+
+  // Limpiar denunciante si es nulo
+  if (data.anonima) {
+    delete data.denunciante;
+  }
+
+  return data;
 }
 
 // Reset
@@ -515,11 +522,85 @@ function resetForm() {
 }
 
 function showTerms() {
-  alert('Términos y Condiciones:\n\n1. La información proporcionada será utilizada únicamente para atender la denuncia.\n2. Las denuncias falsas pueden tener consecuencias legales.\n3. Los datos personales serán protegidos según la Ley 1581 de 2012.\n4. El tiempo de respuesta depende de la urgencia y disponibilidad de recursos.');
+  if (window.$toast) {
+    window.$toast.info('Terminos y Condiciones', '1. La informacion sera utilizada solo para atender la denuncia. 2. Las denuncias falsas tienen consecuencias legales. 3. Datos protegidos segun Ley 1581 de 2012.', 15000);
+  } else {
+    alert('Términos y Condiciones:\n\n1. La información proporcionada será utilizada únicamente para atender la denuncia.\n2. Las denuncias falsas pueden tener consecuencias legales.\n3. Los datos personales serán protegidos según la Ley 1581 de 2012.\n4. El tiempo de respuesta depende de la urgencia y disponibilidad de recursos.');
+  }
+}
+
+/**
+ * Lee valores directamente de los elementos HTML
+ * Solucion temporal mientras DesplegableGovco no emite update:modelValue correctamente
+ */
+function syncFormFromDOM() {
+  // Leer valores de los selects HTML nativos
+  const complaintTypeSelect = document.querySelector('#complaintType-select');
+  const urgencySelect = document.querySelector('#urgency-select');
+  const animalSpeciesSelect = document.querySelector('#animalSpecies-select');
+  const animalCountSelect = document.querySelector('#animalCount-select');
+  const descriptionTextarea = document.querySelector('#description');
+  const addressInput = document.querySelector('#address input');
+
+  // Actualizar form reactive con valores reales del DOM
+  if (complaintTypeSelect && complaintTypeSelect.value) {
+    form.complaintType = complaintTypeSelect.value;
+    console.log('Synced complaintType:', form.complaintType);
+  }
+
+  if (urgencySelect && urgencySelect.value) {
+    form.urgency = urgencySelect.value;
+    console.log('Synced urgency:', form.urgency);
+  }
+
+  if (animalSpeciesSelect && animalSpeciesSelect.value) {
+    form.animalSpecies = animalSpeciesSelect.value;
+    console.log('Synced animalSpecies:', form.animalSpecies);
+  }
+
+  if (animalCountSelect && animalCountSelect.value) {
+    form.animalCount = parseInt(animalCountSelect.value) || 1;
+    console.log('Synced animalCount:', form.animalCount);
+  }
+
+  if (descriptionTextarea && descriptionTextarea.value) {
+    form.description = descriptionTextarea.value;
+    console.log('Synced description length:', form.description.length);
+  }
+
+  if (addressInput && addressInput.value) {
+    form.address = addressInput.value;
+    console.log('Synced address:', form.address);
+  }
+
+  console.log('Form despues de sync:', {
+    complaintType: form.complaintType,
+    urgency: form.urgency,
+    animalSpecies: form.animalSpecies,
+    animalCount: form.animalCount,
+    description: form.description?.length || 0,
+    address: form.address
+  });
 }
 
 // Submit
 async function onSubmit() {
+  // Sincronizar valores del DOM primero
+  syncFormFromDOM();
+
+  // Esperar a que Vue sincronice todos los valores antes de validar
+  await nextTick();
+
+  // Debug: mostrar valores actuales del formulario
+  console.log('Valores del formulario antes de validar:', {
+    complaintType: form.complaintType,
+    urgency: form.urgency,
+    animalSpecies: form.animalSpecies,
+    description: form.description?.length || 0,
+    address: form.address,
+    coordinates: form.coordinates
+  });
+
   if (!validate()) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return;
@@ -529,20 +610,50 @@ async function onSubmit() {
 
   try {
     const complaintData = prepareComplaintData();
+    console.log('Enviando denuncia al backend:', complaintData);
 
-    console.log('Enviando denuncia:', complaintData);
+    // LLAMADA REAL AL BACKEND
+    const response = await complaintsStore.crearDenuncia(complaintData);
+    console.log('Respuesta del backend:', response);
 
-    // Simular respuesta exitosa
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Obtener el ticket del response
+    const ticket = response?.ticket || response?.data?.ticket || 'N/A';
 
-    const caseNumber = complaintData.caso_numero;
+    // Toast de exito
+    if (window.$toast) {
+      window.$toast.success(
+        'Denuncia registrada',
+        `Numero de caso: ${ticket}. Guarde este numero para consultar el estado de su denuncia.`,
+        10000
+      );
+    } else {
+      alert(`Denuncia registrada exitosamente.\n\nNumero de caso: ${ticket}\n\nGuarde este numero para consultar el estado de su denuncia.`);
+    }
 
-    emit('submitted', caseNumber);
+    emit('submitted', ticket);
     resetForm();
 
   } catch (error) {
     console.error('Error al enviar denuncia:', error);
-    alert('Error al enviar la denuncia. Por favor intente nuevamente.');
+
+    let errorMessage = 'No se pudo registrar la denuncia. Por favor intente nuevamente.';
+
+    // Extraer mensaje de error del backend
+    if (error.response?.data?.errors) {
+      const errors = error.response.data.errors;
+      const firstError = Object.values(errors)[0];
+      errorMessage = Array.isArray(firstError) ? firstError[0] : firstError;
+    } else if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
+    if (window.$toast) {
+      window.$toast.error('Error al registrar', errorMessage);
+    } else {
+      alert(`Error: ${errorMessage}`);
+    }
   } finally {
     isSubmitting.value = false;
   }

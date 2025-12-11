@@ -36,6 +36,12 @@ export function useRole() {
 }
 
 // Para usar desde el router (fuera de <script setup>)
+// Lee directamente de localStorage para evitar problemas de sincronización
 export function getCurrentRole() {
-  return role.value;
+  const currentRole = localStorage.getItem('sba-role') || ROLES.CIUDADANO;
+  // Sincronizar el ref si cambió
+  if (role.value !== currentRole) {
+    role.value = currentRole;
+  }
+  return currentRole;
 }

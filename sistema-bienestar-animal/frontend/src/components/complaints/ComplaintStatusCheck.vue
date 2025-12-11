@@ -139,8 +139,7 @@
 
 <script setup>
 import { ref } from 'vue';
-
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+import api from '@/services/api';
 
 const caseNumber = ref('');
 const isSearching = ref(false);
