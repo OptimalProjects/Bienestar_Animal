@@ -38,6 +38,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
+import { useVeterinaryStore } from '@/stores/veterinary';
 
 const props = defineProps({
   animalId: {
@@ -46,11 +47,13 @@ const props = defineProps({
   }
 });
 
+const veterinaryStore = useVeterinaryStore();
 const loading = ref(true);
 const entries = ref([]);
+const historialData = ref(null);
 
 /**
- * type: 'consultation' | 'vaccination' | 'surgery' | 'hospitalization' | 'lab'
+ * type: 'consultation' | 'vaccination' | 'surgery' | 'hospitalization' | 'lab' | 'deworming'
  */
 
 const typeLabel = (type) => {
@@ -65,6 +68,8 @@ const typeLabel = (type) => {
       return 'Hospitalización';
     case 'lab':
       return 'Resultado de laboratorio';
+    case 'deworming':
+      return 'Desparasitación';
     default:
       return 'Registro';
   }
@@ -74,38 +79,100 @@ const sortedEntries = computed(() =>
   [...entries.value].sort((a, b) => (a.date < b.date ? 1 : -1))
 );
 
+// Función para formatear fecha
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  return date.toISOString().split('T')[0];
+}
+
+// Función para transformar datos del backend al formato del timeline
+function transformHistorialToEntries(historial) {
+  const allEntries = [];
+
+  // Consultas
+  if (historial.consultas && historial.consultas.length > 0) {
+    historial.consultas.forEach(consulta => {
+      allEntries.push({
+        id: `consulta-${consulta.id}`,
+        type: 'consultation',
+        date: formatDate(consulta.fecha_consulta),
+        title: `Consulta ${consulta.tipo_consulta || 'general'}`,
+        description: consulta.diagnostico || consulta.motivo_consulta || 'Sin diagnóstico registrado',
+        tags: [
+          consulta.estado || 'realizada',
+          ...(consulta.tratamientos?.length > 0 ? ['con tratamiento'] : [])
+        ].filter(Boolean)
+      });
+    });
+  }
+
+  // Vacunas
+  if (historial.vacunas && historial.vacunas.length > 0) {
+    historial.vacunas.forEach(vacuna => {
+      allEntries.push({
+        id: `vacuna-${vacuna.id}`,
+        type: 'vaccination',
+        date: formatDate(vacuna.fecha_aplicacion),
+        title: vacuna.tipo_vacuna?.nombre || 'Vacunación',
+        description: `${vacuna.fabricante || ''} - Lote: ${vacuna.lote || 'N/A'}`.trim(),
+        tags: [
+          vacuna.fecha_proxima ? `próxima: ${formatDate(vacuna.fecha_proxima)}` : null
+        ].filter(Boolean)
+      });
+    });
+  }
+
+  // Cirugías
+  if (historial.cirugias && historial.cirugias.length > 0) {
+    historial.cirugias.forEach(cirugia => {
+      allEntries.push({
+        id: `cirugia-${cirugia.id}`,
+        type: 'surgery',
+        date: formatDate(cirugia.fecha_realizacion || cirugia.fecha_programada),
+        title: `${cirugia.tipo_cirugia || 'Cirugía'}`,
+        description: cirugia.descripcion || `Resultado: ${cirugia.resultado || 'pendiente'}`,
+        tags: [
+          cirugia.resultado,
+          cirugia.estado
+        ].filter(Boolean)
+      });
+    });
+  }
+
+  // Exámenes de laboratorio
+  if (historial.examenes && historial.examenes.length > 0) {
+    historial.examenes.forEach(examen => {
+      allEntries.push({
+        id: `examen-${examen.id}`,
+        type: 'lab',
+        date: formatDate(examen.fecha_examen),
+        title: examen.tipo_examen || 'Examen de laboratorio',
+        description: examen.resultados || 'Resultados pendientes',
+        tags: [examen.estado].filter(Boolean)
+      });
+    });
+  }
+
+  return allEntries;
+}
+
 async function loadHistory() {
+  if (!props.animalId) return;
+
   loading.value = true;
   try {
-    // TODO: Reemplazar por llamada real a backend
     console.log('Cargando historial para animal', props.animalId);
 
-    entries.value = [
-      {
-        id: 1,
-        type: 'consultation',
-        date: '2025-11-15',
-        title: 'Consulta general',
-        description: 'Revisión general, diagnóstico de dermatitis leve.',
-        tags: ['tratamiento tópico', 'control 15 días']
-      },
-      {
-        id: 2,
-        type: 'vaccination',
-        date: '2025-10-02',
-        title: 'Vacunación antirrábica',
-        description: 'Dosis anual aplicada según esquema.',
-        tags: ['certificado emitido']
-      },
-      {
-        id: 3,
-        type: 'surgery',
-        date: '2025-08-20',
-        title: 'Esterilización',
-        description: 'Procedimiento sin complicaciones. Control postoperatorio a 7 días.',
-        tags: ['en recuperación']
-      }
-    ];
+    // Llamar al store para obtener el historial completo
+    const historial = await veterinaryStore.fetchHistorialClinico(props.animalId);
+
+    if (historial) {
+      historialData.value = historial;
+      entries.value = transformHistorialToEntries(historial);
+    } else {
+      entries.value = [];
+    }
   } catch (err) {
     console.error('Error cargando historial clínico:', err);
     entries.value = [];

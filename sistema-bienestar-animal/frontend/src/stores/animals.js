@@ -43,6 +43,7 @@ export const useAnimalsStore = defineStore('animals', () => {
 
   // Actions
   async function fetchAnimals(params = {}) {
+    console.log('📡 animalsStore.fetchAnimals: Starting...', params);
     loading.value = true;
     error.value = null;
 
@@ -61,20 +62,31 @@ export const useAnimalsStore = defineStore('animals', () => {
         }
       });
 
+      console.log('📡 animalsStore.fetchAnimals: Query params:', queryParams);
       const response = await animalService.getAnimals(queryParams);
-      const data = response.data;
+      console.log('✅ animalsStore.fetchAnimals: Response:', response);
 
-      animals.value = data.data || [];
-      pagination.value = {
-        currentPage: data.current_page,
-        lastPage: data.last_page,
-        perPage: data.per_page,
-        total: data.total,
-      };
+      // Manejar diferentes estructuras de respuesta
+      const data = response.data || response;
+      const animalsList = data.data || data || [];
 
-      return data;
+      animals.value = Array.isArray(animalsList) ? animalsList : [];
+      console.log('✅ animalsStore.animals set to:', animals.value.length, 'items');
+
+      if (data.current_page !== undefined) {
+        pagination.value = {
+          currentPage: data.current_page,
+          lastPage: data.last_page,
+          perPage: data.per_page,
+          total: data.total,
+        };
+      }
+
+      return animals.value;
     } catch (err) {
+      console.error('❌ animalsStore.fetchAnimals error:', err);
       error.value = err.response?.data?.message || 'Error al cargar animales';
+      animals.value = [];
       throw err;
     } finally {
       loading.value = false;

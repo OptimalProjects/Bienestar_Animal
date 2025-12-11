@@ -265,34 +265,51 @@ export default {
     initializeGovcoDropdown() {
       if (this.isInitialized) return;
 
-      this.$nextTick(() => {
-        // Inicializar GOV.CO
-        if (window.createList) {
-          window.createList(this.id);
-        } else if (window.GOVCo?.init) {
-          const dropdownElement = document.getElementById(this.id);
-          if (dropdownElement) {
-            window.GOVCo.init(dropdownElement.parentElement);
+      // Retry logic si GOV.CO no está listo
+      const attemptInit = (attempt = 0) => {
+        this.$nextTick(() => {
+          if (window.createList && this.id) {
+            try {
+              window.createList(this.id);
+              this.isInitialized = true;
+              console.log(`✅ [${this.id}] GOV.CO dropdown initialized`);
+
+              // Configurar listeners y observers después de inicializar
+              setTimeout(() => {
+                this.setupMutationObserver();
+                this.setupClickListener();
+                this.setupPeriodicSync();
+                this.preventButtonSubmit();
+
+                if (this.internalValue) {
+                  this.syncDropdownDisplay();
+                }
+              }, 200);
+            } catch (error) {
+              console.error(`❌ [${this.id}] Init error:`, error);
+
+              // Retry hasta 3 veces
+              if (attempt < 3) {
+                setTimeout(() => attemptInit(attempt + 1), 500);
+              }
+            }
+          } else if (window.GOVCo?.init) {
+            const dropdownElement = document.getElementById(this.id);
+            if (dropdownElement) {
+              window.GOVCo.init(dropdownElement.parentElement);
+              this.isInitialized = true;
+            }
+          } else if (attempt < 3) {
+            // GOV.CO no está listo, retry
+            console.log(`⏳ [${this.id}] GOV.CO not ready, retrying... (${attempt + 1}/3)`);
+            setTimeout(() => attemptInit(attempt + 1), 500);
+          } else {
+            console.warn(`⚠️ [${this.id}] Could not initialize GOV.CO dropdown after 3 attempts`);
           }
-        }
+        });
+      };
 
-        this.isInitialized = true;
-
-        // Configurar listeners y observers
-        setTimeout(() => {
-          this.setupMutationObserver();
-          this.setupClickListener();
-          this.setupPeriodicSync();
-
-          // IMPORTANTE: Prevenir submit en botones creados por GOV.CO
-          this.preventButtonSubmit();
-
-          // Sincronizar valor inicial
-          if (this.internalValue) {
-            this.syncDropdownDisplay();
-          }
-        }, 200);
-      });
+      attemptInit();
     },
 
     preventButtonSubmit() {
