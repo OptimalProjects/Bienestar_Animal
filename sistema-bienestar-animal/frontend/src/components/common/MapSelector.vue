@@ -39,7 +39,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits(['update:modelValue', 'address-found']);
 
 const mapEl = ref(null);
 let map = null;
@@ -65,7 +65,81 @@ watch(
   { immediate: true }
 );
 
-function setLocation(latlng) {
+/**
+ * Geocodificación inversa usando Nominatim (OpenStreetMap)
+ * Obtiene la dirección a partir de coordenadas
+ * Nota: Para direcciones colombianas específicas (Calle X #Y-Z),
+ * el usuario debe ingresar manualmente ya que OSM no tiene ese nivel de detalle
+ */
+async function reverseGeocode(lat, lng) {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+      {
+        headers: {
+          'Accept-Language': 'es',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Error en geocodificación');
+    }
+
+    const data = await response.json();
+
+    if (data && data.display_name) {
+      const address = data.address || {};
+      let parts = [];
+
+      // Calle/Carrera
+      if (address.road) {
+        let roadPart = address.road;
+        if (address.house_number) {
+          roadPart += ' #' + address.house_number;
+        }
+        parts.push(roadPart);
+      }
+
+      // Barrio
+      if (address.neighbourhood) {
+        parts.push(address.neighbourhood);
+      } else if (address.suburb) {
+        parts.push(address.suburb);
+      }
+
+      // Comuna (si existe)
+      if (address.city_district) {
+        parts.push(address.city_district);
+      }
+
+      // Ciudad
+      const city = address.city || address.town || address.village || address.municipality;
+      if (city) {
+        parts.push(city);
+      }
+
+      // Si tenemos partes, unirlas
+      if (parts.length > 0) {
+        return parts.join(', ');
+      }
+
+      // Fallback: usar display_name pero limpiado
+      let displayName = data.display_name;
+      // Remover código postal y país si están
+      displayName = displayName.replace(/,\s*\d{6}/, ''); // Código postal Colombia
+      displayName = displayName.replace(/,\s*Colombia$/, '');
+      return displayName;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error en geocodificación inversa:', error);
+    return null;
+  }
+}
+
+function setLocation(latlng, skipReverseGeocode = false) {
   currentCoords.value = latlng;
   emit('update:modelValue', latlng);
 
@@ -74,7 +148,97 @@ function setLocation(latlng) {
   } else {
     marker.setLatLng(latlng);
   }
+
+  // Obtener dirección y emitir evento (solo si no viene de una búsqueda de dirección)
+  if (!skipReverseGeocode) {
+    reverseGeocode(latlng.lat, latlng.lng).then((address) => {
+      if (address) {
+        emit('address-found', address);
+      }
+    });
+  }
 }
+
+/**
+ * Geocodificación directa usando Nominatim (OpenStreetMap)
+ * Busca coordenadas a partir de una dirección
+ * Usa viewbox para limitar búsqueda a Cali y alrededores
+ */
+async function searchAddress(address) {
+  if (!address || address.trim().length < 5) {
+    return null;
+  }
+
+  try {
+    // Limpiar y preparar la dirección
+    let searchQuery = address.trim();
+
+    // Si no incluye ciudad, agregar Cali
+    if (!searchQuery.toLowerCase().includes('cali')) {
+      searchQuery = `${searchQuery}, Cali`;
+    }
+
+    // Si no incluye país, agregar Colombia
+    if (!searchQuery.toLowerCase().includes('colombia')) {
+      searchQuery = `${searchQuery}, Colombia`;
+    }
+
+    // Bounding box para Cali y área metropolitana
+    // viewbox=lon_min,lat_max,lon_max,lat_min (oeste,norte,este,sur)
+    const viewbox = '-76.62,3.52,-76.45,3.35';
+
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5&addressdetails=1&viewbox=${viewbox}&bounded=0`,
+      {
+        headers: {
+          'Accept-Language': 'es',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Error en geocodificación');
+    }
+
+    const data = await response.json();
+
+    if (data && data.length > 0) {
+      // Buscar el resultado más relevante (preferir los que están en Cali)
+      let bestResult = data[0];
+
+      for (const result of data) {
+        const displayName = (result.display_name || '').toLowerCase();
+        if (displayName.includes('cali') && displayName.includes('valle del cauca')) {
+          bestResult = result;
+          break;
+        }
+      }
+
+      const latlng = {
+        lat: parseFloat(bestResult.lat),
+        lng: parseFloat(bestResult.lon),
+      };
+
+      // Mover el mapa y poner el marcador
+      if (map) {
+        map.setView(latlng, 17);
+      }
+      setLocation(latlng, true); // true = no hacer geocodificación inversa
+
+      return latlng;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error en geocodificación directa:', error);
+    return null;
+  }
+}
+
+// Exponer métodos para el componente padre
+defineExpose({
+  searchAddress,
+});
 
 function locateUser() {
   if (!hasGeolocation.value) {

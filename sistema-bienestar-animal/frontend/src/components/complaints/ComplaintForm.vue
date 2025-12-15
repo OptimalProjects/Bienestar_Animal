@@ -17,6 +17,19 @@
         <h3 class="h5-tipografia-govco section-title">Información del caso</h3>
 
         <div class="form-grid">
+          <!-- Canal de recepción -->
+          <DesplegableGovco
+            id="canalRecepcion"
+            v-model="form.canalRecepcion"
+            label="Canal de recepción"
+            :required="true"
+            :options="canalRecepcionOptions"
+            placeholder="Seleccionar canal"
+            :alert-text="errors.canalRecepcion"
+            :error="!!errors.canalRecepcion"
+            width="100%"
+          />
+
           <!-- Tipo de denuncia -->
           <DesplegableGovco
             id="complaintType"
@@ -30,47 +43,18 @@
             width="100%"
           />
 
-          <!-- Urgencia sugerida -->
+          <!-- Prioridad -->
           <DesplegableGovco
-            id="urgency"
-            v-model="form.urgency"
-            label="Nivel de urgencia"
+            id="prioridad"
+            v-model="form.prioridad"
+            label="Prioridad"
             :required="true"
-            :options="urgencyOptions"
-            placeholder="Seleccionar urgencia"
-            :alert-text="errors.urgency"
-            :error="!!errors.urgency"
+            :options="prioridadOptions"
+            placeholder="Seleccionar prioridad"
+            :alert-text="errors.prioridad"
+            :error="!!errors.prioridad"
             width="100%"
           />
-
-          <!-- Especie del animal -->
-          <DesplegableGovco
-            id="animalSpecies"
-            v-model="form.animalSpecies"
-            label="Especie del animal"
-            :required="true"
-            :options="speciesOptions"
-            placeholder="Seleccionar especie"
-            :alert-text="errors.animalSpecies"
-            :error="!!errors.animalSpecies"
-            width="100%"
-          />
-
-          <!-- Cantidad aproximada -->
-          <DesplegableGovco
-            id="animalCount"
-            v-model="form.animalCount"
-            label="Cantidad aproximada de animales"
-            :required="false"
-            :options="animalCountOptions"
-            placeholder="Seleccionar cantidad"
-            width="100%"
-          />
-          
-          <!-- Nota informativa sobre cantidad -->
-          <div class="full-width" style="margin-top: -1rem;">
-            <span class="info-entradas-de-texto-govco">Si no conoce la cantidad exacta, seleccione la opción más cercana</span>
-          </div>
 
           <!-- Descripción del caso -->
           <div class="entradas-de-texto-govco full-width">
@@ -92,17 +76,37 @@
         <h3 class="h5-tipografia-govco section-title">Ubicación del caso</h3>
 
         <div class="form-grid">
-          <!-- Dirección -->
-          <InputGovCo
-            id="address"
-            v-model="form.address"
-            label="Dirección o referencia"
-            :required="true"
-            placeholder="Ej: Calle 15 #23-45, Barrio El Centro, frente a la tienda..."
-            :alert-text="errors.address"
-            :error="!!errors.address"
-            help-text="Incluya barrio, comuna o puntos de referencia"
-          />
+          <!-- Dirección con botón de búsqueda -->
+          <div class="full-width">
+            <label class="label-desplegable-govco">
+              Dirección o referencia<span aria-required="true">*</span>
+            </label>
+            <div class="address-input-wrapper">
+              <input
+                id="address"
+                v-model="form.address"
+                type="text"
+                class="address-input"
+                :class="{ 'error': errors.address }"
+                placeholder="Ej: Calle 15 #23-45, Barrio El Centro, Cali"
+                @keyup.enter="searchAddressOnMap"
+              />
+              <button
+                type="button"
+                class="search-address-btn"
+                @click="searchAddressOnMap"
+                :disabled="isSearchingAddress"
+                title="Buscar dirección en el mapa"
+              >
+                <span v-if="isSearchingAddress">...</span>
+                <span v-else>Buscar</span>
+              </button>
+            </div>
+            <span class="info-entradas-de-texto-govco">
+              Formato: Calle 1C #68-23, Barrio, Cali. Puede editar la dirección después de seleccionar en el mapa.
+            </span>
+            <span v-if="errors.address" class="alert-entradas-de-texto-govco">{{ errors.address }}</span>
+          </div>
 
           <!-- Mapa interactivo -->
           <div class="full-width">
@@ -111,9 +115,11 @@
             </label>
             <div class="map-container">
               <MapSelector
+                ref="mapSelectorRef"
                 v-model="form.coordinates"
                 :initial-center="{ lat: 3.4516, lng: -76.5319 }"
                 :zoom="13"
+                @address-found="onAddressFound"
               />
               <p class="map-placeholder">
                 <span v-if="form.coordinates">
@@ -121,7 +127,7 @@
                   Lng: {{ form.coordinates.lng.toFixed(6) }}
                 </span>
                 <span v-else>
-                  Haga clic en el mapa o use "Mi ubicación" para marcar el lugar del incidente
+                  Haga clic en el mapa para marcar la ubicación. Luego ajuste la dirección arriba si es necesario.
                 </span>
               </p>
             </div>
@@ -174,20 +180,20 @@
           </div>
 
           <template v-if="!form.isAnonymous">
-            <!-- Nombre -->
+            <!-- Nombres -->
             <InputGovCo
-              id="reporterName"
-              v-model="form.reporterName"
-              label="Nombre completo"
-              placeholder="Su nombre completo"
+              id="reporterFirstName"
+              v-model="form.reporterFirstName"
+              label="Nombres"
+              placeholder="Sus nombres"
             />
 
-            <!-- Cédula -->
+            <!-- Apellidos -->
             <InputGovCo
-              id="reporterId"
-              v-model="form.reporterId"
-              label="Número de cédula"
-              placeholder="1234567890"
+              id="reporterLastName"
+              v-model="form.reporterLastName"
+              label="Apellidos"
+              placeholder="Sus apellidos"
             />
 
             <!-- Teléfono -->
@@ -208,6 +214,15 @@
               placeholder="correo@ejemplo.com"
               help-text="Para recibir notificaciones del caso"
             />
+
+            <!-- Dirección del denunciante -->
+            <InputGovCo
+              id="reporterAddress"
+              v-model="form.reporterAddress"
+              label="Dirección de residencia"
+              placeholder="Su dirección de residencia"
+              class="full-width"
+            />
           </template>
 
           <div v-else class="anonymous-notice full-width">
@@ -215,48 +230,6 @@
               <span class="notice-icon">🔒</span>
               <p>Su denuncia será procesada de forma anónima. No podremos contactarlo para información adicional, pero puede consultar el estado con el número de caso que recibirá.</p>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- SECCIÓN 5: INFORMACIÓN ADICIONAL -->
-      <div class="form-section">
-        <h3 class="h5-tipografia-govco section-title">Información adicional</h3>
-
-        <div class="form-grid">
-          <!-- Conoce al responsable? -->
-          <div class="checkbox-govco">
-            <input
-              type="checkbox"
-              id="knowsResponsible"
-              v-model="form.knowsResponsible"
-            />
-            <label for="knowsResponsible">
-              Tengo información sobre el presunto responsable
-            </label>
-          </div>
-
-          <!-- Datos del responsable -->
-          <div v-if="form.knowsResponsible" class="entradas-de-texto-govco full-width">
-            <label for="responsibleInfo">Información del presunto responsable</label>
-            <textarea
-              id="responsibleInfo"
-              v-model="form.responsibleInfo"
-              rows="3"
-              placeholder="Nombre, descripción física, dirección, placa de vehículo, o cualquier dato que ayude a identificarlo..."
-            ></textarea>
-            <span class="info-entradas-de-texto-govco">Esta información es confidencial y solo será usada para la investigación</span>
-          </div>
-
-          <!-- Observaciones adicionales -->
-          <div class="entradas-de-texto-govco full-width">
-            <label for="additionalNotes">Observaciones adicionales</label>
-            <textarea
-              id="additionalNotes"
-              v-model="form.additionalNotes"
-              rows="3"
-              placeholder="Cualquier información adicional que considere relevante..."
-            ></textarea>
           </div>
         </div>
       </div>
@@ -302,52 +275,42 @@ const emit = defineEmits(['submitted']);
 const complaintsStore = useComplaintsStore();
 
 const formEl = ref(null);
+const mapSelectorRef = ref(null);
 const isSubmitting = ref(false);
+const isSearchingAddress = ref(false);
 
 // Opciones para los dropdowns (valores deben coincidir con backend)
+// canal_recepcion: 'web', 'telefono', 'presencial', 'email', 'whatsapp'
+const canalRecepcionOptions = [
+  { value: 'web', text: 'Página web' },
+  { value: 'telefono', text: 'Teléfono' },
+  { value: 'presencial', text: 'Presencial' },
+  { value: 'email', text: 'Correo electrónico' },
+  { value: 'whatsapp', text: 'WhatsApp' }
+];
+
+// tipo_denuncia: 'maltrato', 'abandono', 'animal_herido', 'animal_peligroso', 'otro'
 const complaintTypeOptions = [
-  { value: 'maltrato', text: 'Maltrato fisico' },
+  { value: 'maltrato', text: 'Maltrato' },
   { value: 'abandono', text: 'Abandono' },
-  { value: 'condiciones_inadecuadas', text: 'Condiciones inadecuadas (falta de alimento/agua/refugio)' },
-  { value: 'animal_herido', text: 'Animal herido en via publica' },
+  { value: 'animal_herido', text: 'Animal herido' },
   { value: 'animal_peligroso', text: 'Animal peligroso' },
   { value: 'otro', text: 'Otro' }
 ];
 
-const urgencyOptions = [
-  { value: 'critico', text: 'Critico - Riesgo de vida inminente' },
-  { value: 'alto', text: 'Alto - Maltrato activo' },
-  { value: 'medio', text: 'Medio - Abandono/negligencia' },
-  { value: 'bajo', text: 'Bajo - Situación no urgente' }
-];
-
-const speciesOptions = [
-  { value: 'perro', text: 'Perro' },
-  { value: 'gato', text: 'Gato' },
-  { value: 'equino', text: 'Equino (caballo, burro)' },
-  { value: 'bovino', text: 'Bovino' },
-  { value: 'ave', text: 'Ave' },
-  { value: 'otro', text: 'Otro' },
-  { value: 'desconocido', text: 'No se / Varios' }
-];
-
-const animalCountOptions = [
-  { value: 1, text: '1 animal' },
-  { value: 2, text: '2 animales' },
-  { value: 3, text: '3 animales' },
-  { value: 4, text: '4 animales' },
-  { value: 5, text: '5 animales' },
-  { value: 10, text: '6-10 animales' },
-  { value: 15, text: '11-15 animales' },
-  { value: 20, text: 'Más de 15 animales' }
+// prioridad: 'baja', 'media', 'alta', 'urgente'
+const prioridadOptions = [
+  { value: 'baja', text: 'Baja' },
+  { value: 'media', text: 'Media' },
+  { value: 'alta', text: 'Alta' },
+  { value: 'urgente', text: 'Urgente' }
 ];
 
 const form = reactive({
   // Información del caso
+  canalRecepcion: 'web',
   complaintType: '',
-  urgency: '',
-  animalSpecies: '',
-  animalCount: 1,
+  prioridad: 'media',
   description: '',
 
   // Ubicación
@@ -359,24 +322,20 @@ const form = reactive({
 
   // Denunciante
   isAnonymous: false,
-  reporterName: '',
-  reporterId: '',
+  reporterFirstName: '',
+  reporterLastName: '',
   reporterPhone: '',
   reporterEmail: '',
-
-  // Información adicional
-  knowsResponsible: false,
-  responsibleInfo: '',
-  additionalNotes: '',
+  reporterAddress: '',
 
   // Terminos
   acceptTerms: false
 });
 
 const errors = reactive({
+  canalRecepcion: '',
   complaintType: '',
-  urgency: '',
-  animalSpecies: '',
+  prioridad: '',
   description: '',
   address: '',
   coordinates: '',
@@ -390,18 +349,18 @@ function validate() {
 
   let isValid = true;
 
+  if (!form.canalRecepcion) {
+    errors.canalRecepcion = 'Seleccione el canal de recepción';
+    isValid = false;
+  }
+
   if (!form.complaintType) {
     errors.complaintType = 'Seleccione el tipo de denuncia';
     isValid = false;
   }
 
-  if (!form.urgency) {
-    errors.urgency = 'Seleccione el nivel de urgencia';
-    isValid = false;
-  }
-
-  if (!form.animalSpecies) {
-    errors.animalSpecies = 'Seleccione la especie del animal';
+  if (!form.prioridad) {
+    errors.prioridad = 'Seleccione la prioridad';
     isValid = false;
   }
 
@@ -428,75 +387,36 @@ function validate() {
   return isValid;
 }
 
-// Generar número de caso
-function generateCaseNumber() {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-  return `DEN-${year}${month}-${random}`;
-}
-
-// Clasificar urgencia automaticamente
-function classifyUrgency() {
-  const criticalTypes = ['maltrato_fisico', 'pelea_animales', 'envenenamiento'];
-  const highTypes = ['animal_herido'];
-
-  if (criticalTypes.includes(form.complaintType) && form.urgency !== 'critico') {
-    return 'critico';
-  }
-  if (highTypes.includes(form.complaintType) && !['critico', 'alto'].includes(form.urgency)) {
-    return 'alto';
-  }
-  return form.urgency;
-}
-
 // Preparar datos para envio al backend
 // Mapeo de campos frontend -> backend segun DenunciaController@store
 function prepareComplaintData() {
-  // Mapeo de especie: frontend -> backend
-  const speciesMap = {
-    'perro': 'perro',
-    'gato': 'gato',
-    'equino': 'equino',
-    'bovino': 'bovino',
-    'ave': 'ave',
-    'otro': 'otro',
-    'desconocido': 'otro'
-  };
-
   const data = {
     // Campos requeridos por backend
+    canal_recepcion: form.canalRecepcion,
     tipo_denuncia: form.complaintType,
+    prioridad: form.prioridad,
     descripcion: form.description,
-    direccion: form.address,
+    ubicacion: form.address,
 
     // Campos de ubicacion
-    coordenadas_lat: form.coordinates?.lat || null,
-    coordenadas_lng: form.coordinates?.lng || null,
-
-    // Campos opcionales
-    especie_animal: speciesMap[form.animalSpecies] || 'otro',
-    cantidad_animales: form.animalCount || 1,
+    latitud: form.coordinates?.lat || null,
+    longitud: form.coordinates?.lng || null,
 
     // Anonimato
-    anonima: form.isAnonymous,
+    es_anonima: form.isAnonymous,
 
     // Denunciante (solo si no es anonima)
     denunciante: form.isAnonymous ? null : {
-      nombre_completo: form.reporterName || null,
+      nombres: form.reporterFirstName || null,
+      apellidos: form.reporterLastName || null,
       telefono: form.reporterPhone || null,
       email: form.reporterEmail || null,
-      tipo_documento: form.reporterId ? 'CC' : null,
-      documento_identidad: form.reporterId || null,
+      direccion: form.reporterAddress || null,
     },
-
-    // Campos adicionales - cada uno a su lugar correcto
-    punto_referencia: form.additionalNotes?.substring(0, 200) || null,
   };
 
   // Limpiar denunciante si es nulo
-  if (data.anonima) {
+  if (data.es_anonima) {
     delete data.denunciante;
   }
 
@@ -535,52 +455,39 @@ function showTerms() {
  */
 function syncFormFromDOM() {
   // Leer valores de los selects HTML nativos
+  const canalRecepcionSelect = document.querySelector('#canalRecepcion-select');
   const complaintTypeSelect = document.querySelector('#complaintType-select');
-  const urgencySelect = document.querySelector('#urgency-select');
-  const animalSpeciesSelect = document.querySelector('#animalSpecies-select');
-  const animalCountSelect = document.querySelector('#animalCount-select');
+  const prioridadSelect = document.querySelector('#prioridad-select');
   const descriptionTextarea = document.querySelector('#description');
   const addressInput = document.querySelector('#address input');
 
   // Actualizar form reactive con valores reales del DOM
+  if (canalRecepcionSelect && canalRecepcionSelect.value) {
+    form.canalRecepcion = canalRecepcionSelect.value;
+  }
+
   if (complaintTypeSelect && complaintTypeSelect.value) {
     form.complaintType = complaintTypeSelect.value;
-    console.log('Synced complaintType:', form.complaintType);
   }
 
-  if (urgencySelect && urgencySelect.value) {
-    form.urgency = urgencySelect.value;
-    console.log('Synced urgency:', form.urgency);
-  }
-
-  if (animalSpeciesSelect && animalSpeciesSelect.value) {
-    form.animalSpecies = animalSpeciesSelect.value;
-    console.log('Synced animalSpecies:', form.animalSpecies);
-  }
-
-  if (animalCountSelect && animalCountSelect.value) {
-    form.animalCount = parseInt(animalCountSelect.value) || 1;
-    console.log('Synced animalCount:', form.animalCount);
+  if (prioridadSelect && prioridadSelect.value) {
+    form.prioridad = prioridadSelect.value;
   }
 
   if (descriptionTextarea && descriptionTextarea.value) {
     form.description = descriptionTextarea.value;
-    console.log('Synced description length:', form.description.length);
   }
 
   if (addressInput && addressInput.value) {
     form.address = addressInput.value;
-    console.log('Synced address:', form.address);
   }
+}
 
-  console.log('Form despues de sync:', {
-    complaintType: form.complaintType,
-    urgency: form.urgency,
-    animalSpecies: form.animalSpecies,
-    animalCount: form.animalCount,
-    description: form.description?.length || 0,
-    address: form.address
-  });
+// Handler para cuando el mapa encuentra una dirección
+function onAddressFound(address) {
+  if (address) {
+    form.address = address;
+  }
 }
 
 // Submit
@@ -590,16 +497,6 @@ async function onSubmit() {
 
   // Esperar a que Vue sincronice todos los valores antes de validar
   await nextTick();
-
-  // Debug: mostrar valores actuales del formulario
-  console.log('Valores del formulario antes de validar:', {
-    complaintType: form.complaintType,
-    urgency: form.urgency,
-    animalSpecies: form.animalSpecies,
-    description: form.description?.length || 0,
-    address: form.address,
-    coordinates: form.coordinates
-  });
 
   if (!validate()) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -656,6 +553,44 @@ async function onSubmit() {
     }
   } finally {
     isSubmitting.value = false;
+  }
+}
+
+// Buscar dirección en el mapa
+async function searchAddressOnMap() {
+  if (!form.address || form.address.trim().length < 5) {
+    if (window.$toast) {
+      window.$toast.warning('Dirección muy corta', 'Ingrese una dirección más completa para buscar');
+    }
+    return;
+  }
+
+  if (!mapSelectorRef.value) {
+    console.error('MapSelector ref no disponible');
+    return;
+  }
+
+  isSearchingAddress.value = true;
+
+  try {
+    const result = await mapSelectorRef.value.searchAddress(form.address);
+
+    if (result) {
+      if (window.$toast) {
+        window.$toast.success('Ubicación encontrada', 'Se marcó la dirección en el mapa');
+      }
+    } else {
+      if (window.$toast) {
+        window.$toast.warning('No encontrada', 'No se encontró la dirección. Intente con más detalles o marque manualmente en el mapa.');
+      }
+    }
+  } catch (error) {
+    console.error('Error buscando dirección:', error);
+    if (window.$toast) {
+      window.$toast.error('Error', 'No se pudo buscar la dirección');
+    }
+  } finally {
+    isSearchingAddress.value = false;
   }
 }
 </script>
@@ -746,6 +681,64 @@ async function onSubmit() {
   margin-bottom: 0.5rem;
   font-weight: 500;
   color: #333;
+}
+
+/* Búsqueda de dirección */
+.address-input-wrapper {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.address-input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid #737373;
+  border-radius: 4px;
+  font-size: 1rem;
+  height: 44px;
+  box-sizing: border-box;
+}
+
+.address-input:focus {
+  outline: none;
+  border-color: #3366CC;
+  box-shadow: 0 0 0 2px rgba(51, 102, 204, 0.2);
+}
+
+.address-input.error {
+  border-color: #A80521;
+  background-color: #FDEAED;
+}
+
+.search-address-btn {
+  padding: 0 1.25rem;
+  height: 44px;
+  border: none;
+  background: #3366CC;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.search-address-btn:hover:not(:disabled) {
+  background: #254a99;
+}
+
+.search-address-btn:disabled {
+  background: #999;
+  cursor: not-allowed;
+}
+
+.alert-entradas-de-texto-govco {
+  display: block;
+  color: #A80521;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
 }
 
 /* Inputs */

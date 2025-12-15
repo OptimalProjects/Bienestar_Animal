@@ -65,13 +65,13 @@
             <span class="info-label">Fecha de recepción</span>
             <span class="info-value">{{ formatDate(complaint.fecha_recepcion) }}</span>
           </div>
-          <div class="info-item">
-            <span class="info-label">Especie animal</span>
-            <span class="info-value">{{ getSpeciesLabel(complaint.especie_animal) }}</span>
+          <div class="info-item full-width">
+            <span class="info-label">Dirección</span>
+            <span class="info-value">{{ complaint.ubicacion || 'No especificada' }}</span>
           </div>
-          <div class="info-item">
-            <span class="info-label">Cantidad de animales</span>
-            <span class="info-value">{{ complaint.cantidad_animales }}</span>
+          <div v-if="complaint.observaciones" class="info-item full-width">
+            <span class="info-label">Observaciones</span>
+            <span class="info-value">{{ complaint.observaciones }}</span>
           </div>
         </div>
 
@@ -177,8 +177,9 @@ async function searchCase() {
         urgencia: data.prioridad,
         fecha_recepcion: data.fecha_registro,
         estado: data.estado,
+        ubicacion: data.ubicacion,
+        observaciones: data.observaciones,
         fecha_resolucion: data.fecha_resolucion,
-        resultado_descripcion: data.resolucion,
         // Generar timeline basico segun el estado
         timeline: generarTimeline(data)
       };
@@ -242,23 +243,20 @@ function getStatusLabel(status) {
 
 function getUrgencyLabel(urgency) {
   const labels = {
-    'critico': 'CRÍTICO',
-    'alto': 'ALTO',
-    'medio': 'MEDIO',
-    'bajo': 'BAJO'
+    'urgente': 'URGENTE',
+    'alta': 'ALTA',
+    'media': 'MEDIA',
+    'baja': 'BAJA'
   };
-  return labels[urgency] || urgency;
+  return labels[urgency] || urgency?.toUpperCase() || '';
 }
 
 function getComplaintTypeLabel(type) {
   const labels = {
-    'maltrato_fisico': 'Maltrato físico',
+    'maltrato': 'Maltrato',
     'abandono': 'Abandono',
-    'negligencia': 'Negligencia',
-    'hacinamiento': 'Hacinamiento',
-    'pelea_animales': 'Pelea de animales',
     'animal_herido': 'Animal herido',
-    'envenenamiento': 'Envenenamiento',
+    'animal_peligroso': 'Animal peligroso',
     'otro': 'Otro'
   };
   return labels[type] || type;
@@ -460,10 +458,10 @@ function formatDateTime(dateString) {
   letter-spacing: 1px;
 }
 
-.urgency-critico { background: #A80521; color: white; }
-.urgency-alto { background: #FFAB00; color: #333; }
-.urgency-medio { background: #3366CC; color: white; }
-.urgency-bajo { background: #737373; color: white; }
+.urgency-urgente { background: #A80521; color: white; }
+.urgency-alta { background: #FFAB00; color: #333; }
+.urgency-media { background: #3366CC; color: white; }
+.urgency-baja { background: #737373; color: white; }
 
 .result-body {
   padding: 1.5rem;
@@ -483,6 +481,10 @@ function formatDateTime(dateString) {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+
+.info-item.full-width {
+  grid-column: 1 / -1;
 }
 
 .info-label {

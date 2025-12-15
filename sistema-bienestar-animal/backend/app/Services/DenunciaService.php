@@ -44,15 +44,16 @@ class DenunciaService
             return null;
         }
 
-        // Retornar solo informacion publica
+        // Retornar solo informacion publica (con zona horaria de Colombia)
         return [
             'ticket' => $denuncia->numero_ticket,
-            'fecha_registro' => $denuncia->created_at->toDateString(),
+            'fecha_registro' => $denuncia->fecha_denuncia->setTimezone('America/Bogota')->toIso8601String(),
             'tipo' => $denuncia->tipo_denuncia,
             'estado' => $denuncia->estado,
             'prioridad' => $denuncia->prioridad,
-            'fecha_resolucion' => $denuncia->fecha_resolucion?->toDateString(),
-            'resolucion' => $denuncia->estado === 'resuelta' ? $denuncia->observaciones_resolucion : null,
+            'ubicacion' => $denuncia->ubicacion,
+            'fecha_resolucion' => $denuncia->fecha_resolucion?->setTimezone('America/Bogota')->toIso8601String(),
+            'observaciones' => $denuncia->observaciones_resolucion,
         ];
     }
 
@@ -64,7 +65,9 @@ class DenunciaService
         return DB::transaction(function () use ($data) {
             // Crear o vincular denunciante (puede ser anonimo)
             $denuncianteId = null;
-            if (!empty($data['denunciante']) && !($data['anonima'] ?? false)) {
+            $esAnonima = $data['es_anonima'] ?? $data['anonima'] ?? false;
+
+            if (!empty($data['denunciante']) && !$esAnonima) {
                 $denunciante = $this->obtenerOCrearDenunciante($data['denunciante']);
                 $denuncianteId = $denunciante->id;
             }
@@ -72,8 +75,8 @@ class DenunciaService
             // Generar ticket de consulta
             $ticket = $this->generarTicket();
 
-            // Clasificar prioridad automaticamente
-            $prioridad = Denuncia::clasificarPrioridad(
+            // Usar prioridad del frontend si viene, sino clasificar automaticamente
+            $prioridad = $data['prioridad'] ?? Denuncia::clasificarPrioridad(
                 $data['tipo_denuncia'],
                 $data['descripcion']
             );
@@ -83,16 +86,16 @@ class DenunciaService
                 'denunciante_id' => $denuncianteId,
                 'numero_ticket' => $ticket,
                 'fecha_denuncia' => now(),
-                'canal_recepcion' => 'web',
+                'canal_recepcion' => $data['canal_recepcion'] ?? 'web',
                 'tipo_denuncia' => $data['tipo_denuncia'],
                 'descripcion' => $data['descripcion'],
-                'ubicacion' => $data['direccion'],
-                'latitud' => $data['coordenadas_lat'] ?? null,
-                'longitud' => $data['coordenadas_lng'] ?? null,
+                'ubicacion' => $data['ubicacion'] ?? $data['direccion'] ?? '',
+                'latitud' => $data['latitud'] ?? $data['coordenadas_lat'] ?? null,
+                'longitud' => $data['longitud'] ?? $data['coordenadas_lng'] ?? null,
                 'evidencias' => $data['evidencias'] ?? null,
                 'prioridad' => $prioridad,
                 'estado' => 'recibida',
-                'es_anonima' => $data['anonima'] ?? false,
+                'es_anonima' => $esAnonima,
             ]);
 
             return [
@@ -223,9 +226,17 @@ class DenunciaService
      */
     protected function obtenerOCrearDenunciante(array $data): Denunciante
     {
-        // Buscar por documento si se proporciona
-        if (!empty($data['documento_identidad'])) {
-            $denunciante = Denunciante::where('documento_identidad', $data['documento_identidad'])->first();
+        // Buscar por email si se proporciona (para evitar duplicados)
+        if (!empty($data['email'])) {
+            $denunciante = Denunciante::where('email', $data['email'])->first();
+            if ($denunciante) {
+                return $denunciante;
+            }
+        }
+
+        // Buscar por telefono si se proporciona
+        if (!empty($data['telefono'])) {
+            $denunciante = Denunciante::where('telefono', $data['telefono'])->first();
             if ($denunciante) {
                 return $denunciante;
             }
@@ -233,9 +244,8 @@ class DenunciaService
 
         // Crear nuevo denunciante
         return Denunciante::create([
-            'tipo_documento' => $data['tipo_documento'] ?? null,
-            'documento_identidad' => $data['documento_identidad'] ?? null,
-            'nombre_completo' => $data['nombre_completo'],
+            'nombres' => $data['nombres'] ?? '',
+            'apellidos' => $data['apellidos'] ?? '',
             'telefono' => $data['telefono'] ?? null,
             'email' => $data['email'] ?? null,
             'direccion' => $data['direccion'] ?? null,
