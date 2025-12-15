@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 
 // Controllers
 use App\Http\Controllers\Api\V1\Auth\LoginController;
+use App\Http\Controllers\Api\V1\Auth\SsoController;
 use App\Http\Controllers\Api\V1\Animal\AnimalController;
 use App\Http\Controllers\Api\V1\Veterinary\ConsultaController;
 use App\Http\Controllers\Api\V1\Veterinary\VacunaController;
@@ -35,9 +36,13 @@ Route::prefix('v1')->group(function () {
     // Health check
     Route::get('/health', [HealthController::class, 'check']);
 
-    // Autenticacion
-    Route::post('/auth/login', [LoginController::class, 'login']);
-    Route::post('/auth/mfa/verify', [LoginController::class, 'verificarMfa']);
+    // SSO - Autenticacion federada con SCI
+    Route::prefix('sso')->group(function () {
+        Route::get('/callback', [SsoController::class, 'callback']);
+        Route::post('/callback', [SsoController::class, 'callback']);
+        Route::get('/login-url', [SsoController::class, 'getLoginUrl']);
+        Route::get('/status', [SsoController::class, 'status']);
+    });
 
     // Catalogo de adopcion (publico)
     Route::get('/animals/catalogo-adopcion', [AnimalController::class, 'index'])

@@ -55,8 +55,10 @@ api.interceptors.response.use(
           // Token expirado o invalido
           localStorage.removeItem('auth_token');
           localStorage.removeItem('user');
-          // Redirigir a login si no estamos ya ahi
-          if (!window.location.pathname.includes('/login')) {
+          localStorage.removeItem('sba-role');
+          // Redirigir a login (SSO) si no estamos ya ahi o en callback
+          if (!window.location.pathname.includes('/login') &&
+              !window.location.pathname.includes('/sso/callback')) {
             window.location.href = '/login';
           }
           break;

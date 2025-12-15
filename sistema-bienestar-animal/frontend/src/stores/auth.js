@@ -1,6 +1,7 @@
 /**
  * Auth Store
  * Estado de autenticacion con Pinia
+ * Soporta SSO federado con SCI
  */
 
 import { defineStore } from 'pinia';
@@ -16,6 +17,7 @@ export const useAuthStore = defineStore('auth', () => {
   const error = ref(null);
   const requiresMfa = ref(false);
   const mfaUserId = ref(null);
+  const ssoEnabled = ref(true); // SSO habilitado por defecto
 
   // Getters
   const isAuthenticated = computed(() => !!token.value && !!user.value);
@@ -201,6 +203,113 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // ============================================
+  // SSO Functions
+  // ============================================
+
+  /**
+   * Obtiene la URL de login del SCI para redirección
+   */
+  async function getSsoLoginUrl() {
+    try {
+      const response = await api.get('/sso/login-url');
+      return response.data.login_url;
+    } catch (err) {
+      console.error('Error obteniendo URL SSO:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * Redirige al usuario al SCI para autenticación
+   */
+  async function redirectToSso() {
+    loading.value = true;
+    error.value = null;
+    try {
+      const loginUrl = await getSsoLoginUrl();
+      window.location.href = loginUrl;
+    } catch (err) {
+      error.value = 'No se pudo conectar con el sistema de autenticación';
+      loading.value = false;
+      throw err;
+    }
+  }
+
+  /**
+   * Procesa el callback del SSO con el token JWT
+   * @param {string} jwtToken - Token JWT recibido del SCI
+   */
+  async function handleSsoCallback(jwtToken) {
+    loading.value = true;
+    error.value = null;
+
+    try {
+      // Enviar el token al backend para validación
+      const response = await api.post('/sso/callback', {}, {
+        headers: {
+          'Authorization': `Bearer ${jwtToken}`
+        }
+      });
+
+      const data = response.data;
+
+      if (!data.success) {
+        throw new Error(data.message || 'Error en autenticación SSO');
+      }
+
+      // Login exitoso
+      console.log('🔐 SSO Login exitoso - Datos:', data);
+
+      setToken(data.access_token);
+      user.value = data.usuario;
+      permisos.value = data.permisos || [];
+      localStorage.setItem('user', JSON.stringify(data.usuario));
+
+      // Sincronizar rol con useRol composable
+      const rolCode = data.usuario.rol_codigo?.toLowerCase() || '';
+      console.log('🎭 Rol código del SSO:', data.usuario.rol_codigo, '→ lowercase:', rolCode);
+
+      const rolMap = {
+        'admin': 'admin_sistema',
+        'administrador': 'admin_sistema',
+        'director': 'director',
+        'operador': 'operador_rescate',
+        'veterinario': 'medico_veterinario',
+        'coordinador': 'coordinador_adopciones',
+        'auxiliar_vet': 'medico_veterinario',
+        'evaluador': 'coordinador_adopciones',
+      };
+      const mappedRole = rolMap[rolCode] || 'ciudadano';
+      console.log('🗺️ Rol mapeado:', mappedRole);
+
+      localStorage.setItem('sba-role', mappedRole);
+      console.log('💾 Guardado sba-role:', localStorage.getItem('sba-role'));
+
+      return { success: true, usuario: data.usuario };
+    } catch (err) {
+      error.value = err.response?.data?.message || err.message || 'Error en autenticación SSO';
+      console.error('❌ Error SSO callback:', err);
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  /**
+   * Verifica el estado del SSO
+   */
+  async function checkSsoStatus() {
+    try {
+      const response = await api.get('/sso/status');
+      ssoEnabled.value = response.data.sso_enabled;
+      return response.data;
+    } catch (err) {
+      console.error('Error verificando estado SSO:', err);
+      return { sso_enabled: false };
+    }
+  }
+
   return {
     // State
     user,
@@ -209,6 +318,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     error,
     requiresMfa,
+    ssoEnabled,
     // Getters
     isAuthenticated,
     userRole,
@@ -223,6 +333,11 @@ export const useAuthStore = defineStore('auth', () => {
     hasPermission,
     hasRole,
     initAuth,
+    // SSO Actions
+    getSsoLoginUrl,
+    redirectToSso,
+    handleSsoCallback,
+    checkSsoStatus,
   };
 });
 

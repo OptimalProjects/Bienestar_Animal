@@ -4,6 +4,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 // Vistas principales
 import HomeView from '../views/HomeView.vue';
 import LoginView from '../views/LoginView.vue';
+import SsoCallbackView from '../views/SsoCallbackView.vue';
 import DashboardView from '../views/DashboardView.vue';
 import AnimalsView from '../views/AnimalsView.vue';
 import VeterinaryView from '../views/VeterinaryView.vue';
@@ -32,6 +33,16 @@ const routes = [
     component: LoginView,
     meta: {
       title: 'Iniciar Sesión - Sistema Bienestar Animal',
+      requiresAuth: false,
+      layout: 'public'
+    }
+  },
+  {
+    path: '/sso/callback',
+    name: 'sso-callback',
+    component: SsoCallbackView,
+    meta: {
+      title: 'Autenticación SSO - Sistema Bienestar Animal',
       requiresAuth: false,
       layout: 'public'
     }
