@@ -51,15 +51,36 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useRole, ROLES } from '../../composables/useRol.js';
+import { useComplaintsStore } from '../../stores/complaints.js';
 
 const route = useRoute();
 const { role } = useRole();
+const complaintsStore = useComplaintsStore();
 
 // Estado del sidebar
 const isCollapsed = ref(false);
+
+// Cargar estadísticas de denuncias al montar (solo para roles internos)
+onMounted(async () => {
+  if (role.value !== ROLES.CIUDADANO) {
+    try {
+      await complaintsStore.fetchEstadisticas();
+    } catch (error) {
+      console.error('Error al cargar estadísticas de denuncias:', error);
+    }
+  }
+});
+
+// Badge dinámico para denuncias (denuncias en estado 'recibida')
+const denunciasRecibidas = computed(() => {
+  const stats = complaintsStore.estadisticas;
+  if (!stats) return 0;
+  // Mostrar denuncias pendientes (recibidas + en_proceso)
+  return stats.total_pendientes || 0;
+});
 
 // Nombre y rol que se muestran en el footer del sidebar
 const userName = computed(() => {
@@ -156,8 +177,8 @@ const menuItems = computed(() => {
         <line x1="12" y1="9" x2="12" y2="13"></line>
         <line x1="12" y1="17" x2="12.01" y2="17"></line>
       </svg>`,
-      // badge solo ilustrativo, puedes quitarlo
-      badge: 3,
+      // Badge dinámico con conteo real de denuncias pendientes
+      badge: denunciasRecibidas.value > 0 ? denunciasRecibidas.value : null,
       badgeClass: 'badge-danger',
       roles: [
         ROLES.CIUDADANO,
