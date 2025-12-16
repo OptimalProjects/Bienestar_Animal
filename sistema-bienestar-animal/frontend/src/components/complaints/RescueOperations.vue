@@ -29,11 +29,15 @@
       </div>
     </div>
 
-    <!-- OPERATIVOS ACTIVOS -->
+    <!-- OPERATIVOS EN CURSO (rescates programados sin ejecutar) -->
     <div class="form-section">
       <h3 class="h5-tipografia-govco section-title">Operativos en curso</h3>
 
-      <div v-if="activeOperations.length === 0" class="empty-state">
+      <div v-if="isLoading" class="loading-state">
+        <span>Cargando operativos...</span>
+      </div>
+
+      <div v-else-if="activeOperations.length === 0" class="empty-state">
         <span class="empty-icon">✅</span>
         <p>No hay operativos activos en este momento.</p>
       </div>
@@ -46,24 +50,24 @@
         >
           <div class="operation-header">
             <div class="operation-info">
-              <span class="operation-case">{{ operation.caso_numero }}</span>
-              <span class="operation-time">{{ formatTime(operation.hora_inicio) }}</span>
+              <span class="operation-case">{{ operation.denuncia?.numero_ticket || 'Sin ticket' }}</span>
+              <span class="operation-time">{{ formatDateTime(operation.fecha_programada) }}</span>
             </div>
-            <span class="operation-status status-active">En curso</span>
+            <span class="operation-status status-active">Programado</span>
           </div>
 
           <div class="operation-body">
             <div class="operation-type">
-              <span class="type-icon">{{ getTypeIcon(operation.tipo_denuncia) }}</span>
-              <span>{{ getComplaintTypeLabel(operation.tipo_denuncia) }}</span>
+              <span class="type-icon">{{ getTypeIcon(operation.denuncia?.tipo_denuncia) }}</span>
+              <span>{{ getComplaintTypeLabel(operation.denuncia?.tipo_denuncia) }}</span>
             </div>
             <div class="operation-location">
               <span class="location-icon">📍</span>
-              <span>{{ operation.dirección }}</span>
+              <span>{{ operation.denuncia?.ubicacion || 'Sin ubicación' }}</span>
             </div>
             <div class="operation-team">
-              <span class="team-icon">👥</span>
-              <span>{{ operation.equipo_nombre }}</span>
+              <span class="team-icon">🚐</span>
+              <span>{{ operation.equipo_rescate?.nombre || 'Equipo asignado' }}</span>
             </div>
           </div>
 
@@ -71,312 +75,229 @@
             <button
               type="button"
               class="action-btn result-btn"
-              @click="$emit('register-result', operation)"
+              @click="openRegisterResult(operation)"
             >
               Registrar resultado
-            </button>
-            <button type="button" class="action-btn contact-btn">
-              Contactar equipo
             </button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- OPERATIVOS PROGRAMADOS -->
+    <!-- OPERATIVOS PROGRAMADOS PARA HOY -->
     <div class="form-section">
       <h3 class="h5-tipografia-govco section-title">Programados para hoy</h3>
 
-      <div v-if="scheduledOperations.length === 0" class="empty-state">
+      <div v-if="scheduledToday.length === 0" class="empty-state">
         <span class="empty-icon">📅</span>
         <p>No hay operativos programados para hoy.</p>
       </div>
 
       <div v-else class="operations-list">
         <div
-          v-for="operation in scheduledOperations"
+          v-for="operation in scheduledToday"
           :key="operation.id"
           class="operation-item scheduled"
         >
           <div class="item-time">
-            <span class="time-hour">{{ formatHour(operation.hora_programada) }}</span>
+            <span class="time-hour">{{ formatHour(operation.fecha_programada) }}</span>
             <span class="time-label">hrs</span>
           </div>
           <div class="item-info">
-            <span class="item-case">{{ operation.caso_numero }}</span>
-            <span class="item-type">{{ getComplaintTypeLabel(operation.tipo_denuncia) }}</span>
-            <span class="item-location">{{ operation.direccion }}</span>
+            <span class="item-case">{{ operation.denuncia?.numero_ticket || 'Sin ticket' }}</span>
+            <span class="item-type">{{ getComplaintTypeLabel(operation.denuncia?.tipo_denuncia) }}</span>
+            <span class="item-location">{{ operation.denuncia?.ubicacion || 'Sin ubicación' }}</span>
           </div>
           <div class="item-team">
-            <span class="team-badge">{{ operation.equipo_nombre }}</span>
+            <span class="team-badge">{{ operation.equipo_rescate?.nombre || 'Equipo' }}</span>
           </div>
           <div class="item-actions">
-            <button type="button" class="start-btn" @click="startOperation(operation)">
-              Iniciar
+            <button
+              type="button"
+              class="action-btn result-btn-small"
+              @click="openRegisterResult(operation)"
+            >
+              Registrar resultado
             </button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- HISTORIAL RECIENTE -->
+    <!-- HISTORIAL RECIENTE (completados) -->
     <div class="form-section">
       <h3 class="h5-tipografia-govco section-title">Historial reciente</h3>
 
-      <div class="history-table-container">
+      <div v-if="completedOperations.length === 0" class="empty-state">
+        <span class="empty-icon">📋</span>
+        <p>No hay operativos completados recientemente.</p>
+      </div>
+
+      <div v-else class="history-table-container">
         <table class="history-table">
           <thead>
             <tr>
               <th>Caso</th>
-              <th>Fecha</th>
+              <th>Fecha ejecución</th>
               <th>Tipo</th>
               <th>Equipo</th>
               <th>Resultado</th>
-              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="operation in completedOperations" :key="operation.id">
-              <td class="cell-case">{{ operation.caso_numero }}</td>
-              <td>{{ formatDate(operation.fecha_cierre) }}</td>
-              <td>{{ getComplaintTypeLabel(operation.tipo_denuncia) }}</td>
-              <td>{{ operation.equipo_nombre }}</td>
+              <td class="cell-case">{{ operation.denuncia?.numero_ticket || 'Sin ticket' }}</td>
+              <td>{{ formatDate(operation.fecha_ejecucion) }}</td>
+              <td>{{ getComplaintTypeLabel(operation.denuncia?.tipo_denuncia) }}</td>
+              <td>{{ operation.equipo_rescate?.nombre || 'Equipo' }}</td>
               <td>
-                <span class="result-badge" :class="`result-${operation.resultado}`">
-                  {{ getResultLabel(operation.resultado) }}
+                <span class="result-badge" :class="operation.exitoso ? 'result-exitoso' : 'result-fallido'">
+                  {{ operation.exitoso ? 'Exitoso' : 'No exitoso' }}
                 </span>
-              </td>
-              <td>
-                <button type="button" class="table-btn" @click="viewDetails(operation)">
-                  Ver
-                </button>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
-
-    <!-- EQUIPOS DISPONIBLES -->
-    <div class="form-section">
-      <h3 class="h5-tipografia-govco section-title">Equipos de rescate</h3>
-
-      <div class="teams-grid">
-        <div
-          v-for="team in rescueTeams"
-          :key="team.id"
-          class="team-card"
-          :class="{ 'team-busy': team.en_operativo }"
-        >
-          <div class="team-header">
-            <span class="team-name">{{ team.nombre }}</span>
-            <span class="team-status" :class="team.en_operativo ? 'busy' : 'available'">
-              {{ team.en_operativo ? 'En operativo' : 'Disponible' }}
-            </span>
-          </div>
-          <div class="team-members">
-            <span class="members-icon">👥</span>
-            <span>{{ team.miembros }} miembros</span>
-          </div>
-          <div class="team-vehicle">
-            <span class="vehicle-icon">🚐</span>
-            <span>{{ team.vehiculo }}</span>
-          </div>
-          <div v-if="team.en_operativo" class="team-current">
-            <span class="current-label">Atendiendo:</span>
-            <span class="current-case">{{ team.caso_actual }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
   </section>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { useComplaintsStore } from '@/stores/complaints';
 
 const emit = defineEmits(['register-result']);
+const complaintsStore = useComplaintsStore();
 
-// Mock data - Operativos activos
-const activeOperations = ref([
-  {
-    id: 1,
-    caso_numero: 'DEN-202411-0003',
-    tipo_denuncia: 'animal_herido',
-    direccion: 'Avenida 6N con Calle 25, junto a Gasolinera Terpel',
-    equipo_nombre: 'Equipo Alpha',
-    hora_inicio: '2024-11-15T14:30:00',
-    urgencia: 'critico'
-  },
-  {
-    id: 2,
-    caso_numero: 'DEN-202411-0004',
-    tipo_denuncia: 'negligencia',
-    direccion: 'Calle 70 #1-50, Barrio Ciudad Jardín',
-    equipo_nombre: 'Equipo Beta',
-    hora_inicio: '2024-11-15T15:00:00',
-    urgencia: 'medio'
+const isLoading = ref(false);
+
+// Cargar datos al montar
+onMounted(async () => {
+  isLoading.value = true;
+  try {
+    await complaintsStore.fetchRescates();
+  } catch (error) {
+    console.error('Error al cargar rescates:', error);
+  } finally {
+    isLoading.value = false;
   }
-]);
+});
 
-// Operativos programados
-const scheduledOperations = ref([
-  {
-    id: 3,
-    caso_numero: 'DEN-202411-0005',
-    tipo_denuncia: 'hacinamiento',
-    direccion: 'Carrera 24 #5-30, Barrio Obrero',
-    equipo_nombre: 'Equipo Gamma',
-    hora_programada: '2024-11-15T16:00:00'
-  }
-]);
+// Obtener rescates del store
+const allRescates = computed(() => complaintsStore.rescates || []);
 
-// Operativos completados
-const completedOperations = ref([
-  {
-    id: 4,
-    caso_numero: 'DEN-202411-0002',
-    tipo_denuncia: 'abandono',
-    equipo_nombre: 'Equipo Alpha',
-    fecha_cierre: '2024-11-14T16:30:00',
-    resultado: 'rescatado'
-  },
-  {
-    id: 5,
-    caso_numero: 'DEN-202410-0089',
-    tipo_denuncia: 'maltrato_fisico',
-    equipo_nombre: 'Equipo Beta',
-    fecha_cierre: '2024-11-13T11:00:00',
-    resultado: 'derivado'
-  },
-  {
-    id: 6,
-    caso_numero: 'DEN-202410-0087',
-    tipo_denuncia: 'animal_herido',
-    equipo_nombre: 'Equipo Alpha',
-    fecha_cierre: '2024-11-12T09:45:00',
-    resultado: 'rescatado'
-  }
-]);
+// Operativos activos: rescates sin fecha de ejecución (pendientes)
+const activeOperations = computed(() => {
+  return allRescates.value.filter(r => !r.fecha_ejecucion);
+});
 
-// Equipos de rescate
-const rescueTeams = ref([
-  {
-    id: 1,
-    nombre: 'Equipo Alpha',
-    miembros: 3,
-    vehiculo: 'Camioneta BA-001',
-    en_operativo: true,
-    caso_actual: 'DEN-202411-0003'
-  },
-  {
-    id: 2,
-    nombre: 'Equipo Beta',
-    miembros: 2,
-    vehiculo: 'Moto BA-010',
-    en_operativo: true,
-    caso_actual: 'DEN-202411-0004'
-  },
-  {
-    id: 3,
-    nombre: 'Equipo Gamma',
-    miembros: 3,
-    vehiculo: 'Camioneta BA-002',
-    en_operativo: false,
-    caso_actual: null
-  },
-  {
-    id: 4,
-    nombre: 'Equipo Delta',
-    miembros: 2,
-    vehiculo: 'Moto BA-011',
-    en_operativo: false,
-    caso_actual: null
-  }
-]);
+// Programados para hoy
+const scheduledToday = computed(() => {
+  const today = new Date().toISOString().split('T')[0];
+  return allRescates.value.filter(r => {
+    if (r.fecha_ejecucion) return false; // Ya ejecutado
+    if (!r.fecha_programada) return false;
+    const programada = r.fecha_programada.split('T')[0];
+    return programada === today;
+  });
+});
 
-// Estadísticas
-const stats = computed(() => ({
-  active: activeOperations.value.length,
-  today: scheduledOperations.value.length + activeOperations.value.length,
-  completed: 45, // Mock: completados este mes
-  successRate: 87 // Mock: tasa de éxito
-}));
+// Operativos completados (con fecha de ejecución)
+const completedOperations = computed(() => {
+  return allRescates.value
+    .filter(r => r.fecha_ejecucion)
+    .sort((a, b) => new Date(b.fecha_ejecucion) - new Date(a.fecha_ejecucion))
+    .slice(0, 10); // Últimos 10
+});
 
-// Funciones
-function startOperation(operation) {
-  console.log('Iniciando operativo:', operation.caso_numero);
-  // Mover de programados a activos
-  const index = scheduledOperations.value.findIndex(o => o.id === operation.id);
-  if (index !== -1) {
-    const op = scheduledOperations.value.splice(index, 1)[0];
-    op.hora_inicio = new Date().toISOString();
-    activeOperations.value.push(op);
-  }
-}
+// Estadísticas calculadas
+const stats = computed(() => {
+  const all = allRescates.value;
+  const completed = all.filter(r => r.fecha_ejecucion);
+  const successful = completed.filter(r => r.exitoso);
 
-function viewDetails(operation) {
-  console.log('Ver detalles:', operation.caso_numero);
-  // Abrir modal de detalles
+  // Completados este mes
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const completedThisMonth = completed.filter(r =>
+    new Date(r.fecha_ejecucion) >= startOfMonth
+  );
+
+  // Tasa de éxito
+  const successRate = completed.length > 0
+    ? Math.round((successful.length / completed.length) * 100)
+    : 0;
+
+  return {
+    active: activeOperations.value.length,
+    today: scheduledToday.value.length,
+    completed: completedThisMonth.length,
+    successRate
+  };
+});
+
+// Abrir modal de registrar resultado
+function openRegisterResult(operation) {
+  // Necesitamos pasar la denuncia asociada al modal
+  const complaintData = {
+    ...operation.denuncia,
+    rescate_id: operation.id,
+    rescate: operation
+  };
+  emit('register-result', complaintData);
 }
 
 // Helpers
 function getComplaintTypeLabel(type) {
   const labels = {
-    maltrato_fisico: 'Maltrato físico',
+    maltrato: 'Maltrato',
     abandono: 'Abandono',
-    negligencia: 'Negligencia',
-    hacinamiento: 'Hacinamiento',
     animal_herido: 'Animal herido',
-    envenenamiento: 'Envenenamiento'
+    animal_peligroso: 'Animal peligroso',
+    otro: 'Otro'
   };
-  return labels[type] || type;
+  return labels[type] || type || 'Sin tipo';
 }
 
 function getTypeIcon(type) {
   const icons = {
-    maltrato_fisico: '🩹',
+    maltrato: '🩹',
     abandono: '🏚️',
-    negligencia: '⚠️',
-    hacinamiento: '🏠',
     animal_herido: '🚑',
-    envenenamiento: '☠️'
+    animal_peligroso: '⚠️',
+    otro: '📋'
   };
   return icons[type] || '📋';
 }
 
-function getResultLabel(result) {
-  const labels = {
-    rescatado: 'Rescatado',
-    no_encontrado: 'No encontrado',
-    derivado: 'Derivado',
-    sin_merito: 'Sin mérito'
-  };
-  return labels[result] || result;
-}
-
-function formatTime(dateString) {
+function formatDateTime(dateString) {
+  if (!dateString) return 'Sin fecha';
   const date = new Date(dateString);
-  const now = new Date();
-  const diff = Math.floor((now - date) / 60000); // minutos
-
-  if (diff < 60) return `Hace ${diff} min`;
-  if (diff < 1440) return `Hace ${Math.floor(diff / 60)} hrs`;
-  return formatDate(dateString);
-}
-
-function formatHour(dateString) {
-  const date = new Date(dateString);
-  return date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
-}
-
-function formatDate(dateString) {
-  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'Fecha inválida';
   return date.toLocaleDateString('es-CO', {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',
     minute: '2-digit'
+  });
+}
+
+function formatHour(dateString) {
+  if (!dateString) return '--:--';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return '--:--';
+  return date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDate(dateString) {
+  if (!dateString) return 'Sin fecha';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'Fecha inválida';
+  return date.toLocaleDateString('es-CO', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
   });
 }
 </script>
@@ -397,6 +318,7 @@ function formatDate(dateString) {
 
 .form-header h2 {
   color: #068460;
+  margin: 0 0 0.5rem 0;
 }
 
 .form-section {
@@ -413,6 +335,13 @@ function formatDate(dateString) {
   background: #E8F0FE;
   color: #3366CC;
   font-weight: 600;
+}
+
+/* Loading state */
+.loading-state {
+  padding: 3rem;
+  text-align: center;
+  color: #666;
 }
 
 /* Estadísticas */
@@ -559,10 +488,23 @@ function formatDate(dateString) {
   color: white;
 }
 
-.contact-btn {
-  background: #E8F0FE;
-  color: #3366CC;
-  border: 1px solid #3366CC;
+.result-btn:hover {
+  background: #056b4e;
+}
+
+.result-btn-small {
+  padding: 0.4rem 0.75rem;
+  background: #068460;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.result-btn-small:hover {
+  background: #056b4e;
 }
 
 /* Operativos programados */
@@ -572,7 +514,7 @@ function formatDate(dateString) {
 
 .operation-item {
   display: grid;
-  grid-template-columns: 80px 1fr 150px 100px;
+  grid-template-columns: 80px 1fr 150px 150px;
   align-items: center;
   gap: 1rem;
   padding: 1rem 1.5rem;
@@ -627,16 +569,6 @@ function formatDate(dateString) {
   font-size: 0.85rem;
 }
 
-.start-btn {
-  padding: 0.5rem 1rem;
-  background: #068460;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
 /* Tabla historial */
 .history-table-container {
   overflow-x: auto;
@@ -673,95 +605,8 @@ function formatDate(dateString) {
   font-weight: 600;
 }
 
-.result-rescatado { background: #E8F5E9; color: #2E7D32; }
-.result-no_encontrado { background: #FFEBEE; color: #C62828; }
-.result-derivado { background: #FFF8E1; color: #F57C00; }
-.result-sin_merito { background: #F5F5F5; color: #666; }
-
-.table-btn {
-  padding: 0.25rem 0.75rem;
-  background: #E8F0FE;
-  color: #3366CC;
-  border: 1px solid #3366CC;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8rem;
-}
-
-/* Equipos */
-.teams-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 1rem;
-  padding: 1.5rem;
-}
-
-.team-card {
-  border: 1px solid #E0E0E0;
-  border-radius: 8px;
-  padding: 1rem;
-  transition: all 0.2s;
-}
-
-.team-card.team-busy {
-  background: #FFF8E1;
-  border-color: #FFAB00;
-}
-
-.team-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-
-.team-name {
-  font-weight: 600;
-  color: #333;
-}
-
-.team-status {
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.team-status.available {
-  background: #E8F5E9;
-  color: #2E7D32;
-}
-
-.team-status.busy {
-  background: #FFAB00;
-  color: #333;
-}
-
-.team-members,
-.team-vehicle {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-  color: #666;
-  margin-bottom: 0.25rem;
-}
-
-.team-current {
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid #E0E0E0;
-  font-size: 0.85rem;
-}
-
-.current-label {
-  color: #666;
-}
-
-.current-case {
-  font-weight: 600;
-  color: #004884;
-}
+.result-exitoso { background: #E8F5E9; color: #2E7D32; }
+.result-fallido { background: #FFEBEE; color: #C62828; }
 
 /* Responsive */
 @media (max-width: 992px) {

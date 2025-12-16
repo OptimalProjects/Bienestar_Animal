@@ -173,8 +173,12 @@ function getUrgencyLabel(urgency) {
 function getStatusLabel(status) {
   const labels = {
     recibida: 'Recibida',
-    en_proceso: 'En proceso',
-    resuelta: 'Resuelta'
+    en_revision: 'En revisión',
+    asignada: 'Asignada',
+    en_atencion: 'En atención',
+    resuelta: 'Resuelta',
+    cerrada: 'Cerrada',
+    desestimada: 'Desestimada'
   };
   return labels[status] || status;
 }
@@ -279,8 +283,12 @@ function formatDateTime(dateString) {
 .urgency-baja { background: #737373; }
 
 .status-recibida { background: #E0E0E0; color: #333; }
-.status-en_proceso { background: #E8F0FE; color: #3366CC; }
+.status-en_revision { background: #FFF3E0; color: #E65100; }
+.status-asignada { background: #E3F2FD; color: #1565C0; }
+.status-en_atencion { background: #E8F0FE; color: #3366CC; }
 .status-resuelta { background: #E8F5E9; color: #2E7D32; }
+.status-cerrada { background: #F3E5F5; color: #7B1FA2; }
+.status-desestimada { background: #FFEBEE; color: #C62828; }
 
 .modal-close {
   background: none;

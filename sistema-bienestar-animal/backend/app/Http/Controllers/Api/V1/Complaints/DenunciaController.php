@@ -156,9 +156,8 @@ class DenunciaController extends BaseController
     public function actualizarEstado(Request $request, string $id)
     {
         $validator = Validator::make($request->all(), [
-            'estado' => 'required|in:recibida,en_proceso,en_investigacion,resuelta,archivada',
-            'resolucion' => 'required_if:estado,resuelta|nullable|string|max:1000',
-            'observaciones' => 'nullable|string|max:1000',
+            'estado' => 'required|in:recibida,en_revision,asignada,en_atencion,resuelta,cerrada,desestimada',
+            'observaciones_resolucion' => 'nullable|string|max:2000',
         ]);
 
         if ($validator->fails()) {
@@ -169,12 +168,12 @@ class DenunciaController extends BaseController
             $denuncia = $this->denunciaService->actualizarEstado(
                 $id,
                 $request->estado,
-                $request->only(['resolucion', 'observaciones'])
+                $request->only(['observaciones_resolucion'])
             );
 
             return $this->successResponse($denuncia, 'Estado actualizado exitosamente');
         } catch (\Exception $e) {
-            return $this->serverErrorResponse('Error al actualizar estado');
+            return $this->serverErrorResponse('Error al actualizar estado: ' . $e->getMessage());
         }
     }
 

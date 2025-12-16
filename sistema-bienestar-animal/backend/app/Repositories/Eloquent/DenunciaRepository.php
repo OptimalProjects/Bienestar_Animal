@@ -171,10 +171,15 @@ class DenunciaRepository extends BaseRepository implements DenunciaRepositoryInt
     public function paginateWithFilters(int $perPage, array $filters = [])
     {
         $query = $this->model->query()
-            ->with(['denunciante', 'responsable']);
+            ->with(['denunciante', 'responsable', 'rescates']);
 
+        // Por defecto, excluir denuncias que ya tienen rescate asignado (en_atencion)
+        // a menos que se solicite explícitamente ese estado
         if (!empty($filters['estado'])) {
             $query->where('estado', $filters['estado']);
+        } else {
+            // Excluir denuncias en_atencion (ya tienen operativo asignado)
+            $query->where('estado', '!=', 'en_atencion');
         }
 
         if (!empty($filters['prioridad'])) {

@@ -7,280 +7,341 @@
       <div class="modal-header">
         <div class="header-info">
           <h3 class="h4-tipografia-govco">Registrar resultado del operativo</h3>
-          <p class="header-subtitle">{{ complaint.caso_numero }}</p>
+          <p class="header-subtitle">{{ complaint.numero_ticket || 'Sin ticket' }}</p>
         </div>
         <button @click="$emit('close')" class="modal-close">×</button>
+      </div>
+
+      <!-- Stepper -->
+      <div class="stepper">
+        <div
+          v-for="(step, index) in steps"
+          :key="step.id"
+          class="step"
+          :class="{
+            active: currentStep === index,
+            completed: currentStep > index,
+            clickable: index < currentStep
+          }"
+          @click="goToStep(index)"
+        >
+          <div class="step-number">
+            <span v-if="currentStep > index">✓</span>
+            <span v-else>{{ index + 1 }}</span>
+          </div>
+          <span class="step-label">{{ step.label }}</span>
+        </div>
       </div>
 
       <!-- Body -->
       <div class="modal-body">
         <!-- Info del operativo -->
         <div class="operation-summary">
-          <div class="summary-item">
-            <span class="summary-icon">👥</span>
-            <div class="summary-content">
-              <span class="summary-label">Equipo</span>
-              <span class="summary-value">{{ complaint.equipo_nombre || 'Equipo asignado' }}</span>
+          <div class="summary-row">
+            <div class="summary-item">
+              <span class="summary-icon">👥</span>
+              <div class="summary-content">
+                <span class="summary-label">Equipo</span>
+                <span class="summary-value">{{ equipoNombre }}</span>
+              </div>
+            </div>
+            <div class="summary-item">
+              <span class="summary-icon">📅</span>
+              <div class="summary-content">
+                <span class="summary-label">Programado</span>
+                <span class="summary-value">{{ formatDateTime(complaint.rescate?.fecha_programada) }}</span>
+              </div>
             </div>
           </div>
-          <div class="summary-item">
+          <div class="summary-item full-width">
             <span class="summary-icon">📍</span>
             <div class="summary-content">
               <span class="summary-label">Ubicación</span>
-              <span class="summary-value">{{ complaint.direccion }}</span>
+              <span class="summary-value">{{ complaint.ubicacion || 'Sin ubicación' }}</span>
             </div>
           </div>
         </div>
 
-        <!-- Stepper -->
-        <div class="stepper">
-          <div
-            v-for="(step, index) in steps"
-            :key="index"
-            class="step"
-            :class="{ active: currentStep === index, completed: currentStep > index }"
-          >
-            <div class="step-marker">{{ currentStep > index ? '✓' : index + 1 }}</div>
-            <span class="step-label">{{ step }}</span>
-          </div>
-        </div>
-
-        <!-- Step 1: Resultado general -->
-        <div v-show="currentStep === 0" class="step-content">
-          <div class="form-group">
-            <label class="form-label required">Resultado del operativo</label>
-            <div class="result-options">
-              <label
-                v-for="result in resultOptions"
-                :key="result.value"
-                class="result-option"
-                :class="{ active: form.resultado === result.value }"
-              >
-                <input
-                  type="radio"
-                  v-model="form.resultado"
-                  :value="result.value"
-                  class="result-radio"
-                />
-                <span class="result-icon" :class="result.class">{{ result.icon }}</span>
-                <span class="result-label">{{ result.label }}</span>
-                <span class="result-desc">{{ result.description }}</span>
-              </label>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label required">Descripción del resultado</label>
-            <textarea
-              v-model="form.descripcion_resultado"
-              class="form-control textarea"
-              rows="4"
-              placeholder="Describa detalladamente lo encontrado en el lugar y las acciones realizadas..."
-              required
-            ></textarea>
-          </div>
-
-          <div class="form-row">
+        <!-- PASO 1: Resultado del operativo -->
+        <div v-if="currentStep === 0" class="step-content">
+          <form @submit.prevent class="result-form">
+            <!-- Resultado del operativo -->
             <div class="form-group">
-              <label class="form-label required">Fecha de atención</label>
-              <input
-                type="date"
-                v-model="form.fecha_atencion"
-                class="form-control"
-                required
-              />
+              <label class="form-label required">Resultado del operativo</label>
+              <div class="result-options">
+                <label
+                  class="result-option"
+                  :class="{ active: form.exitoso === true }"
+                >
+                  <input
+                    type="radio"
+                    v-model="form.exitoso"
+                    :value="true"
+                    class="result-radio"
+                  />
+                  <span class="result-icon-big success">✅</span>
+                  <span class="result-label">Exitoso</span>
+                  <span class="result-desc">Se completó el rescate</span>
+                </label>
+                <label
+                  class="result-option"
+                  :class="{ active: form.exitoso === false }"
+                >
+                  <input
+                    type="radio"
+                    v-model="form.exitoso"
+                    :value="false"
+                    class="result-radio"
+                  />
+                  <span class="result-icon-big error">❌</span>
+                  <span class="result-label">No exitoso</span>
+                  <span class="result-desc">No se pudo completar</span>
+                </label>
+              </div>
             </div>
+
+            <!-- Descripción / Observaciones -->
             <div class="form-group">
-              <label class="form-label required">Hora de atención</label>
-              <input
-                type="time"
-                v-model="form.hora_atencion"
-                class="form-control"
+              <label class="form-label required">Descripción del resultado</label>
+              <textarea
+                v-model="form.observaciones"
+                class="form-control textarea"
+                rows="4"
+                placeholder="Describa detalladamente lo encontrado en el lugar y las acciones realizadas..."
                 required
-              />
+              ></textarea>
             </div>
-          </div>
-        </div>
 
-        <!-- Step 2: Animales rescatados -->
-        <div v-show="currentStep === 1" class="step-content">
-          <div class="form-group">
-            <label class="form-label">Animales rescatados</label>
-            <div class="animals-list">
-              <div
-                v-for="(animal, index) in form.animales_rescatados"
-                :key="index"
-                class="animal-card"
-              >
-                <div class="animal-header">
-                  <span class="animal-number">Animal #{{ index + 1 }}</span>
-                  <button
-                    @click="removeAnimal(index)"
-                    class="remove-animal"
-                    type="button"
-                  >×</button>
-                </div>
-                <div class="animal-fields">
-                  <div class="field-row">
-                    <select v-model="animal.especie" class="form-control small">
-                      <option value="">Especie</option>
-                      <option value="perro">Perro</option>
-                      <option value="gato">Gato</option>
-                      <option value="equino">Equino</option>
-                      <option value="ave">Ave</option>
-                      <option value="otro">Otro</option>
-                    </select>
-                    <select v-model="animal.sexo" class="form-control small">
-                      <option value="">Sexo</option>
-                      <option value="macho">Macho</option>
-                      <option value="hembra">Hembra</option>
-                      <option value="desconocido">Desconocido</option>
-                    </select>
-                  </div>
-                  <div class="field-row">
-                    <select v-model="animal.estado_salud" class="form-control small">
-                      <option value="">Estado de salud</option>
-                      <option value="critico">Crítico</option>
-                      <option value="malo">Malo</option>
-                      <option value="regular">Regular</option>
-                      <option value="bueno">Bueno</option>
-                    </select>
-                    <input
-                      type="text"
-                      v-model="animal.identificacion"
-                      class="form-control small"
-                      placeholder="ID temporal"
-                    />
-                  </div>
-                  <textarea
-                    v-model="animal.observaciones"
-                    class="form-control small"
-                    placeholder="Observaciones del animal..."
-                    rows="2"
-                  ></textarea>
-                </div>
-              </div>
-
-              <button @click="addAnimal" class="add-animal-btn" type="button">
-                <span class="add-icon">+</span>
-                Agregar animal rescatado
-              </button>
+            <!-- Motivo de fallo (solo si no exitoso) -->
+            <div v-if="form.exitoso === false" class="form-group">
+              <label class="form-label required">Motivo del fallo</label>
+              <textarea
+                v-model="form.motivo_fallo"
+                class="form-control textarea"
+                rows="3"
+                placeholder="Indique por qué no se pudo completar el rescate..."
+                required
+              ></textarea>
             </div>
-          </div>
 
-          <div class="form-group">
-            <label class="form-label">Destino de los animales</label>
-            <select v-model="form.destino_animales" class="form-control">
-              <option value="">Seleccione destino</option>
-              <option value="albergue_municipal">Albergue Municipal</option>
-              <option value="clinica_veterinaria">Clínica Veterinaria</option>
-              <option value="fundacion">Fundación protectora</option>
-              <option value="hogar_paso">Hogar de paso</option>
-              <option value="devuelto_propietario">Devuelto al propietario</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Step 3: Evidencia y cierre -->
-        <div v-show="currentStep === 2" class="step-content">
-          <!-- Evidencia fotográfica -->
-          <div class="form-group">
-            <label class="form-label">Evidencia fotográfica</label>
-            <div class="evidence-upload">
-              <div class="upload-area" @click="triggerFileInput">
-                <span class="upload-icon">📷</span>
-                <span class="upload-text">Clic para agregar fotos</span>
-                <span class="upload-hint">JPG, PNG (máx. 5MB c/u)</span>
-              </div>
-              <input
-                ref="fileInput"
-                type="file"
-                accept="image/*"
-                multiple
-                @change="handleFileSelect"
-                style="display: none"
-              />
-            </div>
-            <div v-if="form.evidencias.length > 0" class="evidence-preview">
-              <div
-                v-for="(file, index) in form.evidencias"
-                :key="index"
-                class="evidence-item"
-              >
-                <span class="evidence-name">{{ file.name }}</span>
-                <button @click="removeEvidence(index)" class="remove-evidence">×</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Acciones realizadas -->
-          <div class="form-group">
-            <label class="form-label">Acciones realizadas</label>
-            <div class="actions-grid">
-              <label
-                v-for="action in availableActions"
-                :key="action.id"
-                class="action-checkbox"
-              >
+            <!-- Fecha y hora de atención -->
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label required">Fecha de atención</label>
                 <input
-                  type="checkbox"
-                  v-model="form.acciones_realizadas"
-                  :value="action.id"
+                  type="date"
+                  v-model="form.fecha_ejecucion"
+                  class="form-control"
+                  :max="todayDate"
+                  required
                 />
-                <span>{{ action.label }}</span>
-              </label>
+              </div>
+              <div class="form-group">
+                <label class="form-label required">Hora de atención</label>
+                <input
+                  type="time"
+                  v-model="form.hora_ejecucion"
+                  class="form-control"
+                  required
+                />
+              </div>
             </div>
+          </form>
+        </div>
+
+        <!-- PASO 2: Registrar Animal (solo si exitoso) -->
+        <div v-if="currentStep === 1" class="step-content">
+          <div class="step-intro">
+            <p>Registre la información del animal rescatado para vincularlo al sistema.</p>
           </div>
 
-          <!-- Requiere seguimiento -->
-          <div class="form-group">
-            <label class="form-label">Seguimiento posterior</label>
-            <div class="follow-up-options">
-              <label class="radio-option">
-                <input type="radio" v-model="form.requiere_seguimiento" :value="false" />
-                <span>No requiere seguimiento</span>
-              </label>
-              <label class="radio-option">
-                <input type="radio" v-model="form.requiere_seguimiento" :value="true" />
-                <span>Requiere visita de seguimiento</span>
-              </label>
+          <form @submit.prevent class="result-form">
+            <!-- ¿Se rescató un animal? -->
+            <div class="form-group">
+              <label class="form-label required">¿Se rescató un animal?</label>
+              <div class="result-options">
+                <label
+                  class="result-option small"
+                  :class="{ active: form.animal_rescatado === true }"
+                >
+                  <input
+                    type="radio"
+                    v-model="form.animal_rescatado"
+                    :value="true"
+                    class="result-radio"
+                  />
+                  <span class="result-icon-big">🐾</span>
+                  <span class="result-label">Sí</span>
+                </label>
+                <label
+                  class="result-option small"
+                  :class="{ active: form.animal_rescatado === false }"
+                >
+                  <input
+                    type="radio"
+                    v-model="form.animal_rescatado"
+                    :value="false"
+                    class="result-radio"
+                  />
+                  <span class="result-icon-big">➖</span>
+                  <span class="result-label">No</span>
+                </label>
+              </div>
             </div>
-            <div v-if="form.requiere_seguimiento" class="follow-up-date">
-              <label class="form-label">Fecha sugerida de seguimiento</label>
-              <input
-                type="date"
-                v-model="form.fecha_seguimiento"
-                class="form-control"
-                :min="todayDate"
-              />
+
+            <!-- Datos del animal (solo si se rescató) -->
+            <template v-if="form.animal_rescatado === true">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label required">Especie</label>
+                  <select v-model="form.animal.especie" class="form-control" required>
+                    <option value="">Seleccione...</option>
+                    <option value="canino">Canino</option>
+                    <option value="felino">Felino</option>
+                    <option value="ave">Ave</option>
+                    <option value="otro">Otro</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Raza (aproximada)</label>
+                  <input
+                    type="text"
+                    v-model="form.animal.raza"
+                    class="form-control"
+                    placeholder="Ej: Mestizo, Labrador..."
+                  />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Sexo</label>
+                  <select v-model="form.animal.sexo" class="form-control">
+                    <option value="">Desconocido</option>
+                    <option value="macho">Macho</option>
+                    <option value="hembra">Hembra</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Edad aproximada</label>
+                  <input
+                    type="text"
+                    v-model="form.animal.edad_aproximada"
+                    class="form-control"
+                    placeholder="Ej: 2 años, 6 meses..."
+                  />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label required">Estado del animal al rescate</label>
+                <select v-model="form.animal.estado_rescate" class="form-control" required>
+                  <option value="">Seleccione...</option>
+                  <option value="critico">Crítico</option>
+                  <option value="grave">Grave</option>
+                  <option value="estable">Estable</option>
+                  <option value="bueno">Bueno</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Descripción física</label>
+                <textarea
+                  v-model="form.animal.descripcion"
+                  class="form-control textarea"
+                  rows="2"
+                  placeholder="Color, tamaño, señas particulares..."
+                ></textarea>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label required">Destino del animal</label>
+                <select v-model="form.animal.destino" class="form-control" required>
+                  <option value="">Seleccione...</option>
+                  <option value="refugio">Refugio municipal</option>
+                  <option value="clinica_veterinaria">Clínica veterinaria</option>
+                  <option value="hogar_paso">Hogar de paso</option>
+                  <option value="liberado">Liberado (fauna silvestre)</option>
+                  <option value="fallecido">Fallecido</option>
+                </select>
+              </div>
+            </template>
+
+            <!-- Si no se rescató animal -->
+            <div v-if="form.animal_rescatado === false" class="info-box">
+              <span class="info-icon">ℹ️</span>
+              <p>El operativo fue exitoso pero no se rescató ningún animal. Puede continuar al cierre del caso.</p>
             </div>
+          </form>
+        </div>
+
+        <!-- PASO 3: Cierre -->
+        <div v-if="currentStep === 2" class="step-content">
+          <div class="step-intro">
+            <p>Revise la información y confirme el cierre del operativo.</p>
           </div>
 
-          <!-- Derivar a autoridad -->
-          <div class="form-group">
-            <label class="form-label">Derivación a autoridades</label>
-            <label class="checkbox-option">
-              <input type="checkbox" v-model="form.derivar_autoridad" />
-              <span>Derivar caso a Fiscalía/Policía (delito penal)</span>
-            </label>
-            <textarea
-              v-if="form.derivar_autoridad"
-              v-model="form.motivo_derivacion"
-              class="form-control textarea"
-              rows="2"
-              placeholder="Motivo de la derivación..."
-            ></textarea>
+          <!-- Resumen -->
+          <div class="summary-card">
+            <h4>Resumen del operativo</h4>
+
+            <div class="summary-section">
+              <div class="summary-label">Resultado:</div>
+              <div class="summary-value">
+                <span :class="form.exitoso ? 'badge-success' : 'badge-error'">
+                  {{ form.exitoso ? '✅ Exitoso' : '❌ No exitoso' }}
+                </span>
+              </div>
+            </div>
+
+            <div class="summary-section">
+              <div class="summary-label">Fecha de atención:</div>
+              <div class="summary-value">{{ form.fecha_ejecucion }} {{ form.hora_ejecucion }}</div>
+            </div>
+
+            <div class="summary-section">
+              <div class="summary-label">Observaciones:</div>
+              <div class="summary-value text-wrap">{{ form.observaciones || 'Sin observaciones' }}</div>
+            </div>
+
+            <template v-if="form.exitoso === false">
+              <div class="summary-section">
+                <div class="summary-label">Motivo del fallo:</div>
+                <div class="summary-value text-wrap">{{ form.motivo_fallo }}</div>
+              </div>
+            </template>
+
+            <template v-if="form.exitoso && form.animal_rescatado">
+              <div class="summary-section">
+                <div class="summary-label">Animal rescatado:</div>
+                <div class="summary-value">
+                  {{ form.animal.especie || 'No especificado' }} -
+                  Estado: {{ estadoAnimalLabel(form.animal.estado_rescate) }} -
+                  Destino: {{ destinoAnimalLabel(form.animal.destino) }}
+                </div>
+              </div>
+            </template>
+
+            <template v-if="form.exitoso && form.animal_rescatado === false">
+              <div class="summary-section">
+                <div class="summary-label">Animal rescatado:</div>
+                <div class="summary-value">No se rescató ningún animal</div>
+              </div>
+            </template>
           </div>
 
-          <!-- Observaciones finales -->
-          <div class="form-group">
-            <label class="form-label">Observaciones finales</label>
-            <textarea
-              v-model="form.observaciones_finales"
-              class="form-control textarea"
-              rows="3"
-              placeholder="Comentarios adicionales, recomendaciones, etc..."
-            ></textarea>
+          <!-- Estado final de la denuncia -->
+          <div class="final-status">
+            <label class="form-label">Estado final de la denuncia:</label>
+            <div class="status-badge" :class="form.exitoso ? 'status-resuelta' : 'status-cerrada'">
+              {{ form.exitoso ? 'Resuelta' : 'Cerrada' }}
+            </div>
+            <p class="status-note">
+              {{ form.exitoso
+                ? 'La denuncia será marcada como resuelta exitosamente.'
+                : 'La denuncia será cerrada debido a que el operativo no fue exitoso.'
+              }}
+            </p>
           </div>
         </div>
       </div>
@@ -303,9 +364,9 @@
         </button>
 
         <button
-          v-if="currentStep < steps.length - 1"
+          v-if="currentStep < totalSteps - 1"
           @click="nextStep"
-          class="govco-btn govco-bg-marine"
+          class="govco-btn govco-bg-elf-green"
           :disabled="!canProceed"
         >
           Siguiente
@@ -314,10 +375,10 @@
           v-else
           @click="handleSubmit"
           class="govco-btn govco-bg-elf-green"
-          :disabled="!canSubmit || isSubmitting"
+          :disabled="!isFormValid || isSubmitting"
         >
           <span v-if="isSubmitting">Guardando...</span>
-          <span v-else>Finalizar operativo</span>
+          <span v-else>Finalizar y cerrar</span>
         </button>
       </div>
     </div>
@@ -326,6 +387,8 @@
 
 <script setup>
 import { ref, computed } from 'vue';
+import { useComplaintsStore } from '@/stores/complaints';
+import complaintService from '@/services/complaintService';
 
 const props = defineProps({
   complaint: {
@@ -334,99 +397,117 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['close', 'result-registered']);
+const emit = defineEmits(['close', 'saved']);
 
-// Steps
-const steps = ['Resultado', 'Animales', 'Cierre'];
+const complaintsStore = useComplaintsStore();
+const isSubmitting = ref(false);
+
+// Stepper
 const currentStep = ref(0);
+const steps = computed(() => {
+  // Si no es exitoso, saltamos el paso 2 (animal)
+  if (form.value.exitoso === false) {
+    return [
+      { id: 'resultado', label: 'Resultado' },
+      { id: 'cierre', label: 'Cierre' }
+    ];
+  }
+  return [
+    { id: 'resultado', label: 'Resultado' },
+    { id: 'animal', label: 'Animal' },
+    { id: 'cierre', label: 'Cierre' }
+  ];
+});
+
+const totalSteps = computed(() => steps.value.length);
 
 // Form state
 const form = ref({
-  resultado: '',
-  descripcion_resultado: '',
-  fecha_atencion: new Date().toISOString().split('T')[0],
-  hora_atencion: new Date().toTimeString().slice(0, 5),
-  animales_rescatados: [],
-  destino_animales: '',
-  evidencias: [],
-  acciones_realizadas: [],
-  requiere_seguimiento: false,
-  fecha_seguimiento: '',
-  derivar_autoridad: false,
-  motivo_derivacion: '',
-  observaciones_finales: ''
-});
-
-const isSubmitting = ref(false);
-const fileInput = ref(null);
-
-// Result options
-const resultOptions = [
-  {
-    value: 'exitoso',
-    icon: '✅',
-    label: 'Rescate exitoso',
-    description: 'Se rescataron animales',
-    class: 'success'
-  },
-  {
-    value: 'parcial',
-    icon: '⚠️',
-    label: 'Parcialmente exitoso',
-    description: 'Rescate parcial o con dificultades',
-    class: 'warning'
-  },
-  {
-    value: 'fallido',
-    icon: '❌',
-    label: 'No exitoso',
-    description: 'No se pudo realizar el rescate',
-    class: 'error'
-  },
-  {
-    value: 'infundada',
-    icon: '📋',
-    label: 'Denuncia infundada',
-    description: 'No se encontró situación reportada',
-    class: 'neutral'
+  exitoso: null,
+  observaciones: '',
+  motivo_fallo: '',
+  fecha_ejecucion: new Date().toISOString().split('T')[0],
+  hora_ejecucion: new Date().toTimeString().slice(0, 5),
+  animal_rescatado: null,
+  animal: {
+    especie: '',
+    raza: '',
+    sexo: '',
+    edad_aproximada: '',
+    estado_rescate: '',
+    descripcion: '',
+    destino: ''
   }
-];
-
-// Available actions
-const availableActions = [
-  { id: 'rescate_animal', label: 'Rescate de animales' },
-  { id: 'atencion_veterinaria', label: 'Atención veterinaria in situ' },
-  { id: 'decomiso', label: 'Decomiso de animales' },
-  { id: 'educacion', label: 'Educación al tenedor' },
-  { id: 'compromiso', label: 'Acta de compromiso' },
-  { id: 'notificacion', label: 'Notificación de sanción' },
-  { id: 'mejoras', label: 'Verificación de mejoras' },
-  { id: 'denuncia_penal', label: 'Recopilación para denuncia penal' }
-];
+});
 
 // Computed
 const todayDate = computed(() => {
   return new Date().toISOString().split('T')[0];
 });
 
+const equipoNombre = computed(() => {
+  const rescate = props.complaint.rescate;
+  if (rescate?.equipo_rescate?.nombre) {
+    return rescate.equipo_rescate.nombre;
+  }
+  return 'Equipo asignado';
+});
+
+// Validación por paso
 const canProceed = computed(() => {
   if (currentStep.value === 0) {
-    return form.value.resultado &&
-           form.value.descripcion_resultado &&
-           form.value.fecha_atencion &&
-           form.value.hora_atencion;
+    // Paso 1: Resultado
+    const baseValid = form.value.exitoso !== null &&
+           form.value.observaciones.trim() !== '' &&
+           form.value.fecha_ejecucion &&
+           form.value.hora_ejecucion;
+
+    if (form.value.exitoso === false) {
+      return baseValid && form.value.motivo_fallo.trim() !== '';
+    }
+    return baseValid;
   }
+
+  if (currentStep.value === 1) {
+    // Paso 2: Animal (solo si exitoso)
+    if (form.value.exitoso === false) return true; // Saltamos este paso
+    if (form.value.animal_rescatado === null) return false;
+    if (form.value.animal_rescatado === false) return true;
+
+    // Si hay animal, validar campos requeridos
+    return form.value.animal.especie !== '' &&
+           form.value.animal.estado_rescate !== '' &&
+           form.value.animal.destino !== '';
+  }
+
   return true;
 });
 
-const canSubmit = computed(() => {
-  return form.value.resultado &&
-         form.value.descripcion_resultado;
+const isFormValid = computed(() => {
+  // Validación final antes de enviar
+  const baseValid = form.value.exitoso !== null &&
+         form.value.observaciones.trim() !== '' &&
+         form.value.fecha_ejecucion &&
+         form.value.hora_ejecucion;
+
+  if (form.value.exitoso === false) {
+    return baseValid && form.value.motivo_fallo.trim() !== '';
+  }
+
+  // Si es exitoso y hay animal
+  if (form.value.animal_rescatado === true) {
+    return baseValid &&
+           form.value.animal.especie !== '' &&
+           form.value.animal.estado_rescate !== '' &&
+           form.value.animal.destino !== '';
+  }
+
+  return baseValid && form.value.animal_rescatado !== null;
 });
 
-// Methods
+// Navigation
 function nextStep() {
-  if (currentStep.value < steps.length - 1) {
+  if (canProceed.value && currentStep.value < totalSteps.value - 1) {
     currentStep.value++;
   }
 }
@@ -437,67 +518,117 @@ function prevStep() {
   }
 }
 
-function addAnimal() {
-  form.value.animales_rescatados.push({
-    especie: '',
-    sexo: '',
-    estado_salud: '',
-    identificacion: `TMP-${Date.now().toString().slice(-6)}`,
-    observaciones: ''
+function goToStep(index) {
+  if (index < currentStep.value) {
+    currentStep.value = index;
+  }
+}
+
+// Helpers
+function formatDateTime(dateString) {
+  if (!dateString) return 'Sin fecha';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'Fecha inválida';
+  return date.toLocaleDateString('es-CO', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
   });
 }
 
-function removeAnimal(index) {
-  form.value.animales_rescatados.splice(index, 1);
+function estadoAnimalLabel(estado) {
+  const estados = {
+    critico: 'Crítico',
+    grave: 'Grave',
+    estable: 'Estable',
+    bueno: 'Bueno'
+  };
+  return estados[estado] || estado || 'No especificado';
 }
 
-function triggerFileInput() {
-  fileInput.value?.click();
+function destinoAnimalLabel(destino) {
+  const destinos = {
+    refugio: 'Refugio municipal',
+    clinica_veterinaria: 'Clínica veterinaria',
+    hogar_paso: 'Hogar de paso',
+    liberado: 'Liberado',
+    fallecido: 'Fallecido'
+  };
+  return destinos[destino] || destino || 'No especificado';
 }
 
-function handleFileSelect(event) {
-  const files = Array.from(event.target.files);
-  files.forEach(file => {
-    if (file.size <= 5 * 1024 * 1024) {
-      form.value.evidencias.push(file);
-    }
-  });
-}
-
-function removeEvidence(index) {
-  form.value.evidencias.splice(index, 1);
-}
-
+// Submit
 async function handleSubmit() {
-  if (!canSubmit.value || isSubmitting.value) return;
+  if (!isFormValid.value || isSubmitting.value) return;
 
   isSubmitting.value = true;
 
   try {
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    const rescateId = props.complaint.rescate_id || props.complaint.rescate?.id;
+    const denunciaId = props.complaint.id;
 
-    const resultData = {
-      denuncia_id: props.complaint.id,
-      resultado: form.value.resultado,
-      descripcion_resultado: form.value.descripcion_resultado,
-      fecha_atencion: `${form.value.fecha_atencion}T${form.value.hora_atencion}`,
-      animales_rescatados: form.value.animales_rescatados,
-      destino_animales: form.value.destino_animales,
-      acciones_realizadas: form.value.acciones_realizadas,
-      requiere_seguimiento: form.value.requiere_seguimiento,
-      fecha_seguimiento: form.value.fecha_seguimiento,
-      derivar_autoridad: form.value.derivar_autoridad,
-      motivo_derivacion: form.value.motivo_derivacion,
-      observaciones_finales: form.value.observaciones_finales,
-      evidencias_count: form.value.evidencias.length
+    if (!rescateId) {
+      throw new Error('No se encontró el ID del rescate');
+    }
+
+    // Construir fecha_ejecucion completa
+    const fechaEjecucion = `${form.value.fecha_ejecucion} ${form.value.hora_ejecucion}:00`;
+
+    // 1. Actualizar el rescate
+    const rescateData = {
+      exitoso: form.value.exitoso,
+      observaciones: form.value.observaciones,
+      fecha_ejecucion: fechaEjecucion,
+      motivo_fallo: form.value.exitoso === false ? form.value.motivo_fallo : null,
+      estado_animal_rescate: form.value.animal_rescatado ? form.value.animal.estado_rescate : null,
+      destino: form.value.animal_rescatado ? form.value.animal.destino : null
     };
 
-    emit('result-registered', resultData);
+    await complaintService.updateRescate(rescateId, rescateData);
+
+    // 2. Si hay animal rescatado, crear el animal en el sistema
+    // TODO: Implementar cuando tengas el endpoint de animales
+    if (form.value.exitoso && form.value.animal_rescatado && form.value.animal.especie) {
+      console.log('Animal a registrar:', form.value.animal);
+      // await animalService.crear(form.value.animal);
+    }
+
+    // 3. Actualizar estado de la denuncia
+    const nuevoEstado = form.value.exitoso ? 'resuelta' : 'cerrada';
+    const estadoData = {
+      estado: nuevoEstado,
+      observaciones_resolucion: form.value.observaciones
+    };
+
+    await complaintService.actualizarEstado(denunciaId, estadoData);
+
+    // Refrescar datos
+    await Promise.all([
+      complaintsStore.fetchRescates(),
+      complaintsStore.fetchDenuncias()
+    ]);
+
+    // Notificar éxito
+    if (window.$toast) {
+      window.$toast.success(
+        'Resultado registrado',
+        `El operativo ha sido marcado como ${form.value.exitoso ? 'exitoso' : 'no exitoso'}.`
+      );
+    }
+
+    emit('saved');
     emit('close');
 
   } catch (error) {
     console.error('Error al registrar resultado:', error);
-    alert('Error al guardar el resultado. Intente nuevamente.');
+    const errorMsg = error.response?.data?.message || 'Error al guardar el resultado. Intente nuevamente.';
+    if (window.$toast) {
+      window.$toast.error('Error', errorMsg);
+    } else {
+      alert(errorMsg);
+    }
   } finally {
     isSubmitting.value = false;
   }
@@ -523,7 +654,7 @@ async function handleSubmit() {
   background: white;
   border-radius: 8px;
   width: 100%;
-  max-width: 700px;
+  max-width: 650px;
   max-height: 90vh;
   overflow: hidden;
   display: flex;
@@ -559,6 +690,71 @@ async function handleSubmit() {
   line-height: 1;
 }
 
+/* Stepper */
+.stepper {
+  display: flex;
+  justify-content: center;
+  padding: 1rem 1.5rem;
+  background: #f5f5f5;
+  border-bottom: 1px solid #e0e0e0;
+  gap: 0.5rem;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.step.active {
+  background: #068460;
+  color: white;
+}
+
+.step.completed {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.step.clickable {
+  cursor: pointer;
+}
+
+.step.clickable:hover {
+  background: #d0d0d0;
+}
+
+.step-number {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.step.active .step-number {
+  background: white;
+  color: #068460;
+}
+
+.step.completed .step-number {
+  background: #2e7d32;
+  color: white;
+}
+
+.step-label {
+  font-weight: 500;
+}
+
 .modal-body {
   flex: 1;
   overflow-y: auto;
@@ -568,101 +764,87 @@ async function handleSubmit() {
 /* Operation summary */
 .operation-summary {
   display: flex;
-  gap: 1.5rem;
+  flex-direction: column;
+  gap: 0.75rem;
   padding: 1rem;
   background: #f9f9f9;
   border-radius: 8px;
   margin-bottom: 1.5rem;
 }
 
+.summary-row {
+  display: flex;
+  gap: 1.5rem;
+}
+
 .summary-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
+  flex: 1;
+}
+
+.summary-item.full-width {
+  flex: none;
+  width: 100%;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e0e0e0;
 }
 
 .summary-icon {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
+  flex-shrink: 0;
 }
 
 .summary-content {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .summary-label {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #666;
 }
 
 .summary-value {
   font-weight: 500;
   color: #333;
-}
-
-/* Stepper */
-.stepper {
-  display: flex;
-  justify-content: center;
-  gap: 2rem;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #E0E0E0;
-}
-
-.step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  opacity: 0.5;
-}
-
-.step.active,
-.step.completed {
-  opacity: 1;
-}
-
-.step-marker {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #E0E0E0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  color: #666;
-}
-
-.step.active .step-marker {
-  background: #3366CC;
-  color: white;
-}
-
-.step.completed .step-marker {
-  background: #068460;
-  color: white;
-}
-
-.step-label {
-  font-size: 0.85rem;
-  color: #666;
-}
-
-.step.active .step-label {
-  color: #3366CC;
-  font-weight: 500;
+  font-size: 0.9rem;
+  word-break: break-word;
 }
 
 /* Step content */
 .step-content {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.step-intro {
+  margin-bottom: 1.25rem;
+  padding: 0.75rem;
+  background: #e3f2fd;
+  border-radius: 6px;
+  border-left: 4px solid #2196f3;
+}
+
+.step-intro p {
+  margin: 0;
+  color: #1565c0;
+  font-size: 0.9rem;
+}
+
+/* Form */
+.result-form {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
 }
 
-/* Form elements */
 .form-group {
   display: flex;
   flex-direction: column;
@@ -695,11 +877,6 @@ async function handleSubmit() {
   box-sizing: border-box;
 }
 
-.form-control.small {
-  padding: 0.5rem;
-  font-size: 0.9rem;
-}
-
 .form-control:focus {
   outline: none;
   border-color: #3366CC;
@@ -715,19 +892,23 @@ async function handleSubmit() {
 .result-options {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .result-option {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 1rem;
+  padding: 1.25rem 1rem;
   border: 2px solid #E0E0E0;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
   text-align: center;
+}
+
+.result-option.small {
+  padding: 1rem 0.75rem;
 }
 
 .result-option:hover {
@@ -743,8 +924,8 @@ async function handleSubmit() {
   display: none;
 }
 
-.result-icon {
-  font-size: 2rem;
+.result-icon-big {
+  font-size: 2.5rem;
   margin-bottom: 0.5rem;
 }
 
@@ -759,190 +940,112 @@ async function handleSubmit() {
   color: #666;
 }
 
-/* Animals list */
-.animals-list {
+/* Info box */
+.info-box {
   display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.animal-card {
-  border: 1px solid #d9e2f3;
-  border-radius: 8px;
+  align-items: flex-start;
+  gap: 0.75rem;
   padding: 1rem;
-  background: #fafafa;
-}
-
-.animal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-
-.animal-number {
-  font-weight: 600;
-  color: #004884;
-}
-
-.remove-animal {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  color: #A80521;
-  cursor: pointer;
-  line-height: 1;
-}
-
-.animal-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.field-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-}
-
-.add-animal-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 1rem;
-  border: 2px dashed #3366CC;
+  background: #fff3e0;
   border-radius: 8px;
-  background: transparent;
-  color: #3366CC;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
+  border-left: 4px solid #ff9800;
 }
 
-.add-animal-btn:hover {
-  background: #E8F0FE;
-}
-
-.add-icon {
+.info-icon {
   font-size: 1.25rem;
-  font-weight: bold;
+  flex-shrink: 0;
 }
 
-/* Evidence upload */
-.evidence-upload {
-  margin-bottom: 0.75rem;
-}
-
-.upload-area {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 2rem;
-  border: 2px dashed #d9e2f3;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.upload-area:hover {
-  border-color: #3366CC;
-  background: #fafafa;
-}
-
-.upload-icon {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-}
-
-.upload-text {
-  font-weight: 500;
-  color: #333;
-}
-
-.upload-hint {
-  font-size: 0.8rem;
-  color: #666;
-}
-
-.evidence-preview {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.evidence-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  background: #E8F0FE;
-  border-radius: 4px;
-  font-size: 0.85rem;
-}
-
-.remove-evidence {
-  background: none;
-  border: none;
-  color: #A80521;
-  cursor: pointer;
-  font-size: 1.1rem;
-}
-
-/* Actions grid */
-.actions-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.5rem;
-}
-
-.action-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  border: 1px solid #E0E0E0;
-  border-radius: 4px;
-  cursor: pointer;
+.info-box p {
+  margin: 0;
+  color: #e65100;
   font-size: 0.9rem;
 }
 
-.action-checkbox:has(input:checked) {
-  background: #E8F5E9;
-  border-color: #068460;
+/* Summary card (cierre) */
+.summary-card {
+  background: #f5f5f5;
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 
-.action-checkbox input {
-  accent-color: #068460;
+.summary-card h4 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 0.75rem;
 }
 
-/* Follow up options */
-.follow-up-options {
+.summary-section {
   display: flex;
-  flex-direction: column;
+  margin-bottom: 0.75rem;
   gap: 0.5rem;
+}
+
+.summary-section .summary-label {
+  font-weight: 600;
+  color: #555;
+  min-width: 140px;
+  flex-shrink: 0;
+}
+
+.summary-section .summary-value {
+  color: #333;
+}
+
+.summary-section .summary-value.text-wrap {
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.badge-success {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.badge-error {
+  color: #c62828;
+  font-weight: 600;
+}
+
+/* Final status */
+.final-status {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.25rem;
+  text-align: center;
+}
+
+.final-status .form-label {
   margin-bottom: 0.75rem;
 }
 
-.radio-option,
-.checkbox-option {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
+.status-badge {
+  display: inline-block;
+  padding: 0.5rem 1.5rem;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
 }
 
-.radio-option input,
-.checkbox-option input {
-  width: 18px;
-  height: 18px;
-  accent-color: #3366CC;
+.status-badge.status-resuelta {
+  background: #e8f5e9;
+  color: #2e7d32;
 }
 
-.follow-up-date {
-  padding-left: 1.5rem;
-  margin-top: 0.5rem;
+.status-badge.status-cerrada {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.status-note {
+  margin: 0;
+  color: #666;
+  font-size: 0.85rem;
 }
 
 /* Footer */
@@ -971,21 +1074,26 @@ async function handleSubmit() {
 }
 
 .govco-bg-concrete { background: #737373; }
-.govco-bg-marine { background: #3366CC; }
 .govco-bg-elf-green { background: #068460; }
 
 @media (max-width: 576px) {
-  .operation-summary {
-    flex-direction: column;
-    gap: 0.75rem;
+  .stepper {
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
-  .stepper {
-    gap: 1rem;
+  .step {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
   }
 
   .step-label {
-    font-size: 0.75rem;
+    display: none;
+  }
+
+  .summary-row {
+    flex-direction: column;
+    gap: 0.75rem;
   }
 
   .form-row {
@@ -996,12 +1104,13 @@ async function handleSubmit() {
     grid-template-columns: 1fr;
   }
 
-  .field-row {
-    grid-template-columns: 1fr;
+  .summary-section {
+    flex-direction: column;
+    gap: 0.25rem;
   }
 
-  .actions-grid {
-    grid-template-columns: 1fr;
+  .summary-section .summary-label {
+    min-width: auto;
   }
 
   .modal-footer {

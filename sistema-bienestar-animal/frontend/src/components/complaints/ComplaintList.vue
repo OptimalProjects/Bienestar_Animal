@@ -82,7 +82,7 @@
       </div>
     </div>
 
-    <!-- ESTADISTICAS RAPIDAS -->
+    <!-- ESTADISTICAS RAPIDAS (comentadas por el momento)
     <div class="stats-row">
       <div class="stat-card stat-critical">
         <span class="stat-number">{{ stats.critical }}</span>
@@ -101,6 +101,7 @@
         <span class="stat-label">En atención</span>
       </div>
     </div>
+    -->
 
     <!-- LISTA DE DENUNCIAS -->
     <div class="form-section">
@@ -111,9 +112,8 @@
         <div class="sort-options">
           <label>Ordenar por:</label>
           <select v-model="sortBy" class="sort-select">
-            <option value="urgency">Urgencia</option>
+            <option value="urgency">Prioridad</option>
             <option value="date">Fecha (más reciente)</option>
-            <option value="status">Estado</option>
           </select>
         </div>
       </div>
@@ -168,6 +168,13 @@
             </div>
           </div>
 
+          <!-- Equipo asignado (si hay rescate programado) -->
+          <div v-if="complaint.rescates && complaint.rescates.length > 0" class="rescue-info">
+            <span class="rescue-icon">🚐</span>
+            <span class="rescue-team">{{ complaint.rescates[0].equipo_rescate?.nombre || 'Equipo asignado' }}</span>
+            <span class="rescue-date">{{ formatDate(complaint.rescates[0].fecha_programada) }}</span>
+          </div>
+
           <!-- Footer -->
           <div class="card-footer">
             <div class="denunciante-info">
@@ -179,7 +186,7 @@
             </div>
             <div class="card-actions">
               <button
-                v-if="!complaint.responsable_id"
+                v-if="!complaint.rescates || complaint.rescates.length === 0"
                 type="button"
                 class="action-btn assign-btn"
                 @click.stop="$emit('assign', complaint)"
@@ -235,8 +242,12 @@ const isLoading = computed(() => complaintsStore.loading);
 // Opciones para los filtros (valores que coinciden con la BD)
 const statusOptions = [
   { value: 'recibida', text: 'Recibida' },
-  { value: 'en_proceso', text: 'En proceso' },
-  { value: 'resuelta', text: 'Resuelta' }
+  { value: 'en_revision', text: 'En revisión' },
+  { value: 'asignada', text: 'Asignada' },
+  { value: 'en_atencion', text: 'En atención' },
+  { value: 'resuelta', text: 'Resuelta' },
+  { value: 'cerrada', text: 'Cerrada' },
+  { value: 'desestimada', text: 'Desestimada' }
 ];
 
 const urgencyOptions = [
@@ -259,10 +270,10 @@ const complaints = computed(() => complaintsStore.denuncias || []);
 
 // Estadisticas
 const stats = computed(() => ({
-  critical: complaints.value.filter(c => c.prioridad === 'urgente' && c.estado !== 'resuelta').length,
-  high: complaints.value.filter(c => c.prioridad === 'alta' && c.estado !== 'resuelta').length,
-  pending: complaints.value.filter(c => !c.responsable_id && c.estado !== 'resuelta').length,
-  inProgress: complaints.value.filter(c => c.estado === 'en_proceso').length
+  critical: complaints.value.filter(c => c.prioridad === 'urgente' && !['resuelta', 'cerrada', 'desestimada'].includes(c.estado)).length,
+  high: complaints.value.filter(c => c.prioridad === 'alta' && !['resuelta', 'cerrada', 'desestimada'].includes(c.estado)).length,
+  pending: complaints.value.filter(c => c.estado === 'recibida').length,
+  inProgress: complaints.value.filter(c => c.estado === 'en_atencion').length
 }));
 
 // Filtrado y ordenamiento
@@ -331,8 +342,12 @@ function getUrgencyLabel(urgency) {
 function getStatusLabel(status) {
   const labels = {
     recibida: 'Recibida',
-    en_proceso: 'En proceso',
-    resuelta: 'Resuelta'
+    en_revision: 'En revisión',
+    asignada: 'Asignada',
+    en_atencion: 'En atención',
+    resuelta: 'Resuelta',
+    cerrada: 'Cerrada',
+    desestimada: 'Desestimada'
   };
   return labels[status] || status;
 }
@@ -671,8 +686,12 @@ onMounted(async () => {
 .urgency-baja { background: #737373; color: white; }
 
 .status-recibida { background: #E0E0E0; color: #333; }
-.status-en_proceso { background: #E8F0FE; color: #3366CC; }
+.status-en_revision { background: #FFF3E0; color: #E65100; }
+.status-asignada { background: #E3F2FD; color: #1565C0; }
+.status-en_atencion { background: #E8F0FE; color: #3366CC; }
 .status-resuelta { background: #E8F5E9; color: #2E7D32; }
+.status-cerrada { background: #F3E5F5; color: #7B1FA2; }
+.status-desestimada { background: #FFEBEE; color: #C62828; }
 
 /* Card content */
 .card-content {
@@ -708,6 +727,32 @@ onMounted(async () => {
   gap: 0.5rem;
   font-size: 0.85rem;
   color: #666;
+}
+
+/* Información del rescate asignado */
+.rescue-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: #E3F2FD;
+  border-top: 1px solid #BBDEFB;
+  font-size: 0.85rem;
+}
+
+.rescue-icon {
+  font-size: 1rem;
+}
+
+.rescue-team {
+  font-weight: 600;
+  color: #1565C0;
+}
+
+.rescue-date {
+  margin-left: auto;
+  color: #666;
+  font-size: 0.8rem;
 }
 
 .location-icon {

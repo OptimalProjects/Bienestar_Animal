@@ -131,13 +131,14 @@ class DenunciaService
 
         $updateData = ['estado' => $estado];
 
-        if ($estado === 'resuelta') {
+        // Si es resuelta o cerrada, establecer fecha de resolución
+        if (in_array($estado, ['resuelta', 'cerrada'])) {
             $updateData['fecha_resolucion'] = now();
-            $updateData['resolucion'] = $data['resolucion'] ?? null;
         }
 
-        if (!empty($data['observaciones'])) {
-            $updateData['observaciones_internas'] = $data['observaciones'];
+        // Guardar observaciones de resolución si vienen
+        if (!empty($data['observaciones_resolucion'])) {
+            $updateData['observaciones_resolucion'] = $data['observaciones_resolucion'];
         }
 
         $denuncia->update($updateData);
@@ -146,7 +147,7 @@ class DenunciaService
     }
 
     /**
-     * Registrar rescate asociado a denuncia.
+     * Registrar rescate asociado a denuncia (asignacion de equipo).
      */
     public function registrarRescate(string $denunciaId, array $data): Rescate
     {
@@ -155,23 +156,16 @@ class DenunciaService
 
             $rescate = Rescate::create([
                 'denuncia_id' => $denunciaId,
-                'animal_rescatado_id' => $data['animal_id'] ?? null,
-                'fecha_rescate' => $data['fecha_rescate'] ?? now(),
-                'responsable_rescate' => $data['responsable_rescate'],
-                'descripcion_rescate' => $data['descripcion_rescate'] ?? null,
-                'estado_animal_rescate' => $data['estado_animal_rescate'],
-                'destino' => $data['destino'] ?? 'refugio',
+                'fecha_programada' => $data['fecha_programada'],
+                'equipo_rescate' => $data['equipo_rescate'] ?? null,
                 'observaciones' => $data['observaciones'] ?? null,
+                'animal_rescatado_id' => $data['animal_id'] ?? null,
             ]);
 
-            // Actualizar denuncia si todos los rescates estan completos
-            if (!empty($data['cierra_denuncia'])) {
-                $denuncia->update([
-                    'estado' => 'resuelta',
-                    'fecha_resolucion' => now(),
-                    'resolucion' => 'Rescate realizado exitosamente',
-                ]);
-            }
+            // Actualizar denuncia a en_atencion cuando se asigna rescate
+            $denuncia->update([
+                'estado' => 'en_atencion',
+            ]);
 
             return $rescate->fresh(['denuncia', 'animalRescatado']);
         });
