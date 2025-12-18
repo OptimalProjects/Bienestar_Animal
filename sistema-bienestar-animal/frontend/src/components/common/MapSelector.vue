@@ -134,7 +134,7 @@ function locateUser() {
     },
     {
       enableHighAccuracy: true,
-      timeout: 2000,               
+      timeout: 200,               
       maximumAge: 0                 
     }
   );

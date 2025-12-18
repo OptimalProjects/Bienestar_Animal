@@ -35,10 +35,30 @@ const props = defineProps({
 
 defineEmits(['click']);
 
+// ---- Helpers
+function resolveMediaUrl(input) {
+  if (!input) return '/placeholder-animal.jpg';
+
+  const s = String(input);
+  // Absolute URLs / data URLs / blob
+  if (/^(https?:)?\/\//i.test(s) || s.startsWith('data:') || s.startsWith('blob:')) return s;
+
+  // If backend already returns a public URL
+  if (s.includes('/storage/')) {
+    // Ensure it's absolute for <img>
+    return s.startsWith('http') ? s : `${window.location.origin}${s.startsWith('/') ? '' : '/'}${s}`;
+  }
+
+  // Typical Laravel public disk path: 'animales/fotos/xxx.jpg'
+  const clean = s.replace(/^\/+/, '');
+  return `${window.location.origin}/storage/${clean}`;
+}
+
 // Mapeo de campos - soporta tanto nombres en español (backend) como inglés
-const photoUrl = computed(() =>
-  props.animal?.url_foto_principal || props.animal?.foto_principal || props.animal?.photoUrl || '/placeholder-animal.jpg'
-);
+const photoUrl = computed(() => {
+  const raw = props.animal?.foto_url || props.animal?.url_foto_principal || props.animal?.foto_principal || props.animal?.photoUrl;
+  return resolveMediaUrl(raw);
+});
 
 const displayId = computed(() =>
   props.animal?.codigo_unico || props.animal?.numero_chip || props.animal?.microchip || 'Sin ID'
@@ -49,9 +69,16 @@ const animalStatus = computed(() =>
 );
 
 const displayEspecie = computed(() => {
-  const especie = props.animal?.especie || props.animal?.species || '';
-  const labels = { canino: 'Canino', felino: 'Felino', equino: 'Equino', otro: 'Otro' };
-  return labels[especie?.toLowerCase()] || especie || 'No especificada';
+  const especie = (props.animal?.especie || props.animal?.species || '').toString().toLowerCase();
+  const labels = {
+    perro: 'Perro',
+    canino: 'Perro',
+    gato: 'Gato',
+    felino: 'Gato',
+    equino: 'Equino',
+    otro: 'Otro'
+  };
+  return labels[especie] || (props.animal?.especie || props.animal?.species) || 'No especificada';
 });
 
 const displayRaza = computed(() =>
@@ -99,7 +126,7 @@ const displayFechaRescate = computed(() => {
 });
 
 const isNeutered = computed(() =>
-  props.animal?.esterilizado || props.animal?.neutered || false
+  props.animal?.esterilizacion ?? props.animal?.esterilizado ?? props.animal?.neutered ?? false
 );
 
 function getStatusLabel(status) {
@@ -163,6 +190,18 @@ function getStatusLabel(status) {
 
 .status-refugio {
   background-color: #FFAB00; /* govco-bg-gold - Amarillo para en proceso */
+}
+
+.status-en_refugio {
+  background-color: #FFAB00;
+}
+
+.status-en_adopcion {
+  background-color: #3366cc; /* Azul govco */
+}
+
+.status-en_tratamiento {
+  background-color: #FFAB00; /* Amarillo (en proceso) */
 }
 
 .status-adoptado {

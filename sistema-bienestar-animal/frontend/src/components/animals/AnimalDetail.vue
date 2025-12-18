@@ -35,6 +35,8 @@
               <dd>{{ displayEdad }}</dd>
               <dt>Tamaño:</dt>
               <dd>{{ displayTamanio }}</dd>
+              <dt>Esterilización:</dt>
+              <dd>{{ (animal.esterilizacion ?? animal.esterilizado ?? animal.neutered) ? 'Sí' : 'No' }}</dd>
             </dl>
           </div>
 
@@ -58,7 +60,7 @@
             </dl>
           </div>
 
-          <div v-if="animal.esterilizado || animal.neutered" class="detail-section govco-bg-hawkes-blue full-width">
+          <div v-if="animal.esterilizacion ?? animal.esterilizado ?? animal.neutered" class="detail-section govco-bg-hawkes-blue full-width">
             <h4 class="h6-tipografia-govco section-subtitle govcolor-elf-green">Esterilización ✓</h4>
             <dl class="detail-list">
               <dt>Fecha:</dt>
@@ -208,19 +210,40 @@ const isSaving = ref(false);
 const editError = ref('');
 const editForm = ref({});
 
+// ---- Helpers
+function resolveMediaUrl(input) {
+  if (!input) return '/placeholder-animal.jpg';
+  const s = String(input);
+  if (/^(https?:)?\/\//i.test(s) || s.startsWith('data:') || s.startsWith('blob:')) return s;
+  if (s.includes('/storage/')) {
+    return s.startsWith('http') ? s : `${window.location.origin}${s.startsWith('/') ? '' : '/'}${s}`;
+  }
+  const clean = s.replace(/^\/+/, '');
+  return `${window.location.origin}/storage/${clean}`;
+}
+
 // Computed para mostrar datos con fallbacks español/inglés
-const displayPhoto = computed(() =>
-  props.animal?.url_foto_principal || props.animal?.foto_principal || props.animal?.photoUrl || '/placeholder-animal.jpg'
-);
+const displayPhoto = computed(() => {
+  const raw = props.animal?.foto_url || props.animal?.url_foto_principal || props.animal?.foto_principal || props.animal?.photoUrl;
+  return resolveMediaUrl(raw);
+});
 
 const displayId = computed(() =>
   props.animal?.codigo_unico || props.animal?.numero_chip || props.animal?.microchip || 'Sin ID'
 );
 
 const displayEspecie = computed(() => {
-  const especie = props.animal?.especie || props.animal?.species || '';
-  const labels = { canino: 'Canino', felino: 'Felino', equino: 'Equino', otro: 'Otro' };
-  return labels[especie?.toLowerCase()] || especie || 'No especificada';
+  const especieRaw = props.animal?.especie || props.animal?.species || '';
+  const especie = especieRaw.toString().toLowerCase();
+  const labels = {
+    perro: 'Perro',
+    canino: 'Perro',
+    gato: 'Gato',
+    felino: 'Gato',
+    equino: 'Equino',
+    otro: 'Otro'
+  };
+  return labels[especie] || especieRaw || 'No especificada';
 });
 
 const displaySexo = computed(() => {
@@ -230,7 +253,7 @@ const displaySexo = computed(() => {
 });
 
 const displayEdad = computed(() => {
-  if (props.animal?.edad_formato) return props.animal.edad_formato;
+  if (props.animal?.edad_formateada) return props.animal.edad_formateada;
   const edadMeses = props.animal?.edad_aproximada || props.animal?.estimatedAge;
   if (!edadMeses) return 'Desconocida';
   const anios = Math.floor(edadMeses / 12);
@@ -482,6 +505,18 @@ function handleClose() {
 
 .status-refugio {
   background-color: #FFAB00; /* govco-bg-gold - Amarillo para en proceso */
+}
+
+.status-en_refugio {
+  background-color: #FFAB00;
+}
+
+.status-en_adopcion {
+  background-color: #3366cc;
+}
+
+.status-en_tratamiento {
+  background-color: #FFAB00;
 }
 
 .status-adoptado {

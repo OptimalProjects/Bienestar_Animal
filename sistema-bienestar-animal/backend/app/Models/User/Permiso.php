@@ -16,6 +16,7 @@ class Permiso extends Model
     public $incrementing = false;
 
     protected $fillable = [
+        'id',
         'recurso',
         'accion',
         'descripcion',

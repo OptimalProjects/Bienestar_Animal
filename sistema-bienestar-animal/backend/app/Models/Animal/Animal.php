@@ -5,7 +5,6 @@ namespace App\Models\Animal;
 use App\Models\Adopcion\Adopcion;
 use App\Models\Denuncia\Rescate;
 use App\Models\User\Usuario;
-use App\Traits\HasAuditoria;
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,10 +12,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Builder;
+
 
 class Animal extends Model
 {
-    use HasFactory, HasUuid, SoftDeletes; // HasAuditoria;  ⚠️ Comentado temporalmente - falta migrar tabla eventos_auditoria
+    use HasFactory, HasUuid, SoftDeletes;
 
     protected $table = 'animals';
     protected $keyType = 'string';
@@ -32,6 +33,7 @@ class Animal extends Model
         'peso_actual',
         'color',
         'tamanio',
+        'esterilizacion',
         'senias_particulares',
         'foto_principal',
         'galeria_fotos',
@@ -48,6 +50,7 @@ class Animal extends Model
         'edad_aproximada' => 'integer',
         'peso_actual' => 'decimal:2',
         'galeria_fotos' => 'array',
+        'esterilizacion' => 'boolean',
         'fecha_rescate' => 'date',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
@@ -55,8 +58,8 @@ class Animal extends Model
     ];
 
     protected $appends = [
-        'edad_formato',
-        'url_foto_principal',
+        'edad_formateada',
+        'foto_url',
     ];
 
     /**
@@ -78,44 +81,67 @@ class Animal extends Model
      */
     public static function generarCodigoUnico(): string
     {
-        do {
-            $codigo = 'AN-' . date('Y') . '-' . str_pad(rand(1, 99999), 5, '0', STR_PAD_LEFT);
-        } while (self::where('codigo_unico', $codigo)->exists());
+        $year = date('Y');
 
-        return $codigo;
+        // Buscar el último código generado para este año
+        $ultimoAnimal = self::where('codigo_unico', 'like', "AN-{$year}-%")
+            ->orderBy('codigo_unico', 'desc')
+            ->first();
+
+        if ($ultimoAnimal) {
+            // Tomar los últimos 5 dígitos y sumarle 1
+            $ultimoNumero = (int) substr($ultimoAnimal->codigo_unico, -5);
+            $nuevoNumero = $ultimoNumero + 1;
+        } else {
+            // Primer código del año
+            $nuevoNumero = 1;
+        }
+
+        $consecutivo = str_pad($nuevoNumero, 5, '0', STR_PAD_LEFT);
+
+        return "AN-{$year}-{$consecutivo}";
     }
+
 
     /**
      * Accessor: Edad en formato legible.
      */
-    public function getEdadFormatoAttribute(): string
+    public function getEdadFormateadaAttribute(): string
     {
-        if (!$this->edad_aproximada) {
-            return 'Desconocida';
+        if ($this->edad_aproximada === null) {
+            return 'Sin información de edad';
         }
 
-        $meses = $this->edad_aproximada;
-        $anios = floor($meses / 12);
+        $meses = (int) $this->edad_aproximada;
+        $anios = intdiv($meses, 12);
         $mesesRestantes = $meses % 12;
 
-        $texto = [];
-        if ($anios > 0) {
-            $texto[] = $anios . ' año' . ($anios > 1 ? 's' : '');
-        }
-        if ($mesesRestantes > 0) {
-            $texto[] = $mesesRestantes . ' mes' . ($mesesRestantes > 1 ? 'es' : '');
+        // Caso raro: 0 meses exactos
+        if ($anios === 0 && $mesesRestantes === 0) {
+            return '0 meses';
         }
 
-        return implode(' y ', $texto);
+        $partes = [];
+
+        if ($anios > 0) {
+            $partes[] = $anios.' año'.($anios === 1 ? '' : 's');
+        }
+
+        if ($mesesRestantes > 0) {
+            $partes[] = $mesesRestantes.' mes'.($mesesRestantes === 1 ? '' : 'es');
+        }
+
+        return implode(' y ', $partes);
     }
+
 
     /**
      * Accessor: URL completa de foto principal.
      */
-    public function getUrlFotoPrincipalAttribute(): ?string
+    public function getFotoUrlAttribute(): string
     {
         if (!$this->foto_principal) {
-            return null;
+            return url('images/placeholder-animal.jpg');
         }
 
         return url('storage/' . $this->foto_principal);
@@ -164,19 +190,9 @@ class Animal extends Model
     /**
      * Scopes
      */
-    public function scopeEnRefugio($query)
-    {
-        return $query->where('estado', 'en_refugio');
-    }
-
     public function scopeDisponiblesAdopcion($query)
     {
         return $query->where('estado', 'en_adopcion');
-    }
-
-    public function scopeAdoptados($query)
-    {
-        return $query->where('estado', 'adoptado');
     }
 
     public function scopePorEspecie($query, string $especie)
@@ -184,8 +200,59 @@ class Animal extends Model
         return $query->where('especie', $especie);
     }
 
-    public function scopeSaludable($query)
+    public function scopePorEstado($query, string $estado)
     {
-        return $query->whereIn('estado_salud', ['bueno', 'excelente']);
+        return $query->where('estado', $estado);
+    }
+
+    public function scopePorEstadoSalud($query, string $estadoSalud)
+    {
+        return $query->where('estado_salud', $estadoSalud);
+    }
+
+    public function scopeSaludable(Builder $query): Builder
+    {
+        // Se consideran "saludables" estos estados
+        return $query->whereIn('estado_salud', ['estable', 'bueno', 'excelente']);
+    }
+
+
+    public function scopeBuscarPorNombre($query, ?string $nombre)
+    {
+        return $query->when($nombre, function ($q) use ($nombre) {
+            // BÚSQUEDA EXACTA
+            $q->where('nombre', $nombre);
+        });
+    }
+
+
+    /**
+     * Métodos de negocio (simplificados - sin campos extras)
+     */
+    public function cambiarEstado(string $nuevoEstado): bool
+    {
+        $transicionesValidas = [
+            'en_calle' => ['en_refugio', 'fallecido'],
+            'en_refugio' => ['en_tratamiento', 'en_adopcion', 'fallecido'],
+            'en_tratamiento' => ['en_refugio', 'en_adopcion', 'fallecido'],
+            'en_adopcion' => ['adoptado', 'en_refugio', 'fallecido'],
+            'adoptado' => ['fallecido'],
+        ];
+
+        if (!isset($transicionesValidas[$this->estado]) || 
+            !in_array($nuevoEstado, $transicionesValidas[$this->estado])) {
+            throw new \InvalidArgumentException(
+                "No se puede cambiar de '{$this->estado}' a '{$nuevoEstado}'"
+            );
+        }
+
+        $this->estado = $nuevoEstado;
+        return $this->save();
+    }
+
+    public function estaDisponibleAdopcion(): bool
+    {
+        return $this->estado === 'en_adopcion' && 
+               in_array($this->estado_salud, ['bueno', 'excelente']);
     }
 }

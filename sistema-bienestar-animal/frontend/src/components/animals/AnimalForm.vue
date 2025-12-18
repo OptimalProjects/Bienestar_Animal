@@ -12,37 +12,26 @@
         <h3 class="h5-tipografia-govco section-title">Identificación y características básicas</h3>
         
         <div class="form-grid">
-          <!-- Microchip -->
+<!-- Nombre -->
           <InputGovCo
-            id="microchip"
-            v-model="form.microchip"
-            label="Microchip"
+            id="name"
+            v-model="form.name"
+            label="Nombre"
             type="text"
-            placeholder="MC123456789"
-            :required="true"
-            :error="!!errors.microchip"
-            :alert-text="errors.microchip"
+            placeholder="Nombre del animal"
           />
 
           <!-- Especie -->
-          <div class="input-like-govco">
-            <label for="species" class="label-desplegable-govco">
-              Especie<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco" data-type="basic" id="species-dropdown">
-              <select
-                id="species"
-                v-model="form.species"
-                aria-invalid="false"
-              >
-                <option disabled value="">Escoger</option>
-                <option value="perro">Perro</option>
-                <option value="gato">Gato</option>
-                <option value="otro">Otro</option>
-              </select>
-            </div>
-            <span v-if="errors.species" class="alert-desplegable-govco">{{ errors.species }}</span>
-          </div>
+          <DesplegableGovco
+            id="species-dropdown"
+            v-model="form.species"
+            label="Especie"
+            :options="speciesOptions"
+            placeholder="Seleccione una especie"
+            :required="true"
+            :error="!!errors.species"
+            :alert-text="errors.species"
+          />
 
           <!-- Raza -->
           <InputGovCo
@@ -69,25 +58,42 @@
           />
 
           <!-- Sexo -->
-          <div class="input-like-govco">
-            <label for="sex" class="label-desplegable-govco">
-              Sexo<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco" data-type="basic" id="sex-dropdown">
-              <select
-                id="sex"
-                v-model="form.sex"
-                aria-invalid="false"
-              >
-                <option disabled value="">Escoger</option>
-                <option value="macho">Macho</option>
-                <option value="hembra">Hembra</option>
-                <option value="indeterminado">Indeterminado</option>
-              </select>
-            </div>
-            <span v-if="errors.sex" class="alert-desplegable-govco">{{ errors.sex }}</span>
-          </div>
+          <DesplegableGovco
+            id="sex-dropdown"
+            v-model="form.sex"
+            label="Sexo"
+            :options="sexOptions"
+            placeholder="Seleccione el sexo"
+            :required="true"
+            :error="!!errors.sex"
+            :alert-text="errors.sex"
+          />
 
+          <!-- Tamaño -->
+          <DesplegableGovco
+            id="size-dropdown"
+            v-model="form.size"
+            label="Tamaño"
+            :options="sizeOptions"
+            placeholder="Seleccione un tamaño"
+            :required="true"
+            :error="!!errors.size"
+            :alert-text="errors.size"
+          />
+
+          
+
+          <!-- Esterilización -->
+          <DesplegableGovco
+            id="sterilizacion-dropdown"
+            v-model="form.sterilizacion"
+            label="Esterilización"
+            :options="sterilizacionOptions"
+            placeholder="Seleccione una opción"
+            :required="true"
+            :error="!!errors.sterilizacion"
+            :alert-text="errors.sterilizacion"
+          />
           <!-- Edad estimada -->
           <InputGovCo
             id="age"
@@ -109,48 +115,51 @@
         
         <div class="form-grid">
           <!-- Estado -->
-          <div class= "input-like-govco">
-            <label for="status" class="label-desplegable-govco">
-              Estado actual<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco" data-type="basic" id="status-dropdown">
-              <select
-                id="status"
-                v-model="form.status"
-                aria-invalid="false"
-              >
-                <option disabled value="">Escoger</option>
-                <option value="en_calle">En calle</option>
-                <option value="en_refugio">En refugio</option>
-                <option value="adoptado">Adoptado</option>
-                <option value="fallecido">Fallecido</option>
-              </select>
-            </div>
-            <span v-if="errors.status" class="alert-desplegable-govco">{{ errors.status }}</span>
-          </div>
+          <DesplegableGovco
+            id="status-dropdown"
+            v-model="form.status"
+            label="Estado"
+            :options="statusOptions"
+            placeholder="Seleccione un estado"
+            :required="true"
+            :error="!!errors.status"
+            :alert-text="errors.status"
+          />
+
+          <!-- Condición -->
+          <DesplegableGovco
+            id="condition-dropdown"
+            v-model="form.condition"
+            label="Condición"
+            :options="conditionOptions"
+            placeholder="Seleccione una condición"
+            :required="true"
+            :error="!!errors.condition"
+            :alert-text="errors.condition"
+          />
 
           <!-- Fecha de rescate -->
-          <div class="input-like-govco">
-            <div class="date-field-container neut-date-container">
-              <label for="rescueDate" class="label-desplegable-govco">
-                Fecha de rescate<span aria-required="true">*</span>
-              </label>
-              <div class="desplegable-govco desplegable-calendar-govco" data-type="calendar">
-                <div class="date desplegable-selected-option">
-                  <input
-                    class="browser-default"
-                    type="text"
-                    id="rescueDate"
-                    v-model="form.rescueDate"
-                    aria-autocomplete="off"
-                    days="true"
-                    placeholder="DD/MM/AAAA"
-                  >
-                </div>
-              </div>
-              <span v-if="errors.rescueDate" class="alert-desplegable-govco">{{ errors.rescueDate }}</span>
-            </div>
-          </div>
+          <CalendarioGovco
+            id="entry_date"
+            input-id="entry_date_input"
+            v-model="form.entry_date"
+            label="Fecha de ingreso"
+            placeholder="Seleccione una fecha"
+            :required="true"
+            :error="!!errors.entry_date"
+            :alert-text="errors.entry_date"
+          />
+
+          <DesplegableGovco
+            id="origin-dropdown"
+            v-model="form.origin"
+            label="Procedencia"
+            :options="originOptions"
+            placeholder="Seleccione una procedencia"
+            :required="true"
+            :error="!!errors.origin"
+            :alert-text="errors.origin"
+          />
 
           <!-- Ubicación con mapa -->
           <div class="full-width">
@@ -180,586 +189,374 @@
               {{ errors.coordinates }}
             </span>
           </div>
-
-
-          <!-- Condición de salud -->
-          <div class="full-width">
-            <InputGovCo
-              id="health"
-              v-model="form.healthCondition"
-              label="Condición de salud inicial"
-              type="text"
-              placeholder="Describa el estado de salud al momento del rescate..."
-              :required="true"
-              :error="!!errors.healthCondition"
-              :alert-text="errors.healthCondition"
-            />
-          </div>
         </div>
       </div>
 
-      <!-- SECCIÓN 3: FOTOS -->
+      <!-- SECCIÓN 3: OBSERVACIONES -->
+      <div class="form-section">
+        <h3 class="h5-tipografia-govco section-title">Observaciones</h3>
+
+        <div class="form-grid">
+          <InputGovCo
+            id="description"
+            v-model="form.description"
+            label="Descripción"
+            type="text"
+            placeholder="Descripción general del animal"
+            :required="false"
+            :error="!!errors.description"
+            :alert-text="errors.description"
+          />
+
+          <InputGovCo
+            id="notes"
+            v-model="form.notes"
+            label="Notas adicionales"
+            type="text"
+            placeholder="Notas clínicas o contexto relevante"
+            :required="false"
+            :error="!!errors.notes"
+            :alert-text="errors.notes"
+          />
+        </div>
+      </div>
+
+      <!-- SECCIÓN 4: FOTOS -->
       <div class="form-section">
         <h3 class="h5-tipografia-govco section-title">Documentación fotográfica</h3>
         
         <div class="form-grid">
-          <div class="container-carga-de-archivo-govco full-width">
-            <div class="loader-carga-de-archivo-govco">
-              <div class="all-input-carga-de-archivo-govco">
-                <input
-                  id="photos"
-                  type="file"
-                  class="input-carga-de-archivo-govco"
-                  multiple
-                  data-action="uploadFile"
-                  data-action-delete="deleteFile"
-                />
-
-                <label for="photos" class="label-carga-de-archivo-govco">
-                  Fotografías del animal (opcional)
-                </label>
-                <label for="photos" class="container-input-carga-de-archivo-govco">
-                  <span class="button-file-carga-de-archivo-govco">Seleccionar archivos</span>
-                  <span class="file-name-carga-de-archivo-govco">
-                    {{ photosLabel }}
-                  </span>
-                </label>
-                <span class="text-validation-carga-de-archivo-govco">
-                  Opcional. JPG/PNG. Peso máximo: 2 MB por archivo
-                </span>
-              </div>
-
-              <div class="load-button-carga-de-archivo-govco">
-                <div class="load-carga-de-archivo-govco">
-                  <div class="spinner-indicador-de-carga-govco" style="width: 32px; height: 32px; border-width: 6px;" role="status">
-                    <span class="visually-hidden">Cargando...</span>
-                  </div>
-                </div>
-                <button class="button-loader-carga-de-archivo-govco" type="button">
-                  Cargar archivos
-                </button>
-              </div>
-            </div>
-
-            <div class="container-detail-carga-de-archivo-govco">
-              <span
-                class="alert-carga-de-archivo-govco"
-                :class="{ 'visually-hidden': !errors.photos }"
-              >
-                {{ errors.photos }}
-              </span>
-              
-              <div class="attached-files-carga-de-archivo-govco"></div>
-            </div>
+          <div class="full-width">
+            <FileUploader
+              v-model="form.photos"
+              accept="image/jpeg,image/jpg,image/png"
+              :max-files="10"
+              :max-size-m-b="2"
+              label="Fotografías del animal"
+              help-text="Opcional. JPG/PNG. Peso máximo: 2 MB por archivo"
+              :required="false"
+              :multiple="true"
+            />
+            <span v-if="errors.photos" class="alert-desplegable-govco">
+              {{ errors.photos }}
+            </span>
           </div>
         </div>
       </div>
 
-
       <!-- BOTONES -->
       <div class="form-actions">
-        <button type="button" @click="resetForm" class="govco-btn govco-bg-concrete" :disabled="isSubmitting">
-          Limpiar formulario
-        </button>
-        <button type="submit" class="govco-btn govco-bg-elf-green" :disabled="isSubmitting">
-          {{ isSubmitting ? 'Registrando...' : 'Registrar animal' }}
-        </button>
+        <ButtonGovCo
+          type="button"
+          variant="secondary"
+          label="Limpiar formulario"
+          :disabled="isSubmitting"
+          @click="resetForm"
+        />
+        <ButtonGovCo
+          type="submit"
+          variant="primary"
+          :label="isSubmitting ? 'Registrando...' : 'Registrar animal'"
+          :loading="isSubmitting"
+          :disabled="isSubmitting"
+        />
       </div>
     </form>
+
+    <!-- RESULTADO: QR Y DESCARGA DE DETALLES -->
+    <div v-if="createdAnimal" class="result-card">
+      <h3 class="h5-tipografia-govco section-title">Registro completado</h3>
+      <div class="result-content">
+        <div class="result-info">
+          <p><strong>Código:</strong> {{ createdAnimal.codigo_unico || createdAnimal.id }}</p>
+          <p><strong>Nombre:</strong> {{ createdAnimal.nombre || 'Sin nombre' }}</p>
+          <p><strong>Especie:</strong> {{ createdAnimal.especie }}</p>
+
+          <div class="result-actions">
+            <ButtonGovCo
+              type="button"
+              variant="secondary"
+              label="Descargar detalles (JSON)"
+              @click="downloadCreatedAnimal"
+            />
+            <a v-if="detailsUrl" class="details-link" :href="detailsUrl" target="_blank" rel="noopener">
+              Abrir endpoint de detalles
+            </a>
+          </div>
+        </div>
+
+        <div class="result-qr">
+          <p class="qr-title"><strong>QR para acceder/descargar detalles</strong></p>
+          <img v-if="qrUrl" :src="qrUrl" alt="QR del animal" />
+          <p class="qr-help">Escanéalo para abrir los detalles del animal.</p>
+        </div>
+      </div>
+    </div>
 
   </section>
 </template>
 
 <script setup>
-import { reactive, ref, computed, onMounted, nextTick } from 'vue';
+import { reactive, ref, onMounted } from 'vue';
 import MapSelector from '../common/MapSelector.vue';
 import InputGovCo from '../common/InputGovCo.vue';
+import CalendarioGovco from '../common/CalendarioGovco.vue';
+import DesplegableGovco from '../common/DesplegableGovco.vue';
+import ButtonGovCo from '../common/ButtonGovCo.vue';
+import FileUploader from '../common/FileUploader.vue';
 import api from '@/services/api';
 
 const formEl = ref(null);
-const photosInput = ref(null);
 const isSubmitting = ref(false);
+const createdAnimal = ref(null);
+const detailsUrl = ref('');
+const qrUrl = ref('');
+
+const speciesOptions = [
+  { value: 'canino', text: 'Canino' },
+  { value: 'felino', text: 'Felino' },
+  { value: 'equino', text: 'Equino' },
+  { value: 'otro', text: 'Otro' }
+];
+
+const sexOptions = [
+  { value: 'macho', text: 'Macho' },
+  { value: 'hembra', text: 'Hembra' }
+];
+
+const sizeOptions = [
+  { value: 'pequenio', text: 'Pequeño' },
+  { value: 'mediano', text: 'Mediano' },
+  { value: 'grande', text: 'Grande' }
+];
+
+const statusOptions = [
+  { value: 'en_calle', text: 'En calle' },
+  { value: 'en_refugio', text: 'En refugio' },
+  { value: 'en_adopcion', text: 'En adopción' },
+  { value: 'adoptado', text: 'Adoptado' },
+  { value: 'en_tratamiento', text: 'En tratamiento' },
+  { value: 'fallecido', text: 'Fallecido' }
+];
+
+const conditionOptions = [
+  // Importante: el backend valida: critico, grave, estable, bueno, excelente
+  { value: 'excelente', text: 'Excelente' },
+  { value: 'bueno', text: 'Bueno' },
+  { value: 'estable', text: 'Estable' },
+  { value: 'grave', text: 'Grave' },
+  { value: 'critico', text: 'Crítico' }
+];
+
+const sterilizacionOptions = [
+  { value: 1, text: 'Sí' },
+  { value: 0, text: 'No' }
+];
+
+const originOptions = [
+  { value: 'rescate', text: 'Rescate' },
+  { value: 'entrega', text: 'Entrega voluntaria' },
+  { value: 'otra', text: 'Otra' }
+];
 
 const form = reactive({
-  microchip: '', species: '', breed: '', color: '', sex: '', estimatedAge: '',
-  status: '', rescueDate: '', coordinates: null, healthCondition: '',
+  name: '',
+  species: '',
+  breed: '',
+  color: '',
+  sex: '',
+  size: '',
+  estimatedAge: '',
+  status: '',
+  condition: '',
+  sterilizacion: null,
+  entry_date: '',
+  origin: '',
+  coordinates: null,
+  description: '',
+  notes: '',
   photos: []
 });
 
 const errors = reactive({
-  microchip: '', species: '', breed: '', color: '', sex: '', estimatedAge: '',
-  status: '', rescueDate: '', coordinates: '', healthCondition: '',
+  name: '',
+  species: '',
+  breed: '',
+  color: '',
+  sex: '',
+  size: '',
+  estimatedAge: '',
+  status: '',
+  condition: '',
+  sterilizacion: '',
+  entry_date: '',
+  origin: '',
+  coordinates: '',
+  description: '',
+  notes: '',
   photos: ''
 });
 
-function fixNonSubmitButtons() {
-  if (!formEl.value) return;
-
-  const buttons = formEl.value.querySelectorAll('button');
-
-  buttons.forEach((btn) => {
-    // Solo el botón "Registrar animal" debe tener type="submit"
-    const isRegisterButton = btn.textContent?.includes('Registrar animal');
-    
-    if (isRegisterButton) {
-      btn.setAttribute('type', 'submit');
-    } else {
-      btn.setAttribute('type', 'button');
-    }
-  });
-  
-  // Interceptar cualquier intento de submit del formulario
-  if (formEl.value && !formEl.value.dataset.listenerAdded) {
-    formEl.value.addEventListener('submit', (e) => {
-      // Solo permitir submit si viene del botón correcto
-      const submitter = e.submitter;
-      if (!submitter || !submitter.textContent?.includes('Registrar animal')) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-    }, true);
-    
-    formEl.value.dataset.listenerAdded = 'true';
-  }
+function resetErrors() {
+  Object.keys(errors).forEach((k) => (errors[k] = ''));
 }
-
-function preventScrollOnInteractions() {
-  // Prevenir scroll cuando se abre un dropdown/desplegable
-  const handleDropdownOpen = (e) => {
-    const element = e.target.closest('.desplegable-govco, [data-type="calendar"], .button-loader-carga-de-archivo-govco');
-    if (element) {
-      // Guardar posición actual
-      const scrollPos = window.scrollY || document.documentElement.scrollTop;
-      
-      // Esperar a que GOV.CO abra el dropdown
-      setTimeout(() => {
-        // Restaurar posición
-        window.scrollTo(0, scrollPos);
-      }, 50);
-    }
-  };
-
-  // Prevenir scroll al hacer focus en inputs de calendarios
-  const handleCalendarFocus = (e) => {
-    if (e.target.closest('[data-type="calendar"] input')) {
-      const scrollPos = window.scrollY || document.documentElement.scrollTop;
-      e.preventDefault();
-      setTimeout(() => {
-        window.scrollTo(0, scrollPos);
-      }, 10);
-    }
-  };
-
-  // Agregar listeners a toda la sección del formulario
-  if (formEl.value) {
-    formEl.value.removeEventListener('click', handleDropdownOpen);
-    formEl.value.addEventListener('click', handleDropdownOpen);
-    
-    formEl.value.removeEventListener('focus', handleCalendarFocus, true);
-    formEl.value.addEventListener('focus', handleCalendarFocus, true);
-  }
-
-  // También prevenir scroll cuando GOV.CO modifica el scroll
-  const originalScrollTo = window.scrollTo;
-  window.scrollTo = function(...args) {
-    // Solo prevenir scrolls a 0 que no sean intencionales
-    if (args[0] === 0 && args[1] === 0) {
-      console.log('GOV.CO scroll bloqueado');
-      return;
-    }
-    return originalScrollTo.apply(window, args);
-  };
-}
-
-// Funciones para el componente de carga de archivos de GOV.CO
-if (typeof window !== 'undefined') {
-  // Función para procesar archivos cuando se hace clic en "Cargar archivos"
-  window.uploadFile = function(files) {
-    return new Promise((resolve, reject) => {
-      try {
-        console.log('uploadFile: Procesando', files.length, 'archivos');
-        
-        // Filtrar archivos válidos
-        const validFiles = Array.from(files).filter(file => {
-          const isValidType = ['image/jpeg', 'image/png', 'image/jpg'].includes(file.type);
-          const isValidSize = file.size <= 2 * 1024 * 1024;
-          return isValidType && isValidSize;
-        });
-
-        // Verificar si hay espacio
-        const remainingSlots = 10 - form.photos.length;
-        if (remainingSlots <= 0) {
-          reject('Ya has cargado el máximo de 10 fotografías.');
-          return;
-        }
-
-        if (validFiles.length === 0) {
-          reject('Los archivos deben ser JPG o PNG, máximo 2MB cada uno.');
-          return;
-        }
-        
-        // Agregar hasta el límite de espacios disponibles
-        const filesToAdd = validFiles.slice(0, remainingSlots);
-        form.photos.push(...filesToAdd);
-        errors.photos = '';
-        
-        console.log('uploadFile: Total de fotos ahora:', form.photos.length);
-        resolve(filesToAdd);
-      } catch (error) {
-        console.error('Error en uploadFile:', error);
-        reject('Error al procesar los archivos.');
-      }
-    });
-  };
-
-  // Función para eliminar un archivo
-  window.deleteFile = function(file) {
-    return new Promise((resolve, reject) => {
-      try {
-        const index = form.photos.findIndex(f => f.name === file.name && f.size === file.size);
-        if (index >= 0) {
-          form.photos.splice(index, 1);
-          console.log('deleteFile: Archivo eliminado. Total ahora:', form.photos.length);
-          resolve(true);
-        } else {
-          reject('Archivo no encontrado.');
-        }
-      } catch (error) {
-        reject('Error al eliminar el archivo.');
-      }
-    });
-  };
-
-  // Configurar validación - se ejecutará cuando la página cargue
-  window.addEventListener('load', function() {
-    // Permitir máximo 10 fotos, con extensiones jpg/jpeg/png, máximo 2MB cada una
-    if (window.setValidationParameters) {
-      window.setValidationParameters('photos', ['jpg', 'jpeg', 'png'], 2 * 1024 * 1024, 10);
-    }
-  });
-}
-
-function initializeGovcoComponents() {
-  if (typeof window === 'undefined' || !window.GOVCo) return;
-  
-  nextTick(() => {
-    // Inicializar dropdowns básicos
-    const dropdowns = document.querySelectorAll('.desplegable-govco[data-type="basic"]');
-    dropdowns.forEach(dropdown => {
-      if (window.GOVCo?.init) {
-        window.GOVCo.init(dropdown.parentElement);
-      }
-    });
-
-    // Inicializar calendarios
-    const calendars = document.querySelectorAll('[data-type="calendar"]');
-    calendars.forEach(cal => {
-      if (window.GOVCo?.init) {
-        window.GOVCo.init(cal.parentElement);
-      }
-    });
-    
-    // Sincronizar valores después de inicializar
-    setTimeout(() => {
-      syncDropdownValues();
-      syncDateValues();
-    }, 200);
-  });
-}
-
-function setupDropdownListeners() {
-  // Escuchar cambios en los selects nativos
-  const selects = ['species', 'sex', 'status'];
-  
-  selects.forEach(id => {
-    const select = document.getElementById(id);
-    if (select) {
-      select.addEventListener('change', (e) => {
-        form[id] = e.target.value;
-        console.log(`${id} changed to:`, e.target.value);
-      });
-    }
-  });
-  
-  // Escuchar cambios en los inputs de fecha
-  const dateInput = document.getElementById('rescueDate');
-  if (dateInput) {
-    ['change', 'blur', 'input'].forEach(eventType => {
-      dateInput.addEventListener(eventType, (e) => {
-        syncDateValues();
-      });
-    });
-  }
-  
-  // También escuchar eventos personalizados de GOV.CO si existen
-  document.addEventListener('govco:dropdown:change', (e) => {
-    syncDropdownValues();
-  });
-  
-  // Escuchar eventos del calendario GOV.CO
-  document.addEventListener('govco:calendar:change', (e) => {
-    syncDateValues();
-  });
-}
-
-function syncDropdownValues() {
-  // Sincronizar valores de los dropdowns con el modelo
-  const species = document.getElementById('species');
-  const sex = document.getElementById('sex');
-  const status = document.getElementById('status');
-  
-  if (species) form.species = species.value;
-  if (sex) form.sex = sex.value;
-  if (status) form.status = status.value;
-  
-  console.log('Dropdowns sincronizados:', {
-    species: form.species,
-    sex: form.sex,
-    status: form.status
-  });
-}
-
-function syncDateValues() {
-  // Sincronizar valores de las fechas con el modelo
-  const rescueDate = document.getElementById('rescueDate');
-  
-  if (rescueDate) {
-    form.rescueDate = rescueDate.value;
-    console.log('Fecha sincronizada:', form.rescueDate);
-  }
-}
-
-function configurePhotosInput() {
-  const photosInput = document.getElementById('photos');
-  if (photosInput) {
-    photosInput.disabled = false;
-    photosInput.classList.remove('disabled');
-    photosInput.classList.add('active');
-  }
-}
-
-onMounted(() => {
-  fixNonSubmitButtons();
-  preventScrollOnInteractions();
-  initializeGovcoComponents();
-  setupDropdownListeners();
-
-  // Configurar validación del componente de carga de archivos
-  if (window.setValidationParameters) {
-    window.setValidationParameters(
-      'photos',
-      ['jpg', 'jpeg', 'png'],
-      2 * 1024 * 1024, 10  // Máximo 10 archivos
-    );
-  }
-
-  // Asegurar que el input de fotos no esté bloqueado
-  const photosInput = document.getElementById('photos');
-  if (photosInput) {
-    photosInput.disabled = false;
-    photosInput.classList.remove('disabled');
-    photosInput.classList.add('active');
-  }
-
-  configurePhotosInput();
-
-  if (typeof window !== 'undefined') {
-    window.addEventListener('load', () => {
-      fixNonSubmitButtons();
-      preventScrollOnInteractions();
-      initializeGovcoComponents();
-      setupDropdownListeners();
-      
-      configurePhotosInput();
-      
-
-      // Agregar listener al botón de carga para resetear el input después
-      const uploadButton = document.querySelector('.button-loader-carga-de-archivo-govco');
-      if (uploadButton) {
-        uploadButton.addEventListener('click', () => {
-          setTimeout(() => {
-            configurePhotosInput();
-          }, 200);
-        });
-      }
-    });
-  }
-});
-
-const photosLabel = computed(() => 
-  !form.photos.length ? 'Sin archivos seleccionados' : 
-  `${form.photos.length} archivo${form.photos.length > 1 ? 's' : ''} seleccionado${form.photos.length > 1 ? 's' : ''}`
-);
-
-function formatSize(bytes) {
-  return bytes < 1024*1024 ? (bytes/1024).toFixed(1) + ' KB' : (bytes/1024/1024).toFixed(1) + ' MB';
-}
-
-function onFilesSelected(e) {
-  // Limpiar error previo
-  errors.photos = '';
-}
-
 
 function validate() {
-  Object.keys(errors).forEach(k => errors[k] = '');
-  
-  // Campos de texto - requeridos y no vacíos
-  if (!form.microchip || !form.microchip.trim()) errors.microchip = 'Campo requerido';
-  if (!form.breed || !form.breed.trim()) errors.breed = 'Campo requerido';
-  if (!form.color || !form.color.trim()) errors.color = 'Campo requerido';
-  if (!form.estimatedAge || !form.estimatedAge.trim()) errors.estimatedAge = 'Campo requerido';
-  if (!form.healthCondition || !form.healthCondition.trim()) errors.healthCondition = 'Campo requerido';
-  
-  // Campos de selección - no deben estar vacíos
-  if (!form.species || form.species === '') errors.species = 'Campo requerido';
-  if (!form.sex || form.sex === '') errors.sex = 'Campo requerido';
-  if (!form.status || form.status === '') errors.status = 'Campo requerido';
-  
-  // Fechas
-  if (!form.rescueDate || form.rescueDate === '') errors.rescueDate = 'Campo requerido';
-  
-  // Ubicación
-  if (!form.coordinates) errors.coordinates = 'Debe georeferenciar la ubicación';
-  
-  // Fotos - opcional por ahora (comentado)
-  // if (!form.photos || form.photos.length < 2) errors.photos = 'Mínimo 2 fotografías requeridas';
-  
-  return !Object.values(errors).some(e => e);
-}
-
-function resetForm() {
-  Object.keys(form).forEach(k => {
-    form[k] = Array.isArray(form[k]) ? [] : (typeof form[k] === 'boolean' ? false : (k === 'coordinates' ? null : ''));
-  });
-  Object.keys(errors).forEach(k => errors[k] = '');
-}
-
-// Función para convertir edad aproximada a meses
-function parseAgeToMonths(ageString) {
-  const lower = ageString.toLowerCase().trim();
-  
-  // Buscar años
-  const yearsMatch = lower.match(/(\d+)\s*a[ñn]os?/);
-  const years = yearsMatch ? parseInt(yearsMatch[1]) : 0;
-  
-  // Buscar meses
-  const monthsMatch = lower.match(/(\d+)\s*mes(?:es)?/);
-  const months = monthsMatch ? parseInt(monthsMatch[1]) : 0;
-  
-  return (years * 12) + months;
-}
-
-// Función para formatear fecha a YYYY-MM-DD
-function formatDateToISO(dateString) {
-  if (!dateString) return null;
-  
-  // Si viene en formato DD/MM/YYYY
-  const parts = dateString.split('/');
-  if (parts.length === 3) {
-    const [day, month, year] = parts;
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  resetErrors();
+  if (!form.species) errors.species = 'La especie es obligatoria';
+  if (!form.breed) errors.breed = 'La raza es obligatoria';
+  if (!form.color) errors.color = 'El color es obligatorio';
+  if (!form.sex) errors.sex = 'El sexo es obligatorio';
+  if (!form.size) errors.size = 'El tamaño es obligatorio';
+  if (!form.estimatedAge) errors.estimatedAge = 'La edad estimada es obligatoria';
+  if (!form.status) errors.status = 'El estado es obligatorio';
+  if (!form.condition) errors.condition = 'La condición es obligatoria';
+  if (form.sterilizacion === null || form.sterilizacion === '' || form.sterilizacion === undefined) {
+    errors.sterilizacion = 'La esterilización es obligatoria';
   }
-  
-  return dateString;
+  if (!form.entry_date) errors.entry_date = 'La fecha de ingreso es obligatoria';
+  if (!form.origin) errors.origin = 'La procedencia es obligatoria';
+  if (!form.coordinates) errors.coordinates = 'Debe seleccionar una ubicación en el mapa';
+
+  return !Object.values(errors).some(Boolean);
 }
 
-// Función para preparar los datos según la estructura de la BD
-function prepareAnimalData() {
-  const ageInMonths = parseAgeToMonths(form.estimatedAge);
-  
-  return {
-    codigo_unico: form.microchip,
-    nombre: form.microchip, // Usar microchip como nombre temporal
-    especie: form.species,
-    raza: form.breed,
-    sexo: form.sex === 'indeterminado' ? 'desconocido' : form.sex,
-    edad_aproximada: ageInMonths,
-    color: form.color,
-    tamanio: null, // Se dejará null por ahora
-    senias_particulares: null, // Se dejará null por ahora
-    fecha_rescate: formatDateToISO(form.rescueDate),
-    ubicacion_rescate: form.coordinates ? `${form.coordinates.lat},${form.coordinates.lng}` : null,
-    estado: form.status,
-    estado_salud: form.healthCondition.toLowerCase().includes('crítico') ? 'critico' :
-                   form.healthCondition.toLowerCase().includes('grave') ? 'grave' :
-                   form.healthCondition.toLowerCase().includes('regular') ? 'estable' :
-                   form.healthCondition.toLowerCase().includes('buen') ? 'bueno' : 'estable',
-    observaciones: form.healthCondition,
-    foto_principal: null, // Por ahora null, después se pueden subir las fotos
-    galeria_fotos: null
-  };
+function parseEdadToMonths(raw) {
+  if (raw == null) return null;
+  const s = String(raw).trim().toLowerCase();
+  if (!s) return null;
+
+  // Si ya es número puro, lo tratamos como meses
+  if (/^\d+$/.test(s)) return Number(s);
+
+  const yearsMatch = s.match(/(\d+)\s*a\s*ñ?o/);
+  const monthsMatch = s.match(/(\d+)\s*mes/);
+
+  const years = yearsMatch ? Number(yearsMatch[1]) : 0;
+  const months = monthsMatch ? Number(monthsMatch[1]) : 0;
+  const total = years * 12 + months;
+  return Number.isFinite(total) ? total : null;
 }
 
-// Función para registrar el animal en la API
-async function registerAnimal() {
+function buildUbicacionRescate() {
+  const parts = [];
+  if (form.origin) parts.push(String(form.origin));
+  if (form.coordinates?.lat && form.coordinates?.lng) {
+    parts.push(`(${form.coordinates.lat}, ${form.coordinates.lng})`);
+  }
+  return parts.join(' ');
+}
+
+function setQrForAnimal(animal) {
+  if (!animal) return;
+  createdAnimal.value = animal;
+
+  // URL de detalles: por simplicidad, el endpoint del backend
+  detailsUrl.value = `${window.location.origin}/api/v1/animals/${animal.id}`;
+  qrUrl.value = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(detailsUrl.value)}`;
+}
+
+function downloadCreatedAnimal() {
+  if (!createdAnimal.value) return;
+  const fileName = `${createdAnimal.value.codigo_unico || createdAnimal.value.id || 'animal'}.json`;
+  const blob = new Blob([JSON.stringify(createdAnimal.value, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function onSubmit() {
+  if (isSubmitting.value) return;
+
+  const ok = validate();
+  if (!ok) return;
+
+  console.log('Valor de sterilizacion antes de enviar:', form.sterilizacion, typeof form.sterilizacion);
+
   isSubmitting.value = true;
-
   try {
-    const animalData = prepareAnimalData();
+    // Reset resultado previo
+    createdAnimal.value = null;
+    detailsUrl.value = '';
+    qrUrl.value = '';
 
-    console.log('Enviando datos a la API:', animalData);
+    const observaciones = [form.description, form.notes].filter(Boolean).join('\n\n');
 
-    const response = await api.post('/animals', animalData);
-    const result = response.data;
+    const payload = {
+      nombre: form.name || null,
+      especie: form.species || null,
+      raza: form.breed || null,
+      sexo: form.sex || null,
+      edad_aproximada: parseEdadToMonths(form.estimatedAge),
+      color: form.color || null,
+      tamanio: form.size || null,
+      estado: form.status || null,
+      estado_salud: form.condition || null,
+      fecha_rescate: form.entry_date || null,
+      ubicacion_rescate: buildUbicacionRescate() || null,
+      observaciones: observaciones || null,
+      esterilizacion: form.sterilizacion === 1 || form.sterilizacion === '1' || form.sterilizacion === true
+    };
 
-    console.log('Animal registrado exitosamente:', result.data);
+    const hasPhotos = Array.isArray(form.photos) && form.photos.length > 0;
+    let res;
 
-    // Mostrar mensaje de éxito usando toast si está disponible
-    if (window.$toast) {
-      window.$toast.success('¡Animal registrado!', `Código: ${result.data.codigo_unico}`);
+    if (hasPhotos) {
+      const fd = new FormData();
+      Object.entries(payload).forEach(([k, v]) => {
+        if (v === null || v === undefined || v === '') return;
+        if (typeof v === 'number' && !Number.isFinite(v)) return;
+        fd.append(k, String(v));
+      });
+
+      // 1ra foto como foto_principal, el resto como galeria_fotos[]
+      const first = form.photos[0]?.file ?? form.photos[0];
+      if (first) fd.append('foto_principal', first);
+
+      form.photos.slice(1).forEach((p) => {
+        const f = p?.file ?? p;
+        if (f) fd.append('galeria_fotos[]', f);
+      });
+
+      res = await api.post('/animals', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
     } else {
-      alert(`✅ Animal registrado exitosamente!\n\nCódigo: ${result.data.codigo_unico}\nID: ${result.data.id}`);
+      res = await api.post('/animals', payload);
     }
 
-    // Limpiar el formulario
-    resetForm();
-
-    return result.data;
-
-  } catch (error) {
-    console.error('Error al registrar animal:', error);
-    const errorMessage = error.response?.data?.message || error.message || 'Error desconocido';
-
-    if (window.$toast) {
-      window.$toast.error('Error al registrar', errorMessage);
-    } else {
-      alert(`❌ Error al registrar el animal:\n${errorMessage}`);
-    }
-    throw error;
+    // BaseController suele envolver en { success, message, data }
+    const animal = res?.data?.data ?? res?.data;
+    console.log('Animal registrado', animal);
+    setQrForAnimal(animal);
+  } catch (e) {
+    console.error(e);
+    // Aquí puedes agregar manejo de errores
   } finally {
     isSubmitting.value = false;
   }
 }
 
-async function onSubmit() {
-  // Sincronizar valores antes de validar
-  syncDropdownValues();
-  syncDateValues();
-  
-  console.log('Valores del formulario al enviar:', {
-    microchip: form.microchip,
-    species: form.species,
-    breed: form.breed,
-    color: form.color,
-    sex: form.sex,
-    estimatedAge: form.estimatedAge,
-    status: form.status,
-    rescueDate: form.rescueDate,
-    coordinates: form.coordinates,
-    healthCondition: form.healthCondition,
-    photos: form.photos.length
+function resetForm() {
+  Object.keys(form).forEach((k) => {
+    if (Array.isArray(form[k])) {
+      form[k] = [];
+    } else {
+      form[k] = '';
+    }
   });
-  
-  if (!validate()) {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    return;
-  }
-  
-  // Registrar el animal en la API
-  await registerAnimal();
+  form.coordinates = null;
+  resetErrors();
 }
+
+onMounted(() => {
+  // Inicialización si es necesaria
+});
 </script>
 
 <style scoped>
@@ -768,113 +565,28 @@ async function onSubmit() {
 .form-section { background: white; border-radius: 8px; margin-bottom: 1.5rem; overflow: visible; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
 .section-title { margin: 0; padding: 1rem 1.5rem; background: #E8F0FE; color: #3366CC; font-weight: 600; }
 .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 2rem; row-gap: 1.5rem; padding: 1.5rem; }
-.form-grid > div { display:flex; flex-direction: column;}
+.form-grid > div { display: flex; flex-direction: column; }
 .full-width { grid-column: 1 / 4; }
-.entradas-de-texto-govco, .desplegable-govco, .container-carga-de-archivo-govco { width: 100%; }
-.entradas-de-texto-govco input,
-.desplegable-govco select {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #D0D0D0;
-  border-radius: 4px;
-  font-size: 1rem;
-  line-height: 1.5;
-  height: 44px;
-  box-sizing: border-box;
-}
-.error-text, .alert-desplegable-govco { display: block; color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; font-weight: 500; }
-.checkbox-govco { display: flex; align-items: center; gap: 0.75rem; padding: 1rem; background: #f5f7fb; border-radius: 6px; }
-.checkbox-govco input { width: 20px; height: 20px; cursor: pointer; }
-.checkbox-govco label { cursor: pointer; margin: 0; }
 .map-container { display: flex; flex-direction: column; gap: 1rem; }
-.map-display { height: 200px; background: #f5f7fb; border: 2px dashed #D0D0D0; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 1rem; }
-.map-placeholder { color: #666; text-align: center; margin: 0; }
+.map-placeholder { color: #666; text-align: center; margin: 0; padding: 0.5rem; background: #f9f9f9; border-radius: 4px; }
 .form-actions { display: flex; justify-content: flex-end; gap: 1rem; padding: 1.5rem; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-.govco-btn { padding: 0.75rem 2rem; border-radius: 6px; font-weight: 600; cursor: pointer; border: none; color: white; transition: all 0.3s; }
-.govco-btn:hover { transform: translateY(-2px); opacity: 0.9; }
-.govco-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-.modal-content { background: white; border-radius: 8px; width: 90%; max-width: 800px; max-height: 90vh; overflow: hidden; }
-.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-bottom: 2px solid #E0E0E0; }
-.modal-header h3 { margin: 0; color: #3366CC; }
-.modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #666; width: 32px; height: 32px; }
-.modal-body { padding: 1.5rem; }
-.map-interactive { height: 400px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; cursor: crosshair; position: relative; display: flex; align-items: center; justify-content: center; }
-.map-instruction { color: white; font-weight: 600; text-align: center; margin: 0; }
-.map-coords { position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%); background: white; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-.modal-footer { display: flex; justify-content: flex-end; gap: 1rem; padding: 1.5rem; border-top: 2px solid #E0E0E0; }
-.govco-bg-concrete {  background-color: #737373;}
-.govco-bg-elf-green { background-color: #069169; }
-.info-entradas-de-texto-govco { display: block; color: #666; font-size: 0.85rem; margin-top: 0.25rem; }
-:deep(.desplegable-govco .desplegable-items),
-:deep(.desplegable-govco.desplegable-calendar-govco .desplegable-calendar-control) { z-index: 1500 !important;}
+.alert-desplegable-govco { display: block; color: #b00020; font-size: 0.85rem; margin-top: 0.5rem; font-weight: 500; }
+.label-desplegable-govco { display: block; margin-bottom: 0.5rem; font-weight: 500; color: #333; font-size: 14px; }
+.label-desplegable-govco span[aria-required="true"] { color: #b00020; margin-left: 4px; }
 
-:deep(.desplegable-govco.desplegable-calendar-govco .desplegable-calendar-control) {
-  width: 100% !important;
-  max-width: 100% !important;
-  max-height: 668.8px !important;
-  overflow-y: auto !important;
-  box-sizing: border-box !important;
-  padding: 0 !important;
-}
-
-:deep(.desplegable-calendar-govco .desplegable-calendar-control .header) { width: 100% !important; box-sizing: border-box !important;}
-
-:deep(.desplegable-calendar-govco .desplegable-calendar-control table#miCalendarioGrid.dates) {
-  width: 100% !important;
-  table-layout: fixed !important;
-  box-sizing: border-box !important;
-  padding: 0 !important;
-  margin: 0 !important;  
-  margin-left: -4.8px !important;
-}
-
-:deep(.desplegable-calendar-govco .desplegable-calendar-control table td) { box-sizing: border-box !important; width: calc(100% / 7) !important;}
-.date-field-container {  width: 100%;}
-.date-field-container :deep(.date.desplegable-selected-option) {padding: 7px 40px 7px 16px !important; box-sizing: border-box !important;}
-
-.date-field-container :deep(.date.desplegable-selected-option input) {
-  width: 100% !important;
-  padding-right: 30px !important;
-  box-sizing: border-box !important;
-}
-
-.input-like-govco {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  margin: 18px 0;
-}
-
-.input-like-govco label {
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: #333;
-}
-.neut-date-container .desplegable-govco {margin-top: 0.7rem; }
-
-.desplegable-govco {
-  position: relative;
-  width: 100%;
-}
-
-.desplegable-govco select {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23333' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-  background-size: 12px 8px;
-  padding-right: 2.5rem;
-}
-
-.container-carga-de-archivo-govco :deep(.attached-files-carga-de-archivo-govco) > *:not(.photo-item):not(.attached-file-carga-de-archivo-govco) { display: none !important;}
-.container-detail-carga-de-archivo-govco {display: block !important;}
-.container-carga-de-archivo-govco :deep(.attached-files-carga-de-archivo-govco) {padding-top: 0.8rem;}
-.container-carga-de-archivo-govco :deep(.attached-file-carga-de-archivo-govco) { display: flex !important;}
+.result-card { background: white; border-radius: 8px; margin-top: 1.5rem; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.result-content { display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; padding: 1.5rem; align-items: start; }
+.result-actions { display: flex; gap: 1rem; align-items: center; margin-top: 1rem; flex-wrap: wrap; }
+.details-link { color: #004884; text-decoration: underline; font-weight: 600; }
+.result-qr { text-align: center; border: 1px solid #c9e2ff; border-radius: 8px; padding: 1rem; }
+.result-qr img { width: 220px; height: 220px; object-fit: contain; border-radius: 6px; }
+.qr-title { margin: 0 0 0.75rem 0; }
+.qr-help { margin: 0.75rem 0 0 0; color: #666; font-size: 0.9rem; }
 
 @media (max-width: 992px) {
   .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .full-width { grid-column: 1 / 3; }
+  .result-content { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 576px) {
@@ -882,6 +594,5 @@ async function onSubmit() {
   .form-grid { grid-template-columns: 1fr; padding: 1rem; }
   .full-width { grid-column: 1 / 2; }
   .form-actions { flex-direction: column; }
-  .govco-btn { width: 100%; }
 }
 </style>

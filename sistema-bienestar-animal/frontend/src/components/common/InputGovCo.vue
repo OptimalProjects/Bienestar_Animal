@@ -1,277 +1,117 @@
 <template>
-  <div 
-    class="entradas-de-texto-govco" 
-    :class="{ 'disabled-govco': disabled, 'error-govco': error, 'success-govco': success }"
-  >
-    <label :for="id">
-      {{ label }}<span v-if="required" aria-required="true">*</span>
+  <div class="ui-field" :style="{ width }">
+    <label :for="id" class="ui-label">
+      {{ label }}<span v-if="required" class="ui-required">*</span>
     </label>
-    
-    <div class="container-input-texto-govco">
+
+    <div class="ui-control" :class="{ 'has-error': error }">
       <input
-        :type="type"
+        class="ui-input"
         :id="id"
+        :type="type"
         :value="modelValue"
-        @input="handleInput"
-        @blur="handleBlur"
-        @focus="handleFocus"
         :placeholder="placeholder"
         :disabled="disabled"
-        :aria-describedby="helpText || alertText ? `${id}-help` : undefined"
-        :aria-invalid="error ? 'true' : 'false'"
-        :class="{ 'error': error, 'success': success }"
         :step="step"
         :min="min"
         :max="max"
-        ref="inputRef"
+        @input="onInput"
+        @blur="$emit('blur', $event)"
+        @focus="$emit('focus', $event)"
       />
     </div>
 
-    <span 
-      v-if="alertText && error" 
-      :id="`${id}-help`" 
-      class="alert-entradas-de-texto-govco"
-    >
-      {{ alertText }}
-    </span>
-
-    <span 
-      v-if="helpText && !error" 
-      :id="`${id}-help`" 
-      class="info-entradas-de-texto-govco"
-    >
-      {{ helpText }}
-    </span>
+    <p v-if="helpText" class="ui-help">{{ helpText }}</p>
+    <p v-if="alertText" class="ui-alert" :class="{ 'is-error': error }">{{ alertText }}</p>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, nextTick } from 'vue';
-
 const props = defineProps({
-  modelValue: {
-    type: [String, Number],
-    default: ''
-  },
-  id: {
-    type: String,
-    required: true
-  },
-  label: {
-    type: String,
-    required: true
-  },
-  type: {
-    type: String,
-    default: 'text',
-    validator: (value) => ['text', 'number', 'email', 'tel', 'password', 'url'].includes(value)
-  },
-  placeholder: {
-    type: String,
-    default: ''
-  },
-  disabled: {
-    type: Boolean,
-    default: false
-  },
-  required: {
-    type: Boolean,
-    default: false
-  },
-  error: {
-    type: Boolean,
-    default: false
-  },
-  success: {
-    type: Boolean,
-    default: false
-  },
-  alertText: {
-    type: String,
-    default: ''
-  },
-  helpText: {
-    type: String,
-    default: ''
-  },
-  step: {
-    type: String,
-    default: undefined
-  },
-  min: {
-    type: [String, Number],
-    default: undefined
-  },
-  max: {
-    type: [String, Number],
-    default: undefined
-  }
-});
+  modelValue: { type: [String, Number], default: '' },
+  id: { type: String, required: true },
+  label: { type: String, required: true },
 
-const emit = defineEmits(['update:modelValue', 'blur', 'focus']);
+  type: { type: String, default: 'text' },
+  placeholder: { type: String, default: '' },
+  disabled: { type: Boolean, default: false },
+  required: { type: Boolean, default: false },
 
-const inputRef = ref(null);
+  step: { type: [String, Number], default: undefined },
+  min: { type: [String, Number], default: undefined },
+  max: { type: [String, Number], default: undefined },
 
-function handleInput(event) {
-  let value = event.target.value;
-  
-  // Para inputs de tipo number, convertir a número si es necesario
-  if (props.type === 'number' && value !== '') {
-    value = parseFloat(value);
-  }
-  
-  emit('update:modelValue', value);
+  width: { type: String, default: '100%' },
+
+  helpText: { type: String, default: '' },
+  alertText: { type: String, default: '' },
+  error: { type: Boolean, default: false },
+})
+
+const emit = defineEmits(['update:modelValue', 'blur', 'focus'])
+
+function onInput(e) {
+  let v = e.target.value
+  if (props.type === 'number' && v !== '') v = Number(v)
+  emit('update:modelValue', v)
 }
-
-function handleBlur(event) {
-  emit('blur', event.target.value);
-}
-
-function handleFocus(event) {
-  emit('focus', event.target.value);
-}
-
-// Función para obtener el valor actual del input
-function getValue() {
-  return inputRef.value?.value || props.modelValue;
-}
-
-// Exponer la función getValue para que los padres puedan acceder
-defineExpose({
-  getValue,
-  inputRef
-});
-
-// Asegurar que el input siempre esté disponible y no bloqueado
-onMounted(() => {
-  nextTick(() => {
-    if (inputRef.value) {
-      inputRef.value.disabled = props.disabled;
-    }
-  });
-});
-
-// Vigilar cambios en la prop disabled
-watch(() => props.disabled, (newValue) => {
-  if (inputRef.value) {
-    inputRef.value.disabled = newValue;
-  }
-});
-
-// Vigilar cambios en modelValue para mantener sincronizado
-watch(() => props.modelValue, (newValue) => {
-  if (inputRef.value && inputRef.value.value !== String(newValue)) {
-    inputRef.value.value = newValue;
-  }
-});
 </script>
 
 <style scoped>
-.entradas-de-texto-govco {
-  padding: 1rem 0;
-  font-size: 16px;
-  font-family: WorkSans-Regular, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-  width: 100%;
+.ui-field {
+  font-family: "Work Sans", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
 
-.entradas-de-texto-govco label {
-  color: #4B4B4B;
-  display: block;
-  font-size: 16px;
-  margin-bottom: 0.625rem;
-  line-height: 1.375rem;
-  font-weight: 500;
-}
-
-.entradas-de-texto-govco label span[aria-required="true"] {
-  color: #d32f2f;
-  margin-left: 0.25rem;
-}
-
-.container-input-texto-govco {
-  position: relative;
-  width: 100%;
-}
-
-.entradas-de-texto-govco input {
-  outline: none;
-  background-color: #FFFFFF;
-  border: 0.094rem solid #737373;
-  border-radius: 0.313rem;
-  width: 100%;
-  padding: 0.5rem;
-  color: #4B4B4B;
-  font-size: 16px;
-  margin-bottom: 0.5rem;
+.ui-label {
   display: inline-block;
-  height: auto;
-  box-sizing: border-box;
-  line-height: 1.375rem;
-  font-family: inherit;
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
 }
 
-.entradas-de-texto-govco input::placeholder {
-  color: #737373;
+.ui-required { color: #b00020; margin-left: 4px; }
+
+.ui-control {
+  border: 1px solid #D0D0D0;
+  border-radius: 6px;
+  background: #FFFFFF;
+  transition: box-shadow .15s ease, border-color .15s ease;
 }
 
-.entradas-de-texto-govco input:not(.success):not(.error):focus {
-  box-shadow: 0 0.25rem 0 rgba(51, 102, 204, 0.14);
-  border: 0.094rem solid #3366CC;
+.ui-control:focus-within {
+  border-color: #3366CC;
+  box-shadow: 0 0 0 3px rgba(51, 102, 204, .22);
 }
 
-.entradas-de-texto-govco input:disabled {
-  background-color: #F2F2F2;
-  border: 0.094rem solid #BABABA;
-  cursor: not-allowed;
+.ui-control.has-error {
+  border-color: #d32f2f;
+  box-shadow: 0 0 0 3px rgba(211, 47, 47, .14);
 }
 
-.entradas-de-texto-govco input:disabled::placeholder,
-.entradas-de-texto-govco.disabled-govco label,
-.entradas-de-texto-govco.disabled-govco span {
-  color: #BABABA;
+.ui-input {
+  width: 100%;
+  height: 40px;
+  border: none;
+  outline: none;
+  padding: 0 12px;
+  font-size: 14px;
+  color: #333;
+  background: transparent;
 }
 
-.entradas-de-texto-govco input.error {
-  border-color: #A80521;
-  background-color: #FDEAED;
+.ui-input::placeholder { color: #737373; }
+
+.ui-help {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #666;
 }
 
-.entradas-de-texto-govco input.error:focus {
-  box-shadow: 0 0.25rem 0 rgba(168, 5, 33, 0.14);
-  border-color: #A80521;
+.ui-alert {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #4B4B4B;
 }
-
-.entradas-de-texto-govco input.success {
-  border-color: #069169;
-  background-color: #E5F4F0;
-}
-
-.entradas-de-texto-govco input.success:focus {
-  box-shadow: 0 0.25rem 0 rgba(6, 145, 105, 0.14);
-  border-color: #069169;
-}
-
-.alert-entradas-de-texto-govco {
-  display: block;
-  color: #A80521;
-  font-size: 0.875rem;
-  margin-top: -0.25rem;
-  margin-bottom: 0.5rem;
-  line-height: 1.25rem;
-}
-
-.info-entradas-de-texto-govco {
-  display: block;
-  color: #737373;
-  font-size: 0.875rem;
-  margin-top: -0.25rem;
-  margin-bottom: 0.5rem;
-  line-height: 1.25rem;
-}
-
-/* Asegurar que el input siempre sea clickeable */
-.entradas-de-texto-govco input:not(:disabled) {
-  pointer-events: auto !important;
-  cursor: text !important;
-}
+.ui-alert.is-error { color: #b00020; }
 </style>

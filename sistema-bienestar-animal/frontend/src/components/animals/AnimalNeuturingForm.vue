@@ -22,9 +22,15 @@
                 @blur="buscarAnimal"
                 @keyup.enter="buscarAnimal"
               />
-              <button type="button" class="btn-search" @click="buscarAnimal" :disabled="buscandoAnimal">
-                {{ buscandoAnimal ? '...' : '🔍' }}
-              </button>
+              <ButtonGovCo
+                type="button"
+                variant="fill"
+                label="🔍"
+                width="50px"
+                height="44px"
+                :disabled="buscandoAnimal"
+                @click="buscarAnimal"
+              />
             </div>
             <span v-if="errors.animalId" class="error-text">{{ errors.animalId }}</span>
             <span v-if="animalEncontrado" class="success-text">
@@ -33,121 +39,77 @@
           </div>
 
           <!-- Fecha de esterilización -->
-          <div class="input-like-govco">
-            <div class="date-field-container neut-date-container">
-              <label for="neutDate" class="label-desplegable-govco">
-                Fecha de esterilización<span aria-required="true">*</span>
-              </label>
-              <div class="desplegable-govco desplegable-calendar-govco" data-type="calendar">
-                <div class="date desplegable-selected-option">
-                  <input
-                    class="browser-default"
-                    type="text"
-                    id="neutDate"
-                    v-model="form.neuteringDate"
-                    aria-autocomplete="off"
-                    days="true"
-                    placeholder="DD/MM/AAAA"
-                  />
-                </div>
-              </div>
-              <span v-if="errors.neuteringDate" class="alert-desplegable-govco">{{ errors.neuteringDate }}</span>
-            </div>
-          </div>
+          <CalendarioGovco
+            id="neut-date-calendar"
+            input-id="neutDate"
+            v-model="form.neuteringDate"
+            label="Fecha de esterilización"
+            :required="true"
+            :error="!!errors.neuteringDate"
+            :alert-text="errors.neuteringDate"
+            placeholder="DD/MM/AAAA"
+            view-days="true"
+          />
 
           <!-- Veterinario responsable -->
-          <div class="entradas-de-texto-govco">
-            <label for="neutVet">Veterinario responsable*</label>
-            <select
-              id="neutVet"
-              v-model="form.veterinario_id"
-              class="select-govco"
-            >
-              <option value="">Seleccione un veterinario</option>
-              <option v-for="vet in veterinarios" :key="vet.id" :value="vet.id">
-                {{ vet.usuario?.nombres || vet.nombre || 'Veterinario' }} {{ vet.usuario?.apellidos || '' }}
-                {{ vet.tarjeta_profesional ? `(${vet.tarjeta_profesional})` : '' }}
-              </option>
-            </select>
-            <span v-if="errors.neuteringVet" class="error-text">
-              {{ errors.neuteringVet }}
-            </span>
-          </div>
+          <DesplegableGovco
+            id="vet-dropdown"
+            v-model="form.veterinario_id"
+            label="Veterinario responsable"
+            :options="veterinariosOptions"
+            placeholder="Seleccione un veterinario"
+            :required="true"
+            :error="!!errors.veterinario_id"
+            :alert-text="errors.veterinario_id"
+            width="100%"
+          />
 
-          <!-- Certificado -->
-          <div class="container-carga-de-archivo-govco full-width">
-            <div class="loader-carga-de-archivo-govco">
-              <div class="all-input-carga-de-archivo-govco">
-                <input
-                  type="file"
-                  id="neutCert"
-                  class="input-carga-de-archivo-govco active"
-                  accept="application/pdf,image/*"
-                  data-action="uploadFile"
-                  data-action-delete="deleteFile"
-                />
-
-                <label for="neutCert" class="label-carga-de-archivo-govco">
-                  Certificado digital*
-                </label>
-
-                <label for="neutCert" class="container-input-carga-de-archivo-govco">
-                  <span class="button-file-carga-de-archivo-govco">Seleccionar archivo</span>
-                  <span class="file-name-carga-de-archivo-govco">
-                    {{ certificateLabel }}
-                  </span>
-                </label>
-
-                <span class="text-validation-carga-de-archivo-govco">
-                  PDF o imagen. Peso máximo: 2 MB
-                </span>
-              </div>
-
-              <div class="load-button-carga-de-archivo-govco">
-                <div class="load-carga-de-archivo-govco">
-                  <div class="spinner-indicador-de-carga-govco" style="width: 32px; height: 32px; border-width: 6px;" role="status">
-                    <span class="visually-hidden">Cargando...</span>
-                  </div>
-                </div>
-                <button class="button-loader-carga-de-archivo-govco" type="button">
-                  Cargar archivo
-                </button>
-              </div>
-            </div>
-
-            <div class="container-detail-carga-de-archivo-govco">
-              <span
-                class="alert-carga-de-archivo-govco"
-                :class="{ 'visually-hidden': !errors.neuteringCertificate }"
-              >
-                {{ errors.neuteringCertificate }}
-              </span>
-              
-              <div class="attached-files-carga-de-archivo-govco"></div>
-            </div>
+          <!-- Certificado usando FileUploader -->
+          <div class="full-width">
+            <FileUploader
+              v-model="form.certificateFiles"
+              accept="application/pdf,image/jpeg,image/jpg,image/png"
+              :max-files="1"
+              :max-size-m-b="2"
+              label="Certificado digital"
+              help-text="PDF o imagen. Peso máximo: 2 MB"
+              :required="true"
+              @update:modelValue="onCertificateChange"
+            />
+            <span v-if="errors.neuteringCertificate" class="error-text">{{ errors.neuteringCertificate }}</span>
           </div>
 
           <!-- Notas adicionales (opcional) -->
-          <div class="entradas-de-texto-govco full-width">
-            <label for="notes">Notas adicionales (opcional)</label>
-            <textarea
-              id="notes"
-              v-model="form.notes"
-              rows="3"
-              placeholder="Observaciones sobre el procedimiento..."
-            ></textarea>
-          </div>
+          <InputGovCo
+            id="notes"
+            v-model="form.notes"
+            label="Notas adicionales (opcional)"
+            type="text"
+            placeholder="Observaciones sobre el procedimiento..."
+            class="full-width"
+          />
         </div>
       </div>
 
       <!-- BOTONES -->
       <div class="form-actions">
-        <button type="button" @click="resetForm" class="govco-btn govco-bg-concrete" :disabled="isSubmitting">
-          Limpiar formulario
-        </button>
-        <button type="submit" class="govco-btn govco-bg-elf-green" :disabled="isSubmitting">
-          {{ isSubmitting ? 'Registrando...' : 'Registrar esterilización' }}
-        </button>
+        <ButtonGovCo
+          type="button"
+          variant="secondary"
+          label="Limpiar formulario"
+          width="auto"
+          height="44px"
+          :disabled="isSubmitting"
+          @click="resetForm"
+        />
+        <ButtonGovCo
+          type="submit"
+          variant="primary"
+          :label="isSubmitting ? 'Registrando...' : 'Registrar esterilización'"
+          width="auto"
+          height="44px"
+          :disabled="isSubmitting"
+        />
       </div>
     </form>
   </section>
@@ -157,6 +119,11 @@
 import { reactive, ref, computed, onMounted } from 'vue';
 import { useVeterinaryStore } from '@/stores/veterinary';
 import api from '@/services/api';
+import ButtonGovCo from '../common/ButtonGovCo.vue';
+import CalendarioGovco from '../common/CalendarioGovco.vue';
+import DesplegableGovco from '../common/DesplegableGovco.vue';
+import InputGovCo from '../common/InputGovCo.vue';
+import FileUploader from '../common/FileUploader.vue';
 
 const emit = defineEmits(['sterilizationRegistered']);
 
@@ -170,17 +137,49 @@ const buscandoAnimal = ref(false);
 const form = reactive({
   animalId: '',
   neuteringDate: '',
-  neuteringVet: '',
   veterinario_id: '',
-  neuteringCertificate: null,
+  certificateFiles: [],
   notes: ''
 });
 
 const errors = reactive({
   animalId: '',
   neuteringDate: '',
-  neuteringVet: '',
+  veterinario_id: '',
   neuteringCertificate: ''
+});
+
+// Veterinarios temporales del seeder (hasta que haya data en BD)
+const veterinariosTemporales = [
+  {
+    id: 'temp-1',
+    nombres: 'Ana Maria',
+    apellidos: 'Garcia Sanchez',
+    email: 'ana.garcia@bienestaranimal.gov.co'
+  },
+  {
+    id: 'temp-2',
+    nombres: 'Pedro',
+    apellidos: 'Ramirez Castillo',
+    email: 'pedro.ramirez@bienestaranimal.gov.co'
+  }
+];
+
+// Computed para opciones de veterinarios
+const veterinariosOptions = computed(() => {
+  // Si hay veterinarios de la BD, usarlos
+  if (veterinarios.value.length > 0) {
+    return veterinarios.value.map(vet => ({
+      value: vet.id,
+      text: `${vet.usuario?.nombres || vet.nombre || 'Veterinario'} ${vet.usuario?.apellidos || ''} ${vet.tarjeta_profesional ? `(TP: ${vet.tarjeta_profesional})` : ''}`.trim()
+    }));
+  }
+  
+  // Si no, usar veterinarios temporales
+  return veterinariosTemporales.map(vet => ({
+    value: vet.id,
+    text: `${vet.nombres} ${vet.apellidos}`.trim()
+  }));
 });
 
 // Cargar veterinarios al montar
@@ -188,8 +187,15 @@ async function loadVeterinarios() {
   try {
     await veterinaryStore.fetchVeterinarios();
     veterinarios.value = veterinaryStore.veterinarios;
+    
+    // Si no hay veterinarios en la BD, usar los temporales
+    if (!veterinarios.value || veterinarios.value.length === 0) {
+      console.log('ℹ️ Usando veterinarios temporales del seeder');
+      veterinarios.value = veterinariosTemporales;
+    }
   } catch (err) {
-    console.error('Error al cargar veterinarios:', err);
+    console.warn('⚠️ No se pudieron cargar veterinarios de la BD, usando temporales:', err);
+    veterinarios.value = veterinariosTemporales;
   }
 }
 
@@ -201,279 +207,112 @@ async function buscarAnimal() {
   }
 
   buscandoAnimal.value = true;
+  errors.animalId = '';
+
   try {
-    // Primero intentar buscar por chip
+    // Intentar buscar por historial clínico primero
     const responseChip = await api.get(`/historial-clinico/buscar-chip/${form.animalId}`);
     if (responseChip.data?.data) {
       animalEncontrado.value = responseChip.data.data;
-      errors.animalId = '';
+      console.log('✅ Animal encontrado por chip:', animalEncontrado.value);
       return;
     }
   } catch (err) {
-    // Si no encuentra por chip, buscar en animales por código
-    try {
-      const responseAnimales = await api.get('/animals', { params: { search: form.animalId } });
-      const animales = responseAnimales.data?.data?.data || responseAnimales.data?.data || [];
-      if (animales.length > 0) {
-        const animal = animales[0];
-        animalEncontrado.value = {
-          animal: animal,
-          historial_clinico_id: animal.historial_clinico?.id || null
-        };
-        errors.animalId = '';
-        return;
-      }
-    } catch (err2) {
-      console.error('Error buscando animal:', err2);
+    console.log('No encontrado por chip, buscando en animales...');
+  }
+
+  // Si no se encuentra por chip, buscar en la lista general de animales
+  try {
+    const responseAnimales = await api.get('/animals', { 
+      params: { search: form.animalId } 
+    });
+    
+    const animales = responseAnimales.data?.data?.data || responseAnimales.data?.data || [];
+    
+    if (animales.length > 0) {
+      const animal = animales[0];
+      
+      // Crear estructura compatible
+      animalEncontrado.value = {
+        animal: animal,
+        historial_clinico_id: animal.historial_clinico?.id || null,
+        id: animal.historial_clinico?.id || null
+      };
+      
+      console.log('✅ Animal encontrado:', animalEncontrado.value);
+      return;
     }
+  } catch (err2) {
+    console.error('Error buscando animal:', err2);
   } finally {
     buscandoAnimal.value = false;
   }
 
+  // No se encontró
   animalEncontrado.value = null;
   errors.animalId = 'Animal no encontrado';
+  buscandoAnimal.value = false;
 }
 
-// Funciones para el componente de carga de archivos de GOV.CO
-if (typeof window !== 'undefined') {
-  // Función para procesar archivo cuando se hace clic en "Cargar archivo"
-  window.uploadFile = function(files) {
-    return new Promise((resolve, reject) => {
-      try {
-        console.log('uploadFile: Procesando archivo');
-        
-        const file = files[0]; // Solo un archivo
-        
-        if (!file) {
-          reject('No se seleccionó ningún archivo.');
-          return;
-        }
-
-        // Validar tipo
-        const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-        if (!validTypes.includes(file.type)) {
-          reject('Solo se permiten archivos PDF, JPG o PNG.');
-          return;
-        }
-
-        // Validar tamaño (2MB)
-        if (file.size > 2 * 1024 * 1024) {
-          reject('El archivo debe ser menor a 2 MB.');
-          return;
-        }
-
-        form.neuteringCertificate = file;
-        errors.neuteringCertificate = '';
-        
-        console.log('uploadFile: Archivo cargado correctamente');
-        resolve([file]); // Devolver como array
-      } catch (error) {
-        console.error('Error en uploadFile:', error);
-        reject('Error al procesar el archivo.');
-      }
-    });
-  };
-
-  // Función para eliminar el archivo
-  window.deleteFile = function(file) {
-    return new Promise((resolve, reject) => {
-      try {
-        if (form.neuteringCertificate && form.neuteringCertificate.name === file.name) {
-          form.neuteringCertificate = null;
-          console.log('deleteFile: Archivo eliminado');
-          resolve(true);
-        } else {
-          reject('Archivo no encontrado.');
-        }
-      } catch (error) {
-        reject('Error al eliminar el archivo.');
-      }
-    });
-  };
-
-  // Configurar validación - se ejecutará cuando la página cargue
-  window.addEventListener('load', function() {
-    // Permitir 1 archivo, con extensiones pdf/jpg/jpeg/png, máximo 2MB
-    if (window.setValidationParameters) {
-      window.setValidationParameters('neutCert', ['pdf', 'jpg', 'jpeg', 'png'], 2 * 1024 * 1024, 1);
-    }
-  });
-}
-
-function fixNonSubmitButtons() {
-  if (!formEl.value) return;
-
-  const buttons = formEl.value.querySelectorAll('button');
-
-  buttons.forEach((btn) => {
-    const isRegisterButton = btn.textContent?.includes('Registrar esterilización');
-    
-    if (isRegisterButton) {
-      btn.setAttribute('type', 'submit');
-    } else {
-      btn.setAttribute('type', 'button');
-    }
-  });
-  
-  if (formEl.value && !formEl.value.dataset.listenerAdded) {
-    formEl.value.addEventListener('submit', (e) => {
-      const submitter = e.submitter;
-      if (!submitter || !submitter.textContent?.includes('Registrar esterilización')) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-    }, true);
-    
-    formEl.value.dataset.listenerAdded = 'true';
-  }
-}
-
-function initializeCalendars() {
-  if (typeof window !== 'undefined' && window.GOVCo) {
-    try {
-      const calendars = formEl.value?.querySelectorAll('[data-type="calendar"]');
-      if (calendars) {
-        calendars.forEach((cal) => {
-          if (window.GOVCo.init) {
-            window.GOVCo.init(cal.parentElement);
-          }
-        });
-      }
-    } catch (error) {
-      console.warn('Error inicializando calendarios:', error);
-    }
-  }
+// Handler para cuando cambia el certificado
+function onCertificateChange(files) {
+  errors.neuteringCertificate = '';
+  console.log('📎 Certificado seleccionado:', files);
 }
 
 onMounted(() => {
-  fixNonSubmitButtons();
-  initializeCalendars();
-
-  // Cargar veterinarios al iniciar
   loadVeterinarios();
-
-  // Configurar validación del componente de carga de archivo
-  if (window.setValidationParameters) {
-    window.setValidationParameters(
-      'neutCert',
-      ['pdf', 'jpg', 'jpeg', 'png'],
-      2 * 1024 * 1024,
-      1  // Máximo 1 archivo
-    );
-  }
-
-  // Asegurar que el input de certificado no esté bloqueado
-  const certInput = document.getElementById('neutCert');
-  if (certInput) {
-    certInput.disabled = false;
-    certInput.classList.remove('disabled');
-    certInput.classList.add('active');
-  }
-
-  // Agregar listener para sincronizar cambios en el input de fecha
-  const dateInput = document.getElementById('neutDate');
-  if (dateInput) {
-    // Escuchar eventos de cambio, input y blur
-    ['change', 'input', 'blur'].forEach(event => {
-      dateInput.addEventListener(event, () => {
-        if (dateInput.value) {
-          form.neuteringDate = dateInput.value;
-          errors.neuteringDate = ''; // Limpiar error si hay valor
-        }
-      });
-    });
-
-    // Usar MutationObserver para detectar cambios hechos por el calendario GOV.CO
-    const observer = new MutationObserver(() => {
-      if (dateInput.value && dateInput.value !== form.neuteringDate) {
-        form.neuteringDate = dateInput.value;
-        errors.neuteringDate = '';
-      }
-    });
-    observer.observe(dateInput, { attributes: true, attributeFilter: ['value'] });
-  }
-
-  if (typeof window !== 'undefined') {
-    window.addEventListener('load', () => {
-      fixNonSubmitButtons();
-      initializeCalendars();
-
-      // Agregar listener al botón de carga
-      const uploadButton = document.querySelector('.button-loader-carga-de-archivo-govco');
-      if (uploadButton) {
-        uploadButton.addEventListener('click', () => {
-          setTimeout(() => {
-            const certInput = document.getElementById('neutCert');
-            if (certInput) {
-              certInput.disabled = false;
-              certInput.classList.add('active');
-            }
-          }, 200);
-        });
-      }
-    });
-  }
 });
 
-const certificateLabel = computed(() => 
-  form.neuteringCertificate ? form.neuteringCertificate.name : 'Sin archivo seleccionado'
-);
-
-function syncDateFromInput() {
-  // Sincronizar valor del input del calendario con form.neuteringDate
-  const dateInput = document.getElementById('neutDate');
-  if (dateInput && dateInput.value) {
-    form.neuteringDate = dateInput.value;
-  }
-}
-
 function validate() {
-  // Sincronizar fecha antes de validar
-  syncDateFromInput();
-
+  // Limpiar errores
   Object.keys(errors).forEach(k => errors[k] = '');
 
+  let isValid = true;
+
+  // Validar animal
   if (!form.animalId || !form.animalId.trim()) {
     errors.animalId = 'Campo requerido';
+    isValid = false;
   } else if (!animalEncontrado.value) {
     errors.animalId = 'Debe buscar y seleccionar un animal válido';
+    isValid = false;
   }
 
-  // Validar fecha - verificar tanto el form como el input directamente
-  const dateInput = document.getElementById('neutDate');
-  const dateValue = form.neuteringDate || (dateInput ? dateInput.value : '');
-
-  if (!dateValue || dateValue.trim() === '') {
+  // Validar fecha
+  if (!form.neuteringDate || form.neuteringDate.trim() === '') {
     errors.neuteringDate = 'Campo requerido';
+    isValid = false;
   }
 
-  // Validar veterinario (ahora es un select con ID)
+  // Validar veterinario
   if (!form.veterinario_id) {
-    errors.neuteringVet = 'Seleccione un veterinario';
+    errors.veterinario_id = 'Seleccione un veterinario';
+    isValid = false;
   }
 
-  // El certificado es opcional para el backend
-  // if (!form.neuteringCertificate) {
-  //   errors.neuteringCertificate = 'Certificado requerido';
-  // }
+  // Validar certificado
+  if (!form.certificateFiles || form.certificateFiles.length === 0) {
+    errors.neuteringCertificate = 'Debe adjuntar un certificado';
+    isValid = false;
+  }
 
-  return !Object.values(errors).some(e => e);
+  return isValid;
 }
 
 function resetForm() {
-  Object.keys(form).forEach(k => {
-    form[k] = k === 'neuteringCertificate' ? null : '';
-  });
+  // Limpiar formulario
+  form.animalId = '';
+  form.neuteringDate = '';
+  form.veterinario_id = '';
+  form.certificateFiles = [];
+  form.notes = '';
+  
+  // Limpiar errores
   Object.keys(errors).forEach(k => errors[k] = '');
   
-  // Limpiar input de archivo
-  const fileInput = document.getElementById('neutCert');
-  if (fileInput) {
-    fileInput.value = '';
-    fileInput.disabled = false;
-    fileInput.classList.add('active');
-  }
+  // Limpiar animal encontrado
+  animalEncontrado.value = null;
 }
 
 async function onSubmit() {
@@ -482,13 +321,12 @@ async function onSubmit() {
     return;
   }
 
-  // Verificar que tenemos el animal
   if (!animalEncontrado.value) {
     errors.animalId = 'Debe buscar y seleccionar un animal válido';
     return;
   }
 
-  // Obtener historial_clinico_id
+  // Obtener ID del historial clínico
   const historialClinicoId = animalEncontrado.value.historial_clinico_id ||
     animalEncontrado.value.animal?.historial_clinico?.id ||
     animalEncontrado.value.id;
@@ -498,13 +336,12 @@ async function onSubmit() {
     return;
   }
 
+  console.log('📋 Historial clínico ID:', historialClinicoId);
+
   isSubmitting.value = true;
 
   try {
-    // Sincronizar fecha antes de enviar
-    syncDateFromInput();
-
-    // Convertir fecha de DD/MM/YYYY a YYYY-MM-DD
+    // Convertir fecha si está en formato DD/MM/YYYY
     let fechaCirugia = form.neuteringDate;
     if (fechaCirugia && fechaCirugia.includes('/')) {
       const parts = fechaCirugia.split('/');
@@ -513,6 +350,7 @@ async function onSubmit() {
       }
     }
 
+    // Preparar datos de la cirugía
     const cirugiaData = {
       historial_clinico_id: historialClinicoId,
       veterinario_id: form.veterinario_id || null,
@@ -523,11 +361,28 @@ async function onSubmit() {
       notas_postoperatorias: form.notes || null
     };
 
-    console.log('📝 Enviando esterilización:', cirugiaData);
+    console.log('📤 Enviando datos de cirugía:', cirugiaData);
 
+    // Registrar la cirugía
     const response = await veterinaryStore.crearCirugia(cirugiaData);
+    
+    console.log('✅ Cirugía registrada:', response);
 
-    console.log('✅ Esterilización registrada:', response);
+    // Ahora actualizar el animal para marcar esterilización = true
+    const animalId = animalEncontrado.value.animal?.id;
+    
+    if (animalId) {
+      try {
+        await api.put(`/animals/${animalId}`, {
+          esterilizacion: true,
+          fecha_esterilizacion: fechaCirugia,
+          veterinario_esterilizacion: form.veterinario_id
+        });
+        console.log('✅ Animal actualizado con estado de esterilización');
+      } catch (updateError) {
+        console.warn('⚠️ No se pudo actualizar el estado del animal:', updateError);
+      }
+    }
 
     // Mostrar mensaje de éxito
     if (window.$toast) {
@@ -612,15 +467,19 @@ async function onSubmit() {
   grid-column: 1 / 4; 
 }
 
-.entradas-de-texto-govco, 
-.desplegable-govco, 
-.container-carga-de-archivo-govco { 
+.entradas-de-texto-govco { 
   width: 100%; 
 }
 
-.entradas-de-texto-govco input,
-.entradas-de-texto-govco textarea,
-.desplegable-govco select {
+.entradas-de-texto-govco label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #333;
+  font-size: 14px;
+}
+
+.entradas-de-texto-govco input {
   width: 100%;
   padding: 0.75rem;
   border: 1px solid #D0D0D0;
@@ -628,14 +487,16 @@ async function onSubmit() {
   font-size: 1rem;
   line-height: 1.5;
   box-sizing: border-box;
-}
-
-.entradas-de-texto-govco input {
   height: 44px;
 }
 
-.error-text,
-.alert-desplegable-govco {
+.entradas-de-texto-govco input:focus {
+  outline: none;
+  border-color: #3366CC;
+  box-shadow: 0 0 0 3px rgba(51, 102, 204, 0.1);
+}
+
+.error-text {
   display: block;
   color: #b00020;
   font-size: 0.85rem;
@@ -654,41 +515,11 @@ async function onSubmit() {
 .input-with-button {
   display: flex;
   gap: 0.5rem;
+  align-items: center;
 }
 
 .input-with-button input {
   flex: 1;
-}
-
-.btn-search {
-  padding: 0.5rem 1rem;
-  background: #3366CC;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-}
-
-.btn-search:hover {
-  background: #2952A3;
-}
-
-.btn-search:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-}
-
-.select-govco {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #D0D0D0;
-  border-radius: 4px;
-  font-size: 1rem;
-  line-height: 1.5;
-  box-sizing: border-box;
-  background: white;
-  height: 44px;
 }
 
 .form-actions { 
@@ -699,108 +530,6 @@ async function onSubmit() {
   background: white; 
   border-radius: 8px; 
   box-shadow: 0 2px 8px rgba(0,0,0,0.08); 
-}
-
-.govco-btn { 
-  padding: 0.75rem 2rem; 
-  border-radius: 6px; 
-  font-weight: 600; 
-  cursor: pointer; 
-  border: none; 
-  color: white; 
-  transition: all 0.3s; 
-}
-
-.govco-btn:hover { 
-  transform: translateY(-2px); 
-  opacity: 0.9; 
-}
-
-.govco-btn:disabled { 
-  opacity: 0.5; 
-  cursor: not-allowed; 
-  transform: none; 
-}
-
-.govco-bg-concrete {
-  background-color: #737373;
-}
-
-.govco-bg-elf-green {
-  background-color: #069169;
-}
-.neut-date-container .desplegable-govco{margin-top: 0.7rem;}
-
-.input-like-govco {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  margin: 18px 0  ;
-}
-
-.input-like-govco label {
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: #333;
-}
-
-:deep(.desplegable-calendar-govco .desplegable-calendar-control table td) { box-sizing: border-box !important; width: calc(100% / 7) !important;}
-.date-field-container {  width: 100%;}
-.date-field-container :deep(.date.desplegable-selected-option) {padding: 7px 40px 7px 16px !important; box-sizing: border-box !important;}
-
-.date-field-container :deep(.date.desplegable-selected-option input) {
-  width: 100% !important;
-  padding-right: 30px !important; /* Espacio para el ícono */
-  box-sizing: border-box !important;
-}
-
-:deep(.desplegable-govco .desplegable-items),
-:deep(.desplegable-govco.desplegable-calendar-govco .desplegable-calendar-control) { 
-  z-index: 1500 !important;
-}
-
-:deep(.desplegable-govco.desplegable-calendar-govco .desplegable-calendar-control) {
-  width: 100% !important;
-  max-width: 100% !important;
-  max-height: 668.8px !important;
-  overflow-y: auto !important;
-  box-sizing: border-box !important;
-  padding: 0 !important;
-}
-
-:deep(.desplegable-calendar-govco .desplegable-calendar-control .header) { 
-  width: 100% !important; 
-  box-sizing: border-box !important;
-}
-
-:deep(.desplegable-calendar-govco .desplegable-calendar-control table#miCalendarioGrid.dates) {
-  width: 100% !important;
-  table-layout: fixed !important;
-  box-sizing: border-box !important;
-  padding: 0 !important;
-  margin: 0 !important;  
-  margin-left: -4.8px !important;
-}
-
-:deep(.desplegable-calendar-govco .desplegable-calendar-control table td) { 
-  box-sizing: border-box !important; 
-  width: calc(100% / 7) !important;
-}
-
-.container-detail-carga-de-archivo-govco {
-  display: block !important;
-}
-
-.container-carga-de-archivo-govco :deep(.attached-files-carga-de-archivo-govco) {
-  padding-top: 0.8rem;
-}
-
-.container-carga-de-archivo-govco :deep(.attached-file-carga-de-archivo-govco) { 
-  display: flex !important;
-}
-
-.visually-hidden {
-  display: none !important;
 }
 
 @media (max-width: 992px) {
@@ -825,9 +554,6 @@ async function onSubmit() {
   }
   .form-actions { 
     flex-direction: column; 
-  }
-  .govco-btn { 
-    width: 100%; 
   }
 }
 </style>

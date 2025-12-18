@@ -1,170 +1,116 @@
 <template>
   <button
     :type="type"
-    class="btn-govco"
-    :class="variantClass"
-    :style="buttonStyle"
-    :disabled="disabled"
-    @click="handleClick"
+    class="ui-btn"
+    :class="[variantClass, sizeClass, { 'is-block': block }]"
+    :style="{ width: block ? '100%' : width }"
+    :disabled="disabled || loading"
+    @click="onClick"
   >
+    <span v-if="loading" class="spinner" aria-hidden="true"></span>
     <slot>{{ label }}</slot>
   </button>
+
+  <p v-if="helpText" class="ui-help">{{ helpText }}</p>
+  <p v-if="alertText" class="ui-alert" :class="{ 'is-error': error }">{{ alertText }}</p>
 </template>
 
 <script setup>
-import { computed } from 'vue';
-
 const props = defineProps({
-  type: {
-    type: String,
-    default: 'button',
-    validator: (value) => ['button', 'submit', 'reset'].includes(value)
-  },
-  variant: {
-    type: String,
-    default: 'fill',
-    validator: (value) => ['fill', 'outline', 'fill-secondary', 'outline-secondary'].includes(value)
-  },
-  label: {
-    type: String,
-    default: 'Botón'
-  },
-  width: {
-    type: String,
-    default: '165px'
-  },
-  height: {
-    type: String,
-    default: '42px'
-  },
-  disabled: {
-    type: Boolean,
-    default: false
-  }
-});
+  label: { type: String, default: '' },
+  type: { type: String, default: 'button' },
+  variant: { type: String, default: 'primary' }, // primary | secondary | ghost | danger
+  size: { type: String, default: 'md' }, // sm | md | lg
+  disabled: { type: Boolean, default: false },
+  loading: { type: Boolean, default: false },
+  block: { type: Boolean, default: false },
+  width: { type: String, default: 'auto' },
 
-const emit = defineEmits(['click']);
+  // Mensajería (opcional)
+  helpText: { type: String, default: '' },
+  alertText: { type: String, default: '' },
+  error: { type: Boolean, default: false },
+})
 
-const variantClass = computed(() => {
-  const variantMap = {
-    'fill': 'fill-btn-govco',
-    'outline': 'outline-btn-govco',
-    'fill-secondary': 'fill-secundary-btn-govco',
-    'outline-secondary': 'outline-secundary-btn-govco'
-  };
-  return variantMap[props.variant] || 'fill-btn-govco';
-});
+const emit = defineEmits(['click'])
 
-const buttonStyle = computed(() => ({
-  width: props.width,
-  height: props.height
-}));
+const variantClass = (() => `ui-btn--${props.variant}`)()
+const sizeClass = (() => `ui-btn--${props.size}`)()
 
-const handleClick = (event) => {
-  if (!props.disabled) {
-    emit('click', event);
-  }
-};
+function onClick(e) {
+  if (props.disabled || props.loading) return
+  emit('click', e)
+}
 </script>
 
 <style scoped>
-/* Fuente iconografica */
-@font-face {
-  font-family: "govco-font";
-  src: url("../assets/icons/fonts/govco-font-icons.ttf") format("truetype");
-  font-weight: normal;
-  font-style: normal;
-}
-
-/* WorkSans-Medium */
-@font-face {
-  font-family: 'WorkSans-Medium';
-  src: url('../assets/fonts/Work_Sans/static/WorkSans-Medium.ttf');
-}
-
-/* WorkSans-Bold */
-@font-face {
-  font-family: 'WorkSans-Bold';
-  src: url('../assets/fonts/Work_Sans/static/WorkSans-Bold.ttf');
-}
-
-html {
-  font-size: 100%; /* 100% = 16px */
-}
-
-.btn-govco {
-  border-radius: 1.563rem;
-  font-family: WorkSans-Medium, sans-serif;
-  font-size: 16px;
-  line-height: 0.563rem;
-  padding: 0.75rem 1rem;
-  border-width: 0.125rem;
-  border-style: solid;
+.ui-btn {
+  font-family: "Work Sans", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  padding: 10px 14px;
+  font-weight: 600;
+  line-height: 1;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .02s ease;
+  user-select: none;
 }
 
-.btn-govco.fill-btn-govco:hover,
-.btn-govco.fill-btn-govco:focus-visible,
-.btn-govco.outline-btn-govco:hover,
-.btn-govco.outline-btn-govco:focus-visible,
-.btn-govco.fill-secundary-btn-govco:hover,
-.btn-govco.fill-secundary-btn-govco:focus-visible,
-.btn-govco.outline-secundary-btn-govco:hover,
-.btn-govco.outline-secundary-btn-govco:focus-visible {
-  background-color: #004884;
-  border-color: #004884;
-  color: #FFFFFF;
+.ui-btn:active { transform: translateY(1px); }
+.ui-btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+.ui-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(51, 102, 204, .25);
 }
 
-.btn-govco.fill-btn-govco:focus-visible,
-.btn-govco.outline-btn-govco:focus-visible,
-.btn-govco.fill-secundary-btn-govco:focus-visible,
-.btn-govco.outline-secundary-btn-govco:focus-visible {
-  outline: max(0.125rem, 0.125rem) solid #000000;
-  outline-offset: max(0.125rem, 0.188rem);
+/* Variants (estilo similar GOV) */
+.ui-btn--primary { background: #3366CC; color: #FFFFFF; border-color: #3366CC; }
+.ui-btn--primary:hover:not(:disabled) { background: #2d5bb8; border-color: #2d5bb8; }
+
+.ui-btn--secondary { background: #FFFFFF; color: #004884; border-color: #004884; }
+.ui-btn--secondary:hover:not(:disabled) { background: #f5f7ff; }
+
+.ui-btn--ghost { background: transparent; color: #004884; border-color: transparent; }
+.ui-btn--ghost:hover:not(:disabled) { background: #f5f5f5; }
+
+.ui-btn--danger { background: #d32f2f; color: #fff; border-color: #d32f2f; }
+.ui-btn--danger:hover:not(:disabled) { background: #b92323; border-color: #b92323; }
+
+.ui-btn--sm { padding: 8px 12px; font-size: 13px; }
+.ui-btn--md { font-size: 14px; }
+.ui-btn--lg { padding: 12px 16px; font-size: 15px; }
+
+.is-block { display: inline-flex; justify-content: center; align-items: center; }
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.55);
+  border-top-color: rgba(255,255,255,1);
+  animation: spin .9s linear infinite;
+}
+.ui-btn--secondary .spinner,
+.ui-btn--ghost .spinner {
+  border-color: rgba(0,72,132,.25);
+  border-top-color: rgba(0,72,132,.9);
 }
 
-.btn-govco.fill-btn-govco,
-.btn-govco.outline-btn-govco {
-  border-color: #3366cc;
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
-.btn-govco.fill-btn-govco,
-.btn-govco.outline-secundary-btn-govco {
-  background-color: #3366CC;
-  color: #FFFFFF;
+.ui-help {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #666;
+  font-family: "Work Sans", system-ui, sans-serif;
 }
-
-.btn-govco.outline-btn-govco,
-.btn-govco.fill-secundary-btn-govco,
-.btn-govco.outline-secundary-btn-govco:hover,
-.btn-govco.outline-secundary-btn-govco:focus-visible {
-  background-color: #FFFFFF;
-  color: #3366CC;
+.ui-alert {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #4B4B4B;
+  font-family: "Work Sans", system-ui, sans-serif;
 }
-
-.btn-govco.fill-secundary-btn-govco:focus-visible,
-.btn-govco.outline-secundary-btn-govco:focus-visible {
-  outline-color: #FFFFFF;
-}
-
-.btn-govco:disabled {
-  background-color: #737373;
-  border-color: #737373;
-  color: #FFFFFF;
-  pointer-events: none;
-  cursor: not-allowed;
-}
-
-.btn-govco.fill-secundary-btn-govco:hover,
-.btn-govco.fill-secundary-btn-govco:focus-visible,
-.btn-govco.fill-secundary-btn-govco:disabled,
-.btn-govco.fill-secundary-btn-govco,
-.btn-govco.outline-secundary-btn-govco:hover,
-.btn-govco.outline-secundary-btn-govco:focus-visible,
-.btn-govco.outline-secundary-btn-govco:disabled,
-.btn-govco.outline-secundary-btn-govco {
-  border-color: #FFFFFF;
-}
+.ui-alert.is-error { color: #b00020; }
 </style>

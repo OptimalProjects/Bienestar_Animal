@@ -8,6 +8,7 @@ use App\Models\Animal\HistorialClinico;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use App\Services\AnimalService;
 
 class AnimalController extends BaseController
 {
@@ -16,49 +17,81 @@ class AnimalController extends BaseController
      * GET /api/v1/animals
      */
     public function index(Request $request)
-    {
-        try {
-            $query = Animal::with(['historialClinico', 'creador:id,nombres,apellidos']);
+{
+    try {
+        $query = Animal::with(['historialClinico', 'creador:id,nombres,apellidos']);
 
-            // Filtros
-            if ($request->has('especie')) {
-                $query->where('especie', $request->especie);
-            }
-
-            if ($request->has('estado')) {
-                $query->where('estado', $request->estado);
-            }
-
-            if ($request->has('estado_salud')) {
-                $query->where('estado_salud', $request->estado_salud);
-            }
-
-            if ($request->has('search')) {
-                $search = $request->search;
-                $query->where(function ($q) use ($search) {
-                    $q->where('codigo_unico', 'like', "%{$search}%")
-                      ->orWhere('nombre', 'like', "%{$search}%")
-                      ->orWhere('raza', 'like', "%{$search}%");
-                });
-            }
-
-            // Ordenamiento
-            $query->orderBy($request->get('sort_by', 'created_at'), $request->get('sort_order', 'desc'));
-
-            // Paginación
-            $perPage = $request->get('per_page', 15);
-            $animals = $query->paginate($perPage);
-
-            return $this->successResponse($animals, 'Animales obtenidos exitosamente');
-        } catch (\Exception $e) {
-            return $this->serverErrorResponse('Error al obtener animales: ' . $e->getMessage());
+        // Filtro por especie
+        if ($request->has('especie') && $request->especie) {
+            $query->where('especie', $request->especie);
         }
+
+        // Filtro por estado
+        if ($request->has('estado') && $request->estado) {
+            $query->where('estado', $request->estado);
+        }
+
+        // Filtro por estado de salud
+        if ($request->has('estado_salud') && $request->estado_salud) {
+            $query->where('estado_salud', $request->estado_salud);
+        }
+
+        // ✅ Filtro por sexo
+        if ($request->has('sexo') && $request->sexo) {
+            $query->where('sexo', $request->sexo);
+        }
+
+        // ✅ Filtro por color
+        if ($request->has('color') && $request->color) {
+            $query->where('color', 'like', "%{$request->color}%");
+        }
+
+        // ✅ Filtro por esterilización
+        if ($request->has('esterilizado') && $request->esterilizado) {
+            $query->where('esterilizacion', true);
+        }
+
+        // ✅ Filtro por rango de fechas
+        if ($request->has('fecha_desde') && $request->fecha_desde) {
+            $query->whereDate('fecha_rescate', '>=', $request->fecha_desde);
+        }
+
+        if ($request->has('fecha_hasta') && $request->fecha_hasta) {
+            $query->whereDate('fecha_rescate', '<=', $request->fecha_hasta);
+        }
+
+        // Búsqueda general (código único, nombre, raza)
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('codigo_unico', 'like', "%{$search}%")
+                  ->orWhere('nombre', 'like', "%{$search}%")
+                  ->orWhere('raza', 'like', "%{$search}%")
+                  ->orWhere('color', 'like', "%{$search}%");
+            });
+        }
+
+        // Ordenamiento
+        $query->orderBy($request->get('sort_by', 'created_at'), $request->get('sort_order', 'desc'));
+
+        // Paginación
+        $perPage = $request->get('per_page', 15);
+        $animals = $query->paginate($perPage);
+
+        return $this->successResponse($animals, 'Animales obtenidos exitosamente');
+    } catch (\Exception $e) {
+        return $this->serverErrorResponse('Error al obtener animales: ' . $e->getMessage());
     }
+}
 
     /**
      * Crear nuevo animal.
      * POST /api/v1/animals
      */
+
+    public function __construct(
+        protected AnimalService $animalService
+    ) {}
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -70,9 +103,11 @@ class AnimalController extends BaseController
             'peso_actual' => 'nullable|numeric|min:0',
             'color' => 'nullable|string|max:100',
             'tamanio' => 'nullable|in:pequenio,mediano,grande,muy_grande',
+            'esterilizacion' => 'nullable|boolean',
             'senias_particulares' => 'nullable|string',
-            'foto_principal' => 'nullable|string',
+            'foto_principal' => 'nullable|file|image',
             'galeria_fotos' => 'nullable|array',
+            'galeria_fotos.*' => 'file|image',
             'fecha_rescate' => 'nullable|date',
             'ubicacion_rescate' => 'nullable|string',
             'estado' => 'required|in:en_calle,en_refugio,en_adopcion,adoptado,fallecido,en_tratamiento',
@@ -85,31 +120,19 @@ class AnimalController extends BaseController
         }
 
         try {
-            DB::beginTransaction();
-
-            // Crear animal
-            $animal = Animal::create(array_merge(
+            $animal = $this->animalService->registrar(
                 $request->all(),
-                ['created_by' => auth()->id()]  // Usar null si no hay autenticación
-            ));
-
-            // Crear historial clínico automáticamente
-            HistorialClinico::create([
-                'animal_id' => $animal->id,
-                'fecha_apertura' => now(),
-                'estado' => 'activo',
-            ]);
-
-            DB::commit();
-
-            $animal->load(['historialClinico', 'creador']);
+                auth()->id()
+            );
 
             return $this->createdResponse($animal, 'Animal registrado exitosamente');
         } catch (\Exception $e) {
-            DB::rollBack();
-            return $this->serverErrorResponse('Error al crear animal: ' . $e->getMessage());
+            return $this->serverErrorResponse(
+                'Error al crear animal: ' . $e->getMessage()
+            );
         }
     }
+
 
     /**
      * Obtener un animal específico.
@@ -153,6 +176,7 @@ class AnimalController extends BaseController
             'peso_actual' => 'nullable|numeric|min:0',
             'color' => 'nullable|string|max:100',
             'tamanio' => 'nullable|in:pequenio,mediano,grande,muy_grande',
+            'esterilizacion' => 'nullable|boolean',
             'senias_particulares' => 'nullable|string',
             'estado' => 'nullable|in:en_calle,en_refugio,en_adopcion,adoptado,fallecido,en_tratamiento',
             'estado_salud' => 'nullable|in:critico,grave,estable,bueno,excelente',
