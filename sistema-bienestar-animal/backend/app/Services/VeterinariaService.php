@@ -215,17 +215,19 @@ class VeterinariaService
                 'vacunas.tipoVacuna',
                 'cirugias' => fn($q) => $q->orderBy('fecha_realizacion', 'desc'),
                 'cirugias.cirujano.usuario',
-                'examenes' => fn($q) => $q->orderBy('fecha_examen', 'desc'),
+                // 'examenes' => fn($q) => $q->orderBy('fecha_examen', 'desc'), // TODO: Agregar relación cuando esté disponible
             ])
             ->firstOrFail();
 
         return [
+            'id' => $historial->id, // ID del historial clínico (necesario para crear consultas)
             'animal' => $historial->animal,
+            'animal_id' => $historial->animal_id,
             'estado_general' => $historial->estado_general,
             'consultas' => $historial->consultas,
             'vacunas' => $historial->vacunas,
             'cirugias' => $historial->cirugias,
-            'examenes' => $historial->examenes,
+            // 'examenes' => $historial->examenes, // TODO: Agregar cuando esté disponible
             'resumen' => [
                 'total_consultas' => $historial->consultas->count(),
                 'total_vacunas' => $historial->vacunas->count(),

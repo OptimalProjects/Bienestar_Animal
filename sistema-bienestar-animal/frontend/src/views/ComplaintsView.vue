@@ -230,9 +230,15 @@ function closeAssignmentModal() {
   complaintToAssign.value = null;
 }
 
-function onOperationAssigned() {
+async function onOperationAssigned() {
   closeAssignmentModal();
-  // Refrescar lista de denuncias
+  // Refrescar lista de denuncias para mostrar el nuevo estado
+  await complaintsStore.fetchDenuncias();
+  await complaintsStore.fetchRescates();
+
+  if (window.$toast) {
+    window.$toast.success('Equipo asignado', 'El equipo de rescate ha sido asignado correctamente.');
+  }
 }
 
 function openResultForm(complaint) {

@@ -13,6 +13,7 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-bienestar_animal}
       MYSQL_USER: ${MYSQL_USER:-bienestar_admin}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-Ba_2025_Secure!}
+      TZ: America/Bogota
     ports:
       - "${MYSQL_PORT:-3306}:3306"
     volumes:
@@ -65,6 +66,8 @@ services:
     environment:
       - APP_ENV=${APP_ENV:-local}
       - APP_DEBUG=${APP_DEBUG:-true}
+      - APP_TIMEZONE=America/Bogota
+      - TZ=America/Bogota
       - DB_CONNECTION=mysql
       - DB_HOST=mysql
       - DB_PORT=3306

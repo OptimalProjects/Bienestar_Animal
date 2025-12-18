@@ -14,7 +14,9 @@ export const veterinaryService = {
    * Obtener lista de veterinarios
    */
   async getVeterinarios() {
+    console.log('📡 veterinaryService.getVeterinarios: Fetching...');
     const response = await api.get('/vacunas/veterinarios');
+    console.log('✅ veterinaryService.getVeterinarios response:', response.data);
     return response.data;
   },
 
@@ -179,6 +181,220 @@ export const veterinaryService = {
    */
   async getCirugiasEstadisticas() {
     const response = await api.get('/cirugias/estadisticas');
+    return response.data;
+  },
+
+  // ============================================
+  // HISTORIAL CLÍNICO
+  // ============================================
+
+  /**
+   * Obtener historial clinico completo de un animal
+   */
+  async getHistorialClinico(animalId) {
+    const response = await api.get(`/animals/${animalId}/historial-clinico`);
+    return response.data;
+  },
+
+  /**
+   * Obtener historial clinico por ID
+   */
+  async getHistorialById(historialId) {
+    const response = await api.get(`/historiales-clinicos/${historialId}`);
+    return response.data;
+  },
+
+  // ============================================
+  // TRATAMIENTOS
+  // ============================================
+
+  /**
+   * Obtener tratamientos de una consulta
+   */
+  async getTratamientosConsulta(consultaId) {
+    const response = await api.get(`/consultas/${consultaId}/tratamientos`);
+    return response.data;
+  },
+
+  /**
+   * Registrar tratamiento
+   */
+  async createTratamiento(data) {
+    const response = await api.post('/tratamientos', data);
+    return response.data;
+  },
+
+  /**
+   * Actualizar estado de tratamiento
+   */
+  async updateTratamiento(id, data) {
+    const response = await api.put(`/tratamientos/${id}`, data);
+    return response.data;
+  },
+
+  // ============================================
+  // ALERTAS Y RECORDATORIOS
+  // ============================================
+
+  /**
+   * Obtener alertas veterinarias activas
+   */
+  async getAlertas() {
+    const response = await api.get('/veterinaria/alertas');
+    return response.data;
+  },
+
+  /**
+   * Obtener recordatorios de vacunas pendientes
+   */
+  async getRecordatoriosVacunas(params = {}) {
+    const response = await api.get('/vacunas/recordatorios', { params });
+    return response.data;
+  },
+
+  /**
+   * Marcar recordatorio como enviado
+   */
+  async marcarRecordatorioEnviado(recordatorioId) {
+    const response = await api.put(`/vacunas/recordatorios/${recordatorioId}/enviado`);
+    return response.data;
+  },
+
+  // ============================================
+  // CERTIFICADOS
+  // ============================================
+
+  /**
+   * Generar certificado de vacunacion
+   */
+  async generarCertificadoVacunacion(animalId) {
+    const response = await api.get(`/certificados/vacunacion/${animalId}`, {
+      responseType: 'blob'
+    });
+    return response;
+  },
+
+  /**
+   * Generar certificado de salud
+   */
+  async generarCertificadoSalud(animalId) {
+    const response = await api.get(`/certificados/salud/${animalId}`, {
+      responseType: 'blob'
+    });
+    return response;
+  },
+
+  /**
+   * Generar carnet de vacunacion
+   */
+  async generarCarnetVacunacion(animalId) {
+    const response = await api.get(`/certificados/carnet/${animalId}`, {
+      responseType: 'blob'
+    });
+    return response;
+  },
+
+  // ============================================
+  // INVENTARIO / MEDICAMENTOS
+  // ============================================
+
+  /**
+   * Verificar stock de medicamento
+   */
+  async verificarStock(medicamentoId) {
+    const response = await api.get(`/inventario/verificar-stock/${medicamentoId}`);
+    return response.data;
+  },
+
+  /**
+   * Obtener medicamentos disponibles
+   */
+  async getMedicamentos(params = {}) {
+    const response = await api.get('/medicamentos', { params });
+    return response.data;
+  },
+
+  /**
+   * Prescribir medicamento (descuenta del inventario)
+   */
+  async prescribirMedicamento(data) {
+    const response = await api.post('/medicamentos/prescribir', data);
+    return response.data;
+  },
+
+  /**
+   * Obtener alertas de stock bajo
+   */
+  async getAlertasStockBajo() {
+    const response = await api.get('/inventario/alertas-stock');
+    return response.data;
+  },
+
+  // ============================================
+  // DESPARASITACIONES
+  // ============================================
+
+  /**
+   * Obtener desparasitaciones de un animal
+   */
+  async getDesparasitacionesAnimal(animalId) {
+    const response = await api.get(`/desparasitaciones/animal/${animalId}`);
+    return response.data;
+  },
+
+  /**
+   * Registrar desparasitacion
+   */
+  async createDesparasitacion(data) {
+    const response = await api.post('/desparasitaciones', data);
+    return response.data;
+  },
+
+  // ============================================
+  // EXÁMENES DE LABORATORIO
+  // ============================================
+
+  /**
+   * Obtener examenes de un animal
+   */
+  async getExamenesAnimal(animalId) {
+    const response = await api.get(`/examenes/animal/${animalId}`);
+    return response.data;
+  },
+
+  /**
+   * Registrar examen de laboratorio
+   */
+  async createExamen(data) {
+    const response = await api.post('/examenes', data);
+    return response.data;
+  },
+
+  /**
+   * Actualizar resultados de examen
+   */
+  async updateExamenResultados(id, data) {
+    const response = await api.put(`/examenes/${id}/resultados`, data);
+    return response.data;
+  },
+
+  // ============================================
+  // ESTADÍSTICAS GENERALES
+  // ============================================
+
+  /**
+   * Obtener estadisticas generales de veterinaria
+   */
+  async getEstadisticasGenerales() {
+    const response = await api.get('/veterinaria/estadisticas');
+    return response.data;
+  },
+
+  /**
+   * Obtener dashboard veterinario
+   */
+  async getDashboard() {
+    const response = await api.get('/veterinaria/dashboard');
     return response.data;
   },
 };

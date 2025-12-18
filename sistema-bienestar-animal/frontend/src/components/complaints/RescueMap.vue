@@ -6,22 +6,22 @@
 
     <!-- Leyenda -->
     <div class="map-legend">
-      <h4>Urgencia</h4>
+      <h4>Prioridad</h4>
       <div class="legend-item">
-        <span class="legend-marker critical"></span>
-        <span>Crítico</span>
+        <span class="legend-marker urgente"></span>
+        <span>Urgente</span>
       </div>
       <div class="legend-item">
-        <span class="legend-marker high"></span>
-        <span>Alto</span>
+        <span class="legend-marker alta"></span>
+        <span>Alta</span>
       </div>
       <div class="legend-item">
-        <span class="legend-marker medium"></span>
-        <span>Medio</span>
+        <span class="legend-marker media"></span>
+        <span>Media</span>
       </div>
       <div class="legend-item">
-        <span class="legend-marker low"></span>
-        <span>Bajo</span>
+        <span class="legend-marker baja"></span>
+        <span>Baja</span>
       </div>
     </div>
 
@@ -59,12 +59,12 @@ const mapEl = ref(null);
 let map = null;
 let markers = [];
 
-// Colores por urgencia
+// Colores por prioridad (valores de la BD)
 const urgencyColors = {
-  critico: '#A80521',
-  alto: '#FFAB00',
-  medio: '#3366CC',
-  bajo: '#737373'
+  urgente: '#A80521',
+  alta: '#FFAB00',
+  media: '#3366CC',
+  baja: '#737373'
 };
 
 // Crear icono personalizado
@@ -88,32 +88,31 @@ function createCustomIcon(urgency) {
 // Crear contenido del popup
 function createPopupContent(complaint) {
   const typeLabels = {
-    maltrato_fisico: 'Maltrato físico',
+    maltrato: 'Maltrato',
     abandono: 'Abandono',
-    negligencia: 'Negligencia',
-    hacinamiento: 'Hacinamiento',
     animal_herido: 'Animal herido',
-    envenenamiento: 'Envenenamiento'
+    animal_peligroso: 'Animal peligroso',
+    otro: 'Otro'
   };
 
   const urgencyLabels = {
-    critico: 'CRÍTICO',
-    alto: 'ALTO',
-    medio: 'MEDIO',
-    bajo: 'BAJO'
+    urgente: 'URGENTE',
+    alta: 'ALTA',
+    media: 'MEDIA',
+    baja: 'BAJA'
   };
 
   return `
     <div class="complaint-popup">
       <div class="popup-header">
-        <strong>${complaint.caso_numero}</strong>
-        <span class="popup-urgency urgency-${complaint.urgencia}">
-          ${urgencyLabels[complaint.urgencia] || complaint.urgencia}
+        <strong>${complaint.numero_ticket || 'Sin ticket'}</strong>
+        <span class="popup-urgency urgency-${complaint.prioridad}">
+          ${urgencyLabels[complaint.prioridad] || complaint.prioridad?.toUpperCase() || ''}
         </span>
       </div>
-      <div class="popup-type">${typeLabels[complaint.tipo_denuncia] || complaint.tipo_denuncia}</div>
-      <div class="popup-address">${complaint.direccion}</div>
-      <button class="popup-btn" onclick="window.selectComplaint(${complaint.id})">
+      <div class="popup-type">${typeLabels[complaint.tipo_denuncia] || complaint.tipo_denuncia || 'Sin tipo'}</div>
+      <div class="popup-address">${complaint.ubicacion || 'Sin ubicación'}</div>
+      <button class="popup-btn" onclick="window.selectComplaint('${complaint.id}')">
         Ver detalle
       </button>
     </div>
@@ -135,23 +134,29 @@ function addMarkers() {
   clearMarkers();
 
   props.complaints.forEach(complaint => {
-    if (complaint.coordenadas) {
-      const marker = L.marker(
-        [complaint.coordenadas.lat, complaint.coordenadas.lng],
-        { icon: createCustomIcon(complaint.urgencia) }
-      );
+    // Usar latitud y longitud directamente del modelo
+    if (complaint.latitud && complaint.longitud) {
+      const lat = parseFloat(complaint.latitud);
+      const lng = parseFloat(complaint.longitud);
 
-      marker.bindPopup(createPopupContent(complaint), {
-        maxWidth: 300,
-        className: 'custom-popup'
-      });
+      if (!isNaN(lat) && !isNaN(lng)) {
+        const marker = L.marker(
+          [lat, lng],
+          { icon: createCustomIcon(complaint.prioridad) }
+        );
 
-      marker.on('click', () => {
-        // También emitir evento
-      });
+        marker.bindPopup(createPopupContent(complaint), {
+          maxWidth: 300,
+          className: 'custom-popup'
+        });
 
-      marker.addTo(map);
-      markers.push(marker);
+        marker.on('click', () => {
+          emit('select', complaint);
+        });
+
+        marker.addTo(map);
+        markers.push(marker);
+      }
     }
   });
 
@@ -263,10 +268,10 @@ onBeforeUnmount(() => {
   border-radius: 50%;
 }
 
-.legend-marker.critical { background: #A80521; }
-.legend-marker.high { background: #FFAB00; }
-.legend-marker.medium { background: #3366CC; }
-.legend-marker.low { background: #737373; }
+.legend-marker.urgente { background: #A80521; }
+.legend-marker.alta { background: #FFAB00; }
+.legend-marker.media { background: #3366CC; }
+.legend-marker.baja { background: #737373; }
 
 /* Contador */
 .map-counter {
@@ -361,10 +366,10 @@ onBeforeUnmount(() => {
   color: white;
 }
 
-:global(.popup-urgency.urgency-critico) { background: #A80521; }
-:global(.popup-urgency.urgency-alto) { background: #FFAB00; color: #333; }
-:global(.popup-urgency.urgency-medio) { background: #3366CC; }
-:global(.popup-urgency.urgency-bajo) { background: #737373; }
+:global(.popup-urgency.urgency-urgente) { background: #A80521; }
+:global(.popup-urgency.urgency-alta) { background: #FFAB00; color: #333; }
+:global(.popup-urgency.urgency-media) { background: #3366CC; }
+:global(.popup-urgency.urgency-baja) { background: #737373; }
 
 :global(.popup-type) {
   font-weight: 600;

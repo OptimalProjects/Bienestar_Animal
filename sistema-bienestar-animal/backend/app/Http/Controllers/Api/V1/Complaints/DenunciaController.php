@@ -51,24 +51,24 @@ class DenunciaController extends BaseController
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'tipo_denuncia' => 'required|in:maltrato,abandono,animal_herido,animal_peligroso,condiciones_inadecuadas,otro',
+            // Campos de la denuncia
+            'canal_recepcion' => 'required|in:web,telefono,presencial,email,whatsapp',
+            'tipo_denuncia' => 'required|in:maltrato,abandono,animal_herido,animal_peligroso,otro',
+            'prioridad' => 'required|in:baja,media,alta,urgente',
             'descripcion' => 'required|string|min:20|max:2000',
-            'direccion' => 'required|string|max:300',
-            'comuna' => 'nullable|string|max:50',
-            'barrio' => 'nullable|string|max:100',
-            'punto_referencia' => 'nullable|string|max:200',
-            'coordenadas_lat' => 'nullable|numeric|between:-90,90',
-            'coordenadas_lng' => 'nullable|numeric|between:-180,180',
-            'especie_animal' => 'nullable|in:perro,gato,ave,equino,bovino,otro',
-            'cantidad_animales' => 'nullable|integer|min:1|max:100',
+            'ubicacion' => 'required|string|max:300',
+            'latitud' => 'nullable|numeric|between:-90,90',
+            'longitud' => 'nullable|numeric|between:-180,180',
             'evidencias' => 'nullable|array',
             'evidencias.*' => 'nullable|string',
-            'anonima' => 'nullable|boolean',
-            'denunciante.nombre_completo' => 'required_if:anonima,false|nullable|string|max:200',
+            'es_anonima' => 'nullable|boolean',
+
+            // Datos del denunciante (opcional si es anonima)
+            'denunciante.nombres' => 'nullable|string|max:100',
+            'denunciante.apellidos' => 'nullable|string|max:100',
             'denunciante.telefono' => 'nullable|string|max:20',
             'denunciante.email' => 'nullable|email|max:100',
-            'denunciante.tipo_documento' => 'nullable|in:CC,CE,TI,PP',
-            'denunciante.documento_identidad' => 'nullable|string|max:20',
+            'denunciante.direccion' => 'nullable|string|max:300',
         ]);
 
         if ($validator->fails()) {
@@ -156,9 +156,8 @@ class DenunciaController extends BaseController
     public function actualizarEstado(Request $request, string $id)
     {
         $validator = Validator::make($request->all(), [
-            'estado' => 'required|in:recibida,en_proceso,en_investigacion,resuelta,archivada',
-            'resolucion' => 'required_if:estado,resuelta|nullable|string|max:1000',
-            'observaciones' => 'nullable|string|max:1000',
+            'estado' => 'required|in:recibida,en_revision,asignada,en_atencion,resuelta,cerrada,desestimada',
+            'observaciones_resolucion' => 'nullable|string|max:2000',
         ]);
 
         if ($validator->fails()) {
@@ -169,12 +168,12 @@ class DenunciaController extends BaseController
             $denuncia = $this->denunciaService->actualizarEstado(
                 $id,
                 $request->estado,
-                $request->only(['resolucion', 'observaciones'])
+                $request->only(['observaciones_resolucion'])
             );
 
             return $this->successResponse($denuncia, 'Estado actualizado exitosamente');
         } catch (\Exception $e) {
-            return $this->serverErrorResponse('Error al actualizar estado');
+            return $this->serverErrorResponse('Error al actualizar estado: ' . $e->getMessage());
         }
     }
 

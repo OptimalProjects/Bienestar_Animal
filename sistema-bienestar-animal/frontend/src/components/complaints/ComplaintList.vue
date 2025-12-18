@@ -14,48 +14,64 @@
       <h3 class="h5-tipografia-govco section-title">Filtros de búsqueda</h3>
       <div class="filters-grid">
         <!-- Estado -->
-        <DesplegableGovco
-          id="filterStatus"
-          v-model="filters.status"
-          label="Estado"
-          :options="statusOptions"
-          placeholder="Todos"
-          width="100%"
-        />
+        <div class="filter-field">
+          <label for="filterStatus">Estado</label>
+          <select
+            id="filterStatus"
+            v-model="filters.status"
+            class="filter-select"
+          >
+            <option value="">Todos</option>
+            <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">
+              {{ opt.text }}
+            </option>
+          </select>
+        </div>
 
         <!-- Urgencia -->
-        <DesplegableGovco
-          id="filterUrgency"
-          v-model="filters.urgency"
-          label="Urgencia"
-          :options="urgencyOptions"
-          placeholder="Todas"
-          width="100%"
-        />
+        <div class="filter-field">
+          <label for="filterUrgency">Urgencia</label>
+          <select
+            id="filterUrgency"
+            v-model="filters.urgency"
+            class="filter-select"
+          >
+            <option value="">Todas</option>
+            <option v-for="opt in urgencyOptions" :key="opt.value" :value="opt.value">
+              {{ opt.text }}
+            </option>
+          </select>
+        </div>
 
         <!-- Tipo -->
-        <DesplegableGovco
-          id="filterType"
-          v-model="filters.type"
-          label="Tipo"
-          :options="typeOptions"
-          placeholder="Todos"
-          width="100%"
-        />
+        <div class="filter-field">
+          <label for="filterType">Tipo</label>
+          <select
+            id="filterType"
+            v-model="filters.type"
+            class="filter-select"
+          >
+            <option value="">Todos</option>
+            <option v-for="opt in typeOptions" :key="opt.value" :value="opt.value">
+              {{ opt.text }}
+            </option>
+          </select>
+        </div>
 
         <!-- Búsqueda por número de caso -->
-        <div class="entradas-de-texto-govco">
+        <div class="filter-field">
           <label for="filterCase">Número de caso</label>
           <input
             type="text"
             id="filterCase"
             v-model="filters.caseNumber"
-            placeholder="DEN-XXXX-XXXX"
+            placeholder="DN-2025-XXXXX"
+            class="filter-input"
           />
         </div>
 
         <!-- Botones -->
-        <div class="filter-actions">
+        <div class="filter-field filter-actions">
           <button type="button" class="govco-btn govco-bg-concrete" @click="clearFilters">
             Limpiar
           </button>
@@ -66,7 +82,7 @@
       </div>
     </div>
 
-    <!-- ESTADISTICAS RAPIDAS -->
+    <!-- ESTADISTICAS RAPIDAS (comentadas por el momento)
     <div class="stats-row">
       <div class="stat-card stat-critical">
         <span class="stat-number">{{ stats.critical }}</span>
@@ -85,6 +101,7 @@
         <span class="stat-label">En atención</span>
       </div>
     </div>
+    -->
 
     <!-- LISTA DE DENUNCIAS -->
     <div class="form-section">
@@ -95,9 +112,8 @@
         <div class="sort-options">
           <label>Ordenar por:</label>
           <select v-model="sortBy" class="sort-select">
-            <option value="urgency">Urgencia</option>
+            <option value="urgency">Prioridad</option>
             <option value="date">Fecha (más reciente)</option>
-            <option value="status">Estado</option>
           </select>
         </div>
       </div>
@@ -120,18 +136,18 @@
           v-for="complaint in filteredComplaints"
           :key="complaint.id"
           class="complaint-card"
-          :class="`urgency-border-${complaint.urgencia}`"
+          :class="`urgency-border-${complaint.prioridad}`"
           @click="$emit('select', complaint)"
         >
           <!-- Header de la tarjeta -->
           <div class="card-header">
             <div class="case-info">
-              <span class="case-number">{{ complaint.caso_numero }}</span>
-              <span class="case-date">{{ formatDate(complaint.fecha_recepcion) }}</span>
+              <span class="case-number">{{ complaint.numero_ticket }}</span>
+              <span class="case-date">{{ formatDate(complaint.fecha_denuncia || complaint.created_at) }}</span>
             </div>
             <div class="badges">
-              <span class="urgency-badge" :class="`urgency-${complaint.urgencia}`">
-                {{ getUrgencyLabel(complaint.urgencia) }}
+              <span class="urgency-badge" :class="`urgency-${complaint.prioridad}`">
+                {{ getUrgencyLabel(complaint.prioridad) }}
               </span>
               <span class="status-badge" :class="`status-${complaint.estado}`">
                 {{ getStatusLabel(complaint.estado) }}
@@ -145,24 +161,32 @@
               <span class="type-icon">{{ getTypeIcon(complaint.tipo_denuncia) }}</span>
               <span class="type-label">{{ getComplaintTypeLabel(complaint.tipo_denuncia) }}</span>
             </div>
-            <p class="complaint-description">{{ truncateText(complaint.descripcion, 120) }}</p>
+            <p class="complaint-description">{{ truncateText(complaint.descripcion || '', 120) }}</p>
             <div class="complaint-location">
               <span class="location-icon">📍</span>
-              <span>{{ complaint.direccion }}</span>
+              <span>{{ complaint.ubicacion || 'Sin ubicación' }}</span>
             </div>
+          </div>
+
+          <!-- Equipo asignado (si hay rescate programado) -->
+          <div v-if="complaint.rescates && complaint.rescates.length > 0" class="rescue-info">
+            <span class="rescue-icon">🚐</span>
+            <span class="rescue-team">{{ complaint.rescates[0].equipo_rescate?.nombre || 'Equipo asignado' }}</span>
+            <span class="rescue-date">{{ formatDate(complaint.rescates[0].fecha_programada) }}</span>
           </div>
 
           <!-- Footer -->
           <div class="card-footer">
-            <div class="animal-info">
-              <span>{{ getSpeciesLabel(complaint.especie_animal) }}</span>
-              <span v-if="complaint.cantidad_animales > 1">
-                ({{ complaint.cantidad_animales }} animales)
+            <div class="denunciante-info">
+              <span v-if="complaint.es_anonima">🔒 Anónima</span>
+              <span v-else-if="complaint.denunciante">
+                {{ complaint.denunciante.nombres }} {{ complaint.denunciante.apellidos }}
               </span>
+              <span v-else>Sin denunciante</span>
             </div>
             <div class="card-actions">
               <button
-                v-if="!complaint.equipo_asignado"
+                v-if="!complaint.rescates || complaint.rescates.length === 0"
                 type="button"
                 class="action-btn assign-btn"
                 @click.stop="$emit('assign', complaint)"
@@ -199,7 +223,6 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useComplaintsStore } from '@/stores/complaints';
 import RescueMap from './RescueMap.vue';
-import DesplegableGovco from '../common/DesplegableGovco.vue';
 
 const emit = defineEmits(['select', 'assign']);
 const complaintsStore = useComplaintsStore();
@@ -216,28 +239,30 @@ const filters = reactive({
 // Usar loading del store
 const isLoading = computed(() => complaintsStore.loading);
 
-// Opciones para los filtros
+// Opciones para los filtros (valores que coinciden con la BD)
 const statusOptions = [
-  { value: 'recibida', text: 'Recibidas' },
-  { value: 'en_revision', text: 'En revision' },
-  { value: 'asignada', text: 'Asignadas' },
+  { value: 'recibida', text: 'Recibida' },
+  { value: 'en_revision', text: 'En revisión' },
+  { value: 'asignada', text: 'Asignada' },
   { value: 'en_atencion', text: 'En atención' },
-  { value: 'cerrada', text: 'Cerradas' }
+  { value: 'resuelta', text: 'Resuelta' },
+  { value: 'cerrada', text: 'Cerrada' },
+  { value: 'desestimada', text: 'Desestimada' }
 ];
 
 const urgencyOptions = [
-  { value: 'critico', text: 'Critico' },
-  { value: 'alto', text: 'Alto' },
-  { value: 'medio', text: 'Medio' },
-  { value: 'bajo', text: 'Bajo' }
+  { value: 'urgente', text: 'Urgente' },
+  { value: 'alta', text: 'Alta' },
+  { value: 'media', text: 'Media' },
+  { value: 'baja', text: 'Baja' }
 ];
 
 const typeOptions = [
-  { value: 'maltrato_fisico', text: 'Maltrato fisico' },
+  { value: 'maltrato', text: 'Maltrato' },
   { value: 'abandono', text: 'Abandono' },
-  { value: 'negligencia', text: 'Negligencia' },
   { value: 'animal_herido', text: 'Animal herido' },
-  { value: 'envenenamiento', text: 'Envenenamiento' }
+  { value: 'animal_peligroso', text: 'Animal peligroso' },
+  { value: 'otro', text: 'Otro' }
 ];
 
 // Usar datos del store
@@ -245,9 +270,9 @@ const complaints = computed(() => complaintsStore.denuncias || []);
 
 // Estadisticas
 const stats = computed(() => ({
-  critical: complaints.value.filter(c => c.urgencia === 'critico' && c.estado !== 'cerrada').length,
-  high: complaints.value.filter(c => c.urgencia === 'alto' && c.estado !== 'cerrada').length,
-  pending: complaints.value.filter(c => !c.equipo_asignado && c.estado !== 'cerrada').length,
+  critical: complaints.value.filter(c => c.prioridad === 'urgente' && !['resuelta', 'cerrada', 'desestimada'].includes(c.estado)).length,
+  high: complaints.value.filter(c => c.prioridad === 'alta' && !['resuelta', 'cerrada', 'desestimada'].includes(c.estado)).length,
+  pending: complaints.value.filter(c => c.estado === 'recibida').length,
   inProgress: complaints.value.filter(c => c.estado === 'en_atencion').length
 }));
 
@@ -260,30 +285,30 @@ const filteredComplaints = computed(() => {
     result = result.filter(c => c.estado === filters.status);
   }
   if (filters.urgency) {
-    result = result.filter(c => c.urgencia === filters.urgency);
+    result = result.filter(c => c.prioridad === filters.urgency);
   }
   if (filters.type) {
     result = result.filter(c => c.tipo_denuncia === filters.type);
   }
   if (filters.caseNumber) {
     result = result.filter(c =>
-      c.caso_numero.toLowerCase().includes(filters.caseNumber.toLowerCase())
+      c.numero_ticket?.toLowerCase().includes(filters.caseNumber.toLowerCase())
     );
   }
 
   // Ordenar
-  const urgencyOrder = { critico: 0, alto: 1, medio: 2, bajo: 3 };
-  const statusOrder = { recibida: 0, en_revision: 1, asignada: 2, en_atencion: 3, cerrada: 4 };
+  const urgencyOrder = { urgente: 0, alta: 1, media: 2, baja: 3 };
+  const statusOrder = { recibida: 0, en_proceso: 1, resuelta: 2 };
 
   result.sort((a, b) => {
     if (sortBy.value === 'urgency') {
-      return urgencyOrder[a.urgencia] - urgencyOrder[b.urgencia];
+      return (urgencyOrder[a.prioridad] ?? 4) - (urgencyOrder[b.prioridad] ?? 4);
     }
     if (sortBy.value === 'date') {
-      return new Date(b.fecha_recepcion) - new Date(a.fecha_recepcion);
+      return new Date(b.fecha_denuncia || b.created_at) - new Date(a.fecha_denuncia || a.created_at);
     }
     if (sortBy.value === 'status') {
-      return statusOrder[a.estado] - statusOrder[b.estado];
+      return (statusOrder[a.estado] ?? 3) - (statusOrder[b.estado] ?? 3);
     }
     return 0;
   });
@@ -301,39 +326,38 @@ function clearFilters() {
 async function applyFilters() {
   const params = {};
   if (filters.status) params.estado = filters.status;
-  if (filters.urgency) params.urgencia = filters.urgency;
-  if (filters.type) params.tipo = filters.type;
-  if (filters.caseNumber) params.buscar = filters.caseNumber;
+  if (filters.urgency) params.prioridad = filters.urgency;
+  if (filters.type) params.tipo_denuncia = filters.type;
+  if (filters.caseNumber) params.busqueda = filters.caseNumber;
 
   await complaintsStore.fetchDenuncias(params);
 }
 
 // Helpers
 function getUrgencyLabel(urgency) {
-  const labels = { critico: 'CRITICO', alto: 'ALTO', medio: 'MEDIO', bajo: 'BAJO' };
-  return labels[urgency] || urgency;
+  const labels = { urgente: 'URGENTE', alta: 'ALTA', media: 'MEDIA', baja: 'BAJA' };
+  return labels[urgency] || urgency?.toUpperCase() || '';
 }
 
 function getStatusLabel(status) {
   const labels = {
     recibida: 'Recibida',
-    en_revision: 'En revision',
+    en_revision: 'En revisión',
     asignada: 'Asignada',
     en_atencion: 'En atención',
-    cerrada: 'Cerrada'
+    resuelta: 'Resuelta',
+    cerrada: 'Cerrada',
+    desestimada: 'Desestimada'
   };
   return labels[status] || status;
 }
 
 function getComplaintTypeLabel(type) {
   const labels = {
-    maltrato_fisico: 'Maltrato fisico',
+    maltrato: 'Maltrato',
     abandono: 'Abandono',
-    negligencia: 'Negligencia',
-    hacinamiento: 'Hacinamiento',
-    pelea_animales: 'Pelea de animales',
     animal_herido: 'Animal herido',
-    envenenamiento: 'Envenenamiento',
+    animal_peligroso: 'Animal peligroso',
     otro: 'Otro'
   };
   return labels[type] || type;
@@ -341,32 +365,19 @@ function getComplaintTypeLabel(type) {
 
 function getTypeIcon(type) {
   const icons = {
-    maltrato_fisico: '🩹',
+    maltrato: '🩹',
     abandono: '🏚️',
-    negligencia: '⚠️',
-    hacinamiento: '🏠',
-    pelea_animales: '⚔️',
     animal_herido: '🚑',
-    envenenamiento: '☠️',
+    animal_peligroso: '⚠️',
     otro: '📋'
   };
   return icons[type] || '📋';
 }
 
-function getSpeciesLabel(species) {
-  const labels = {
-    perro: 'Perro',
-    gato: 'Gato',
-    equino: 'Equino',
-    bovino: 'Bovino',
-    ave: 'Ave',
-    otro: 'Otro'
-  };
-  return labels[species] || species;
-}
-
 function formatDate(dateString) {
+  if (!dateString) return 'Sin fecha';
   const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'Fecha inválida';
   return date.toLocaleDateString('es-CO', {
     day: '2-digit',
     month: 'short',
@@ -430,13 +441,39 @@ onMounted(async () => {
   overflow: visible;
 }
 
-/* Estilos para DesplegableGovco en filtros */
-:deep(.desplegable-govco) {
-  position: relative;
-  z-index: 10;
+/* Contenedor de cada campo de filtro */
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
 }
 
-:deep(.desplegable-govco select) {
+.filter-field label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.filter-input {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid #D0D0D0;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  height: 40px;
+  box-sizing: border-box;
+}
+
+.filter-input:focus,
+.filter-select:focus {
+  outline: none;
+  border-color: #3366CC;
+  box-shadow: 0 0 0 2px rgba(51, 102, 204, 0.2);
+}
+
+.filter-select {
   width: 100%;
   padding: 0.6rem;
   border: 1px solid #D0D0D0;
@@ -445,6 +482,7 @@ onMounted(async () => {
   height: 40px;
   background: white;
   cursor: pointer;
+  box-sizing: border-box;
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -454,46 +492,17 @@ onMounted(async () => {
   padding-right: 30px;
 }
 
-:deep(.desplegable-govco select:focus) {
-  outline: none;
-  border-color: #3366CC;
-  box-shadow: 0 0 0 2px rgba(51, 102, 204, 0.2);
-}
-
-:deep(.label-desplegable-govco) {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: #333;
-  font-size: 0.9rem;
-}
-
-.entradas-de-texto-govco {
-  display: flex;
-  flex-direction: column;
-}
-
-.entradas-de-texto-govco label {
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: #333;
-  font-size: 0.9rem;
-}
-
-.entradas-de-texto-govco input {
-  width: 100%;
-  padding: 0.6rem;
-  border: 1px solid #D0D0D0;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  height: 40px;
-}
-
+/* Botones de filtros */
 .filter-actions {
-  display: flex;
+  flex-direction: row;
   gap: 0.5rem;
-  align-items: flex-end;
-  padding-top: 1.5rem;
+}
+
+.filter-actions .govco-btn {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .govco-btn {
@@ -628,10 +637,10 @@ onMounted(async () => {
   transform: translateY(-2px);
 }
 
-.urgency-border-critico { border-left-color: #A80521; }
-.urgency-border-alto { border-left-color: #FFAB00; }
-.urgency-border-medio { border-left-color: #3366CC; }
-.urgency-border-bajo { border-left-color: #737373; }
+.urgency-border-urgente { border-left-color: #A80521; }
+.urgency-border-alta { border-left-color: #FFAB00; }
+.urgency-border-media { border-left-color: #3366CC; }
+.urgency-border-baja { border-left-color: #737373; }
 
 /* Card header */
 .card-header {
@@ -671,16 +680,18 @@ onMounted(async () => {
   font-weight: 600;
 }
 
-.urgency-critico { background: #A80521; color: white; }
-.urgency-alto { background: #FFAB00; color: #333; }
-.urgency-medio { background: #3366CC; color: white; }
-.urgency-bajo { background: #737373; color: white; }
+.urgency-urgente { background: #A80521; color: white; }
+.urgency-alta { background: #FFAB00; color: #333; }
+.urgency-media { background: #3366CC; color: white; }
+.urgency-baja { background: #737373; color: white; }
 
 .status-recibida { background: #E0E0E0; color: #333; }
-.status-en_revision { background: #E8F0FE; color: #3366CC; }
-.status-asignada { background: #FFF8E1; color: #856404; }
-.status-en_atencion { background: #E8F5E9; color: #2E7D32; }
-.status-cerrada { background: #F5F5F5; color: #666; }
+.status-en_revision { background: #FFF3E0; color: #E65100; }
+.status-asignada { background: #E3F2FD; color: #1565C0; }
+.status-en_atencion { background: #E8F0FE; color: #3366CC; }
+.status-resuelta { background: #E8F5E9; color: #2E7D32; }
+.status-cerrada { background: #F3E5F5; color: #7B1FA2; }
+.status-desestimada { background: #FFEBEE; color: #C62828; }
 
 /* Card content */
 .card-content {
@@ -718,6 +729,32 @@ onMounted(async () => {
   color: #666;
 }
 
+/* Información del rescate asignado */
+.rescue-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: #E3F2FD;
+  border-top: 1px solid #BBDEFB;
+  font-size: 0.85rem;
+}
+
+.rescue-icon {
+  font-size: 1rem;
+}
+
+.rescue-team {
+  font-weight: 600;
+  color: #1565C0;
+}
+
+.rescue-date {
+  margin-left: auto;
+  color: #666;
+  font-size: 0.8rem;
+}
+
 .location-icon {
   flex-shrink: 0;
 }
@@ -732,7 +769,7 @@ onMounted(async () => {
   border-top: 1px solid #E0E0E0;
 }
 
-.animal-info {
+.denunciante-info {
   font-size: 0.85rem;
   color: #666;
 }

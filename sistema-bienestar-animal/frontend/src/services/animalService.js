@@ -10,7 +10,19 @@ export const animalService = {
    * Obtener lista de animales con filtros y paginacion
    */
   async getAnimals(params = {}) {
+    console.log('📡 animalService.getAnimals:', params);
     const response = await api.get('/animals', { params });
+    console.log('✅ animalService.getAnimals response:', response.data);
+    return response.data;
+  },
+
+  /**
+   * Alias de getAnimals para compatibilidad
+   */
+  async getAll(params = {}) {
+    console.log('📡 animalService.getAll:', params);
+    const response = await api.get('/animals', { params });
+    console.log('✅ animalService.getAll response:', response.data);
     return response.data;
   },
 

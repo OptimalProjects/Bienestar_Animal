@@ -7,7 +7,13 @@
       </p>
     </div>
 
-    <form ref="formEl" @submit.prevent="onSubmit" novalidate>
+    <!-- Indicador de carga -->
+    <div v-if="loadingData" class="loading-overlay">
+      <div class="spinner"></div>
+      <p>Cargando datos...</p>
+    </div>
+
+    <form v-else ref="formEl" @submit.prevent="onSubmit" novalidate>
       <!-- SECCIÓN 1: DATOS GENERALES -->
       <div class="form-section">
         <h3 class="h5-tipografia-govco section-title">Datos generales</h3>
@@ -300,24 +306,139 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue';
+import { reactive, ref, onMounted, watch, nextTick } from 'vue';
 import FileUploader from '../common/FileUploader.vue';
+import { useVeterinaryStore } from '@/stores/veterinary';
+import { useAnimalsStore } from '@/stores/animals';
+import animalService from '@/services/animalService';
 
+const emit = defineEmits(['cirugia-saved', 'cancel']);
+const props = defineProps({
+  animalId: {
+    type: String,
+    default: null
+  },
+  historialClinicoId: {
+    type: String,
+    default: null
+  }
+});
+
+const veterinaryStore = useVeterinaryStore();
+const animalsStore = useAnimalsStore();
 const formEl = ref(null);
+const isSubmitting = ref(false);
+const loadingData = ref(true);
 
-// Mock data
-const animals = ref([
-  { id: 1, name: 'Firulais', microchip: 'MC123456789' },
-  { id: 2, name: 'Michi', microchip: 'MC987654321' }
-]);
+// Datos desde API
+const animals = ref([]);
+const veterinarians = ref([]);
 
-const veterinarians = ref([
-  { id: 1, name: 'Dr. Juan Pérez', license: '12345' },
-  { id: 2, name: 'Dra. María López', license: '67890' }
-]);
+// Función para reinicializar componentes GOV.CO
+function initGovCoComponents() {
+  console.log('🔄 Inicializando componentes GOV.CO...');
+
+  nextTick(() => {
+    // Intentar con window.GOVCo
+    if (window.GOVCo?.init) {
+      const dropdowns = document.querySelectorAll('.surgery-form .desplegable-govco');
+      console.log(`📦 Encontrados ${dropdowns.length} dropdowns`);
+      dropdowns.forEach((dd, index) => {
+        try {
+          window.GOVCo.init(dd.parentElement || dd);
+          console.log(`✅ Dropdown ${index + 1} inicializado`);
+        } catch (e) {
+          console.warn(`⚠️ Error en dropdown ${index + 1}:`, e);
+        }
+      });
+    }
+
+    // Intentar con reinitGovCo global
+    if (window.reinitGovCo) {
+      setTimeout(() => {
+        window.reinitGovCo();
+        console.log('✅ reinitGovCo ejecutado');
+      }, 100);
+    }
+  });
+}
+
+// Cargar datos iniciales
+async function loadInitialData() {
+  loadingData.value = true;
+  console.log('🔄 SurgeryForm: Cargando datos iniciales...');
+
+  try {
+    // Cargar animales
+    console.log('📦 Cargando animales...');
+    let animalsData = [];
+
+    // Intentar primero con el store
+    try {
+      await animalsStore.fetchAnimals();
+      animalsData = animalsStore.animals || [];
+      console.log('✅ Animales desde store:', animalsData.length);
+    } catch (storeError) {
+      console.warn('⚠️ Error con store, intentando servicio directo:', storeError);
+      // Fallback al servicio directo
+      const animalsResponse = await animalService.getAll();
+      animalsData = animalsResponse?.data?.data || animalsResponse?.data || [];
+      console.log('✅ Animales desde servicio:', animalsData.length);
+    }
+
+    animals.value = animalsData.map(animal => ({
+      id: animal.id,
+      name: animal.nombre || 'Sin nombre',
+      microchip: animal.codigo_unico || animal.codigo_chip || 'Sin chip',
+      historialClinicoId: animal.historial_clinico?.id || animal.historial_clinico_id
+    }));
+
+    console.log('✅ Animales procesados:', animals.value.length, animals.value);
+
+    // Cargar veterinarios
+    console.log('📦 Cargando veterinarios...');
+    await veterinaryStore.fetchVeterinarios();
+    const vetsData = veterinaryStore.veterinarios || [];
+    console.log('✅ Veterinarios desde store:', vetsData.length);
+
+    veterinarians.value = vetsData.map(vet => ({
+      id: vet.id,
+      name: vet.nombre_completo ||
+            `${vet.usuario?.nombres || ''} ${vet.usuario?.apellidos || ''}`.trim() ||
+            vet.nombre ||
+            'Veterinario',
+      license: vet.tarjeta_profesional || vet.licencia || 'N/A'
+    }));
+
+    console.log('✅ Veterinarios procesados:', veterinarians.value.length, veterinarians.value);
+
+    // Pre-seleccionar si vienen props
+    if (props.animalId) {
+      form.animalId = props.animalId;
+      console.log('🎯 Animal pre-seleccionado:', props.animalId);
+    }
+    if (props.historialClinicoId) {
+      form.historialClinicoId = props.historialClinicoId;
+    }
+
+    // Reinicializar GOV.CO después de cargar datos
+    await nextTick();
+    setTimeout(() => {
+      initGovCoComponents();
+    }, 200);
+
+  } catch (error) {
+    console.error('❌ Error cargando datos iniciales:', error);
+    alert('Error al cargar datos. Por favor recargue la página.');
+  } finally {
+    loadingData.value = false;
+    console.log('✅ Carga de datos completada');
+  }
+}
 
 const form = reactive({
   animalId: '',
+  historialClinicoId: '',
   veterinarianId: '',
   surgeryType: '',
   urgency: 'programada',
@@ -348,6 +469,7 @@ const errors = reactive({
 function resetForm() {
   Object.assign(form, {
     animalId: '',
+    historialClinicoId: '',
     veterinarianId: '',
     surgeryType: '',
     urgency: 'programada',
@@ -366,6 +488,7 @@ function resetForm() {
   });
 
   Object.keys(errors).forEach(k => (errors[k] = ''));
+  emit('cancel');
 }
 
 function validate() {
@@ -410,48 +533,93 @@ async function onSubmit() {
     return;
   }
 
+  isSubmitting.value = true;
+
   try {
-    const payload = { ...form };
-
-    console.log('Guardando cirugía:', payload);
-
-    // TODO: Guardar cirugía en backend
-    // await saveSurgery(payload);
-
-    // TODO: Programar controles postoperatorios automáticos
-    if (form.autoFollowups && form.firstFollowupDate) {
-      console.log('Programar controles postoperatorios automáticos');
-      // await schedulePostOpControls(payload);
+    // Obtener historial_clinico_id del animal seleccionado
+    let historialId = form.historialClinicoId;
+    if (!historialId) {
+      const selectedAnimal = animals.value.find(a => a.id === form.animalId);
+      historialId = selectedAnimal?.historialClinicoId;
     }
 
-    // TODO: Enviar notificaciones de seguimiento al adoptante
-    if (form.notifyAdopter) {
-      console.log('Enviar notificaciones al adoptante');
-      // await notifyAdopter(payload);
-    }
+    // Separar fecha y hora del datetime-local
+    const dateTimeParts = form.surgeryDateTime.split('T');
+    const fechaProgramada = dateTimeParts[0];
+    const horaProgramada = dateTimeParts[1] || '00:00';
 
-    // TODO: Actualizar estado del animal a "en recuperación"
-    // await updateAnimalStatus(form.animalId, 'EN_RECUPERACION');
+    // Preparar datos para el backend
+    const cirugiaData = {
+      historial_clinico_id: historialId,
+      veterinario_id: form.veterinarianId,
+      tipo_cirugia: form.surgeryType,
+      descripcion: form.findings,
+      fecha_programada: fechaProgramada,
+      hora_programada: horaProgramada,
+      duracion_minutos: form.durationMinutes,
+      anestesia_utilizada: form.anesthesia,
+      tipo_procedimiento: form.urgency,
+      ayudante: form.assistantName || null,
+      anestesista: form.anesthetistName || null,
+      estado: 'realizada',
+      resultado: 'exitoso',
+      observaciones: form.findings,
+      // Seguimiento postoperatorio
+      programar_controles: form.autoFollowups,
+      cantidad_controles: form.followupCount,
+      intervalo_controles_dias: form.followupIntervalDays,
+      fecha_primer_control: form.firstFollowupDate || null,
+      notificar_adoptante: form.notifyAdopter
+    };
 
-    // TODO: Enviar evento de auditoría a sciaudit
-    // await sendAuditEvent('surgery_registered', payload);
+    console.log('Guardando cirugía:', cirugiaData);
+
+    // Guardar cirugía en backend
+    await veterinaryStore.crearCirugia(cirugiaData);
 
     alert('Cirugía registrada exitosamente');
+    emit('cirugia-saved', cirugiaData);
     resetForm();
   } catch (error) {
     console.error('Error al registrar cirugía:', error);
-    alert('Error al registrar la cirugía');
+    alert(error.response?.data?.message || 'Error al registrar la cirugía');
+  } finally {
+    isSubmitting.value = false;
   }
 }
 
-onMounted(() => {
-  // Inicializar componentes GOV.CO
-  if (window.GOVCo?.init) {
-    const dropdowns = document.querySelectorAll('.desplegable-govco');
-    dropdowns.forEach(dd => {
-      window.GOVCo.init(dd.parentElement);
-    });
+// Observar cambios en el animalId de props
+watch(() => props.animalId, async (newId) => {
+  if (newId && animals.value.length > 0) {
+    console.log('🔄 Animal ID changed:', newId);
+    form.animalId = newId;
+    const selectedAnimal = animals.value.find(a => a.id === newId);
+    if (selectedAnimal?.historialClinicoId) {
+      form.historialClinicoId = selectedAnimal.historialClinicoId;
+    }
+
+    await nextTick();
+    initGovCoComponents();
   }
+});
+
+// Observar cuando se cargan los animales para reinicializar GOV.CO
+watch(() => animals.value.length, async (newLength) => {
+  if (newLength > 0) {
+    console.log('📦 Animales actualizados, reinicializando GOV.CO...');
+    await nextTick();
+    setTimeout(() => {
+      initGovCoComponents();
+    }, 100);
+  }
+});
+
+onMounted(async () => {
+  console.log('📍 SurgeryForm mounted');
+  console.log('📍 Props:', { animalId: props.animalId, historialClinicoId: props.historialClinicoId });
+
+  // Cargar datos iniciales
+  await loadInitialData();
 });
 </script>
 
@@ -534,6 +702,30 @@ onMounted(() => {
 }
 .govco-bg-elf-green {
   background-color: #069169;
+}
+.loading-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  min-height: 300px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3366cc;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 @media (max-width: 768px) {

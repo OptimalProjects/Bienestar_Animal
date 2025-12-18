@@ -28,7 +28,7 @@ class Rescate extends Model
     ];
 
     protected $casts = [
-        'fecha_programada' => 'date',
+        'fecha_programada' => 'datetime',
         'fecha_ejecucion' => 'datetime',
         'equipo_rescate' => 'array',
         'exitoso' => 'boolean',

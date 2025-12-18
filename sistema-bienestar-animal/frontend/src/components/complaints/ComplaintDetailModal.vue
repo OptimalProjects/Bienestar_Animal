@@ -4,12 +4,12 @@
   <div class="modal-overlay" @click="$emit('close')">
     <div class="modal-content" @click.stop>
       <!-- Header -->
-      <div class="modal-header" :class="`urgency-bg-${complaint.urgencia}`">
+      <div class="modal-header" :class="`urgency-bg-${complaint.prioridad}`">
         <div class="header-info">
-          <h3 class="h4-tipografia-govco">{{ complaint.caso_numero }}</h3>
+          <h3 class="h4-tipografia-govco">{{ complaint.numero_ticket }}</h3>
           <div class="header-badges">
-            <span class="urgency-badge" :class="`urgency-${complaint.urgencia}`">
-              {{ getUrgencyLabel(complaint.urgencia) }}
+            <span class="urgency-badge" :class="`urgency-${complaint.prioridad}`">
+              {{ getUrgencyLabel(complaint.prioridad) }}
             </span>
             <span class="status-badge" :class="`status-${complaint.estado}`">
               {{ getStatusLabel(complaint.estado) }}
@@ -34,7 +34,7 @@
             <span class="info-icon">📅</span>
             <div class="info-content">
               <span class="info-label">Fecha de recepción</span>
-              <span class="info-value">{{ formatDateTime(complaint.fecha_recepcion) }}</span>
+              <span class="info-value">{{ formatDateTime(complaint.fecha_denuncia || complaint.created_at) }}</span>
             </div>
           </div>
         </div>
@@ -50,27 +50,11 @@
           <h4 class="section-title">Ubicación</h4>
           <div class="location-info">
             <span class="location-icon">📍</span>
-            <span class="location-text">{{ complaint.direccion }}</span>
-          </div>
-          <div v-if="complaint.coordenadas" class="mini-map">
-            <div class="map-placeholder">
-              <span>Lat: {{ complaint.coordenadas.lat.toFixed(6) }}</span>
-              <span>Lng: {{ complaint.coordenadas.lng.toFixed(6) }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Animal -->
-        <div class="section">
-          <h4 class="section-title">Información del animal</h4>
-          <div class="animal-info">
-            <div class="animal-item">
-              <span class="animal-label">Especie:</span>
-              <span class="animal-value">{{ getSpeciesLabel(complaint.especie_animal) }}</span>
-            </div>
-            <div class="animal-item">
-              <span class="animal-label">Cantidad:</span>
-              <span class="animal-value">{{ complaint.cantidad_animales }} animal(es)</span>
+            <div class="location-details">
+              <span class="location-text">{{ complaint.ubicacion || 'Sin ubicación especificada' }}</span>
+              <span v-if="complaint.latitud && complaint.longitud" class="coordinates">
+                {{ Number(complaint.latitud).toFixed(5) }}, {{ Number(complaint.longitud).toFixed(5) }}
+              </span>
             </div>
           </div>
         </div>
@@ -78,31 +62,38 @@
         <!-- Denunciante -->
         <div class="section">
           <h4 class="section-title">Denunciante</h4>
-          <div v-if="complaint.es_anonimo" class="anonymous-notice">
+          <div v-if="complaint.es_anonima" class="anonymous-notice">
             <span class="notice-icon">🔒</span>
             <span>Denuncia anónima</span>
           </div>
-          <div v-else class="reporter-info">
-            <div v-if="complaint.denunciante_nombre" class="reporter-item">
+          <div v-else-if="complaint.denunciante" class="reporter-info">
+            <div class="reporter-item">
               <span class="reporter-label">Nombre:</span>
-              <span class="reporter-value">{{ complaint.denunciante_nombre }}</span>
+              <span class="reporter-value">{{ complaint.denunciante.nombres }} {{ complaint.denunciante.apellidos }}</span>
             </div>
-            <div v-if="complaint.denunciante_telefono" class="reporter-item">
+            <div v-if="complaint.denunciante.telefono" class="reporter-item">
               <span class="reporter-label">Teléfono:</span>
-              <span class="reporter-value">{{ complaint.denunciante_telefono }}</span>
+              <span class="reporter-value">{{ complaint.denunciante.telefono }}</span>
             </div>
-            <div v-if="complaint.denunciante_email" class="reporter-item">
+            <div v-if="complaint.denunciante.email" class="reporter-item">
               <span class="reporter-label">Email:</span>
-              <span class="reporter-value">{{ complaint.denunciante_email }}</span>
+              <span class="reporter-value">{{ complaint.denunciante.email }}</span>
             </div>
+          </div>
+          <div v-else class="anonymous-notice">
+            <span class="notice-icon">❓</span>
+            <span>Sin información de denunciante</span>
           </div>
         </div>
 
-        <!-- Equipo asignado -->
-        <div v-if="complaint.equipo_asignado" class="section">
-          <h4 class="section-title">Equipo asignado</h4>
+        <!-- Responsable asignado -->
+        <div v-if="complaint.responsable_id || complaint.responsable" class="section">
+          <h4 class="section-title">Responsable asignado</h4>
           <div class="team-info">
-            <span class="team-name">{{ complaint.equipo_nombre || 'Equipo de rescate' }}</span>
+            <span class="team-name" v-if="complaint.responsable">
+              {{ complaint.responsable.nombres }} {{ complaint.responsable.apellidos }}
+            </span>
+            <span class="team-name" v-else>Operador asignado</span>
             <span v-if="complaint.fecha_asignacion" class="team-date">
               Asignado: {{ formatDateTime(complaint.fecha_asignacion) }}
             </span>
@@ -145,14 +136,14 @@
           Cerrar
         </button>
         <button
-          v-if="!complaint.equipo_asignado && complaint.estado !== 'cerrada'"
+          v-if="!complaint.responsable_id && complaint.estado !== 'resuelta'"
           @click="$emit('assign', complaint)"
           class="govco-btn govco-bg-marine"
         >
-          Asignar equipo
+          Asignar operador
         </button>
         <button
-          v-if="complaint.equipo_asignado && complaint.estado === 'en_atencion'"
+          v-if="complaint.responsable_id && complaint.estado === 'en_proceso'"
           @click="$emit('register-result', complaint)"
           class="govco-btn govco-bg-elf-green"
         >
@@ -175,8 +166,8 @@ defineEmits(['close', 'assign', 'register-result']);
 
 // Helpers
 function getUrgencyLabel(urgency) {
-  const labels = { critico: 'CRÍTICO', alto: 'ALTO', medio: 'MEDIO', bajo: 'BAJO' };
-  return labels[urgency] || urgency;
+  const labels = { urgente: 'URGENTE', alta: 'ALTA', media: 'MEDIA', baja: 'BAJA' };
+  return labels[urgency] || urgency?.toUpperCase() || '';
 }
 
 function getStatusLabel(status) {
@@ -185,49 +176,39 @@ function getStatusLabel(status) {
     en_revision: 'En revisión',
     asignada: 'Asignada',
     en_atencion: 'En atención',
-    cerrada: 'Cerrada'
+    resuelta: 'Resuelta',
+    cerrada: 'Cerrada',
+    desestimada: 'Desestimada'
   };
   return labels[status] || status;
 }
 
 function getComplaintTypeLabel(type) {
   const labels = {
-    maltrato_fisico: 'Maltrato físico',
+    maltrato: 'Maltrato',
     abandono: 'Abandono',
-    negligencia: 'Negligencia',
-    hacinamiento: 'Hacinamiento',
     animal_herido: 'Animal herido',
-    envenenamiento: 'Envenenamiento'
+    animal_peligroso: 'Animal peligroso',
+    otro: 'Otro'
   };
   return labels[type] || type;
 }
 
 function getTypeIcon(type) {
   const icons = {
-    maltrato_fisico: '🩹',
+    maltrato: '🩹',
     abandono: '🏚️',
-    negligencia: '⚠️',
-    hacinamiento: '🏠',
     animal_herido: '🚑',
-    envenenamiento: '☠️'
+    animal_peligroso: '⚠️',
+    otro: '📋'
   };
   return icons[type] || '📋';
 }
 
-function getSpeciesLabel(species) {
-  const labels = {
-    perro: 'Perro',
-    gato: 'Gato',
-    equino: 'Equino',
-    bovino: 'Bovino',
-    ave: 'Ave',
-    otro: 'Otro'
-  };
-  return labels[species] || species;
-}
-
 function formatDateTime(dateString) {
+  if (!dateString) return 'Sin fecha';
   const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'Fecha inválida';
   return date.toLocaleDateString('es-CO', {
     year: 'numeric',
     month: 'short',
@@ -272,10 +253,10 @@ function formatDateTime(dateString) {
   border-bottom: 3px solid;
 }
 
-.urgency-bg-critico { background: #FFEBEE; border-color: #A80521; }
-.urgency-bg-alto { background: #FFF8E1; border-color: #FFAB00; }
-.urgency-bg-medio { background: #E8F0FE; border-color: #3366CC; }
-.urgency-bg-bajo { background: #F5F5F5; border-color: #737373; }
+.urgency-bg-urgente { background: #FFEBEE; border-color: #A80521; }
+.urgency-bg-alta { background: #FFF8E1; border-color: #FFAB00; }
+.urgency-bg-media { background: #E8F0FE; border-color: #3366CC; }
+.urgency-bg-baja { background: #F5F5F5; border-color: #737373; }
 
 .header-info h3 {
   margin: 0 0 0.5rem 0;
@@ -296,16 +277,18 @@ function formatDateTime(dateString) {
   color: white;
 }
 
-.urgency-critico { background: #A80521; }
-.urgency-alto { background: #FFAB00; color: #333; }
-.urgency-medio { background: #3366CC; }
-.urgency-bajo { background: #737373; }
+.urgency-urgente { background: #A80521; }
+.urgency-alta { background: #FFAB00; color: #333; }
+.urgency-media { background: #3366CC; }
+.urgency-baja { background: #737373; }
 
 .status-recibida { background: #E0E0E0; color: #333; }
-.status-en_revision { background: #E8F0FE; color: #3366CC; }
-.status-asignada { background: #FFF8E1; color: #856404; }
-.status-en_atencion { background: #E8F5E9; color: #2E7D32; }
-.status-cerrada { background: #F5F5F5; color: #666; }
+.status-en_revision { background: #FFF3E0; color: #E65100; }
+.status-asignada { background: #E3F2FD; color: #1565C0; }
+.status-en_atencion { background: #E8F0FE; color: #3366CC; }
+.status-resuelta { background: #E8F5E9; color: #2E7D32; }
+.status-cerrada { background: #F3E5F5; color: #7B1FA2; }
+.status-desestimada { background: #FFEBEE; color: #C62828; }
 
 .modal-close {
   background: none;
@@ -387,6 +370,22 @@ function formatDateTime(dateString) {
 
 .location-icon {
   flex-shrink: 0;
+}
+
+.location-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.location-text {
+  color: #333;
+}
+
+.coordinates {
+  font-size: 0.8rem;
+  color: #666;
+  font-family: monospace;
 }
 
 .mini-map {

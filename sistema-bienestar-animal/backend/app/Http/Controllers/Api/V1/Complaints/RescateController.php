@@ -24,19 +24,25 @@ class RescateController extends BaseController
             $query = Rescate::with(['denuncia', 'animalRescatado']);
 
             if ($request->has('fecha_desde')) {
-                $query->whereDate('fecha_rescate', '>=', $request->fecha_desde);
+                $query->whereDate('fecha_programada', '>=', $request->fecha_desde);
             }
 
             if ($request->has('fecha_hasta')) {
-                $query->whereDate('fecha_rescate', '<=', $request->fecha_hasta);
+                $query->whereDate('fecha_programada', '<=', $request->fecha_hasta);
             }
 
-            if ($request->has('destino')) {
-                $query->where('destino', $request->destino);
+            if ($request->has('pendientes')) {
+                // Solo rescates sin ejecutar
+                $query->whereNull('fecha_ejecucion');
             }
 
-            $rescates = $query->orderBy('fecha_rescate', 'desc')
-                ->paginate($request->get('per_page', 15));
+            if ($request->has('ejecutados')) {
+                // Solo rescates ejecutados
+                $query->whereNotNull('fecha_ejecucion');
+            }
+
+            $rescates = $query->orderBy('fecha_programada', 'desc')
+                ->paginate($request->get('per_page', 50));
 
             return $this->successResponse($rescates);
         } catch (\Exception $e) {
@@ -45,21 +51,19 @@ class RescateController extends BaseController
     }
 
     /**
-     * Registrar rescate asociado a denuncia.
+     * Registrar rescate asociado a denuncia (asignacion de equipo).
      * POST /api/v1/rescates
      */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'denuncia_id' => 'required|exists:denuncias,id',
-            'animal_id' => 'nullable|exists:animals,id',
-            'fecha_rescate' => 'nullable|date',
-            'responsable_rescate' => 'required|string|max:200',
-            'descripcion_rescate' => 'nullable|string|max:1000',
-            'estado_animal_rescate' => 'required|in:critico,grave,estable,bueno',
-            'destino' => 'nullable|in:refugio,clinica_veterinaria,hogar_paso,liberado,fallecido',
+            'fecha_programada' => 'required|date',
+            'equipo_rescate' => 'nullable|array',
+            'equipo_rescate.nombre' => 'nullable|string|max:200',
+            'equipo_rescate.id' => 'nullable|integer',
             'observaciones' => 'nullable|string|max:1000',
-            'cierra_denuncia' => 'nullable|boolean',
+            'animal_id' => 'nullable|exists:animals,id',
         ]);
 
         if ($validator->fails()) {
@@ -72,9 +76,9 @@ class RescateController extends BaseController
                 $request->all()
             );
 
-            return $this->createdResponse($rescate, 'Rescate registrado exitosamente');
+            return $this->createdResponse($rescate, 'Equipo de rescate asignado exitosamente');
         } catch (\Exception $e) {
-            return $this->serverErrorResponse('Error al registrar rescate: ' . $e->getMessage());
+            return $this->serverErrorResponse('Error al asignar equipo de rescate: ' . $e->getMessage());
         }
     }
 
@@ -97,16 +101,19 @@ class RescateController extends BaseController
     }
 
     /**
-     * Actualizar rescate.
+     * Actualizar rescate (registrar resultado).
      * PUT /api/v1/rescates/{id}
      */
     public function update(Request $request, string $id)
     {
         $validator = Validator::make($request->all(), [
+            'exitoso' => 'nullable|boolean',
+            'fecha_ejecucion' => 'nullable|date',
+            'observaciones' => 'nullable|string|max:2000',
+            'motivo_fallo' => 'nullable|string|max:1000',
             'animal_id' => 'nullable|exists:animals,id',
             'estado_animal_rescate' => 'nullable|in:critico,grave,estable,bueno',
             'destino' => 'nullable|in:refugio,clinica_veterinaria,hogar_paso,liberado,fallecido',
-            'observaciones' => 'nullable|string|max:1000',
         ]);
 
         if ($validator->fails()) {
@@ -117,17 +124,23 @@ class RescateController extends BaseController
             $rescate = Rescate::findOrFail($id);
 
             $rescate->update($request->only([
+                'exitoso',
+                'fecha_ejecucion',
+                'observaciones',
+                'motivo_fallo',
                 'animal_id',
                 'estado_animal_rescate',
                 'destino',
-                'observaciones',
             ]));
 
-            return $this->successResponse($rescate->fresh(), 'Rescate actualizado exitosamente');
+            return $this->successResponse(
+                $rescate->fresh(['denuncia', 'animalRescatado']),
+                'Resultado del rescate registrado exitosamente'
+            );
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->notFoundResponse('Rescate no encontrado');
         } catch (\Exception $e) {
-            return $this->serverErrorResponse('Error al actualizar rescate');
+            return $this->serverErrorResponse('Error al actualizar rescate: ' . $e->getMessage());
         }
     }
 
@@ -169,15 +182,17 @@ class RescateController extends BaseController
     {
         try {
             $stats = [
-                'total_mes' => Rescate::where('fecha_rescate', '>=', now()->startOfMonth())->count(),
-                'por_destino' => Rescate::selectRaw('destino, count(*) as cantidad')
-                    ->where('fecha_rescate', '>=', now()->startOfMonth())
-                    ->groupBy('destino')
-                    ->pluck('cantidad', 'destino'),
-                'por_estado' => Rescate::selectRaw('estado_animal_rescate, count(*) as cantidad')
-                    ->where('fecha_rescate', '>=', now()->startOfMonth())
-                    ->groupBy('estado_animal_rescate')
-                    ->pluck('cantidad', 'estado_animal_rescate'),
+                'total_mes' => Rescate::where('created_at', '>=', now()->startOfMonth())->count(),
+                'pendientes' => Rescate::whereNull('fecha_ejecucion')->count(),
+                'ejecutados_mes' => Rescate::whereNotNull('fecha_ejecucion')
+                    ->where('fecha_ejecucion', '>=', now()->startOfMonth())
+                    ->count(),
+                'exitosos_mes' => Rescate::where('exitoso', true)
+                    ->where('fecha_ejecucion', '>=', now()->startOfMonth())
+                    ->count(),
+                'programados_hoy' => Rescate::whereNull('fecha_ejecucion')
+                    ->whereDate('fecha_programada', today())
+                    ->count(),
             ];
 
             return $this->successResponse($stats);

@@ -62,59 +62,114 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
+import { useVeterinaryStore } from '@/stores/veterinary';
+import veterinaryService from '@/services/veterinaryService';
 
+const veterinaryStore = useVeterinaryStore();
+
+const loading = ref(true);
 const vaccinationAlerts = ref([]);
 const postSurgeryAlerts = ref([]);
 const chronicTreatmentAlerts = ref([]);
 const inventoryAlerts = ref([]);
 
+// Función para formatear fecha
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('es-CO', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+}
+
 async function loadAlerts() {
+  loading.value = true;
   try {
-    // TODO: Reemplazar mocks por llamadas a backend / colas de alertas
-    vaccinationAlerts.value = [
-      {
-        id: 1,
-        animalName: 'Firulais',
-        vaccine: 'Rabia',
-        nextDoseDate: '2025-12-01'
-      }
-    ];
+    // Cargar vacunas próximas (próximos 30 días)
+    const vacunasProximasResponse = await veterinaryService.getVacunasProximas(30);
+    if (vacunasProximasResponse?.data) {
+      vaccinationAlerts.value = vacunasProximasResponse.data.map(v => ({
+        id: v.id,
+        animalName: v.historial_clinico?.animal?.nombre || 'Animal',
+        vaccine: v.tipo_vacuna?.nombre || 'Vacuna',
+        nextDoseDate: formatDate(v.fecha_proxima)
+      }));
+    }
 
-    postSurgeryAlerts.value = [
-      {
-        id: 2,
-        animalName: 'Michi',
-        surgeryType: 'Esterilización',
-        controlDate: '2025-11-28'
-      }
-    ];
+    // Cargar alertas de stock bajo
+    await veterinaryStore.fetchAlertasStockBajo();
+    inventoryAlerts.value = veterinaryStore.alertasStockBajo.map(item => ({
+      id: item.id,
+      name: item.nombre || item.producto?.nombre,
+      message: item.mensaje || `Stock bajo (quedan ${item.stock_actual || item.cantidad} unidades)`
+    }));
 
-    chronicTreatmentAlerts.value = [
-      {
-        id: 3,
-        animalName: 'Rocky',
-        condition: 'Cardiopatía crónica',
-        reviewDate: '2025-12-05'
-      }
-    ];
+    // Cargar alertas generales (si existe endpoint)
+    try {
+      await veterinaryStore.fetchAlertas();
+      const alertasGenerales = veterinaryStore.alertas;
 
-    inventoryAlerts.value = [
-      {
-        id: 4,
-        name: 'Meloxicam 5mg',
-        message: 'Stock bajo (quedan 5 unidades)'
-      },
-      {
-        id: 5,
-        name: 'Amoxicilina 500mg',
-        message: 'Próximo a vencer (15 días)'
-      }
-    ];
+      // Separar alertas por tipo
+      postSurgeryAlerts.value = alertasGenerales
+        .filter(a => a.tipo === 'postoperatorio' || a.tipo === 'cirugia')
+        .map(a => ({
+          id: a.id,
+          animalName: a.animal?.nombre || 'Animal',
+          surgeryType: a.cirugia?.tipo_cirugia || a.descripcion || 'Cirugía',
+          controlDate: formatDate(a.fecha_control || a.fecha)
+        }));
+
+      chronicTreatmentAlerts.value = alertasGenerales
+        .filter(a => a.tipo === 'tratamiento_cronico' || a.tipo === 'tratamiento')
+        .map(a => ({
+          id: a.id,
+          animalName: a.animal?.nombre || 'Animal',
+          condition: a.condicion || a.descripcion || 'Tratamiento',
+          reviewDate: formatDate(a.fecha_revision || a.fecha)
+        }));
+    } catch (e) {
+      // Si no hay endpoint de alertas generales, dejar vacío
+      console.log('Alertas generales no disponibles:', e.message);
+    }
+
+    // Cargar recordatorios de vacunas
+    try {
+      await veterinaryStore.fetchRecordatoriosVacunas();
+      const recordatorios = veterinaryStore.recordatoriosVacunas;
+
+      // Agregar recordatorios a alertas de vacunación si no están duplicados
+      recordatorios.forEach(r => {
+        const existe = vaccinationAlerts.value.some(v => v.id === r.id);
+        if (!existe) {
+          vaccinationAlerts.value.push({
+            id: `rec-${r.id}`,
+            animalName: r.animal?.nombre || 'Animal',
+            vaccine: r.tipo_vacuna?.nombre || r.vacuna || 'Vacuna',
+            nextDoseDate: formatDate(r.fecha_programada)
+          });
+        }
+      });
+    } catch (e) {
+      console.log('Recordatorios no disponibles:', e.message);
+    }
+
   } catch (e) {
     console.error('Error cargando alertas veterinarias:', e);
+  } finally {
+    loading.value = false;
   }
 }
+
+// Computed para mostrar totales
+const totalAlertas = computed(() => {
+  return vaccinationAlerts.value.length +
+    postSurgeryAlerts.value.length +
+    chronicTreatmentAlerts.value.length +
+    inventoryAlerts.value.length;
+});
 
 onMounted(loadAlerts);
 </script>

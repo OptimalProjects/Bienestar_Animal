@@ -150,18 +150,12 @@
 
 <script setup>
 import { reactive, ref, computed, onMounted } from 'vue';
+import { useVeterinaryStore } from '@/stores/veterinary';
 
-const medications = ref([
-  // Mock inicial para pruebas
-  {
-    id: 1,
-    name: 'Amoxicilina 500mg',
-    lot: 'L001',
-    expiryDate: '2026-01-10',
-    stock: 25,
-    minStock: 10
-  }
-]);
+const veterinaryStore = useVeterinaryStore();
+
+const loading = ref(true);
+const medications = ref([]);
 
 const entryForm = reactive({
   name: '',
@@ -170,6 +164,29 @@ const entryForm = reactive({
   quantity: null,
   minStock: 5
 });
+
+// Cargar medicamentos desde el store/API
+async function loadMedications() {
+  loading.value = true;
+  try {
+    await veterinaryStore.fetchMedicamentos();
+    medications.value = veterinaryStore.medicamentos.map(med => ({
+      id: med.id,
+      name: med.nombre || med.name,
+      lot: med.lote || med.lot || 'N/A',
+      expiryDate: med.fecha_vencimiento || med.expiryDate || 'N/A',
+      stock: med.stock_actual || med.stock || 0,
+      minStock: med.stock_minimo || med.minStock || 5
+    }));
+
+    // Cargar alertas de stock bajo
+    await veterinaryStore.fetchAlertasStockBajo();
+  } catch (error) {
+    console.error('Error cargando medicamentos:', error);
+  } finally {
+    loading.value = false;
+  }
+}
 
 function resetEntryForm() {
   Object.assign(entryForm, {
@@ -181,43 +198,48 @@ function resetEntryForm() {
   });
 }
 
-function registerEntry() {
+async function registerEntry() {
   if (!entryForm.name || !entryForm.lot || !entryForm.expiryDate || !entryForm.quantity) {
     alert('Todos los campos de ingreso son obligatorios');
     return;
   }
 
-  // Buscar si ya existe por nombre + lote
-  const existing = medications.value.find(
-    m => m.name === entryForm.name && m.lot === entryForm.lot
-  );
+  try {
+    // Buscar si ya existe por nombre + lote (localmente primero)
+    const existing = medications.value.find(
+      m => m.name === entryForm.name && m.lot === entryForm.lot
+    );
 
-  if (existing) {
-    existing.stock += entryForm.quantity;
-    existing.expiryDate = entryForm.expiryDate;
-    existing.minStock = entryForm.minStock;
-  } else {
-    medications.value.push({
-      id: Date.now(),
-      name: entryForm.name,
-      lot: entryForm.lot,
-      expiryDate: entryForm.expiryDate,
-      stock: entryForm.quantity,
-      minStock: entryForm.minStock
-    });
+    if (existing) {
+      existing.stock += entryForm.quantity;
+      existing.expiryDate = entryForm.expiryDate;
+      existing.minStock = entryForm.minStock;
+    } else {
+      medications.value.push({
+        id: Date.now(),
+        name: entryForm.name,
+        lot: entryForm.lot,
+        expiryDate: entryForm.expiryDate,
+        stock: entryForm.quantity,
+        minStock: entryForm.minStock
+      });
+    }
+
+    // TODO: Implementar endpoint en backend para registrar ingreso de inventario
+    // await veterinaryService.registrarIngresoInventario({
+    //   nombre: entryForm.name,
+    //   lote: entryForm.lot,
+    //   fecha_vencimiento: entryForm.expiryDate,
+    //   cantidad: entryForm.quantity,
+    //   stock_minimo: entryForm.minStock
+    // });
+
+    alert('Ingreso registrado en el inventario');
+    resetEntryForm();
+  } catch (error) {
+    console.error('Error registrando ingreso:', error);
+    alert('Error al registrar el ingreso');
   }
-
-  // TODO: Enviar registro de ingreso al backend
-  // await registerInventoryEntry(entryForm);
-
-  // TODO: Integración con módulo de consultas veterinarias:
-  // las salidas se registran cuando se prescriben medicamentos.
-
-  // TODO: Enviar alerta a módulo de alertas si corresponde
-  // (stock bajo, próximo a vencer)
-
-  alert('Ingreso registrado en el inventario');
-  resetEntryForm();
 }
 
 const lowStock = computed(() =>
@@ -230,16 +252,15 @@ const nearExpiry = computed(() => {
   limit.setDate(today.getDate() + 30);
 
   return medications.value.filter(m => {
+    if (!m.expiryDate || m.expiryDate === 'N/A') return false;
     const exp = new Date(m.expiryDate);
     return exp >= today && exp <= limit;
   });
 });
 
-onMounted(() => {
-  // TODO: Cargar inventario real desde backend
-  // medications.value = await fetchMedications();
-
-  console.log('Inventario de medicamentos cargado (mock)');
+onMounted(async () => {
+  await loadMedications();
+  console.log('Inventario de medicamentos cargado');
 });
 </script>
 

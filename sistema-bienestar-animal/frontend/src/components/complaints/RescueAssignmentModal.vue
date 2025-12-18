@@ -7,7 +7,7 @@
       <div class="modal-header">
         <div class="header-info">
           <h3 class="h4-tipografia-govco">Asignar equipo de rescate</h3>
-          <p class="header-subtitle">{{ complaint.caso_numero }}</p>
+          <p class="header-subtitle">{{ complaint.numero_ticket || 'Sin ticket' }}</p>
         </div>
         <button @click="$emit('close')" class="modal-close">×</button>
       </div>
@@ -21,14 +21,14 @@
             <span class="summary-value">{{ getComplaintTypeLabel(complaint.tipo_denuncia) }}</span>
           </div>
           <div class="summary-row">
-            <span class="summary-label">Urgencia:</span>
-            <span class="urgency-badge" :class="`urgency-${complaint.urgencia}`">
-              {{ getUrgencyLabel(complaint.urgencia) }}
+            <span class="summary-label">Prioridad:</span>
+            <span class="urgency-badge" :class="`urgency-${complaint.prioridad}`">
+              {{ getUrgencyLabel(complaint.prioridad) }}
             </span>
           </div>
           <div class="summary-row">
             <span class="summary-label">Ubicación:</span>
-            <span class="summary-value">{{ complaint.direccion }}</span>
+            <span class="summary-value">{{ complaint.ubicacion || 'Sin ubicación' }}</span>
           </div>
         </div>
 
@@ -37,26 +37,24 @@
           <!-- Selección de equipo -->
           <div class="form-group">
             <label class="form-label required">Equipo de rescate</label>
-            <div class="desplegable-govco">
-              <select
-                v-model="form.equipo_id"
-                class="desplegable-govco-input"
-                required
+            <select
+              v-model="form.equipo_id"
+              class="form-control"
+              required
+            >
+              <option value="" disabled>Seleccione un equipo</option>
+              <option
+                v-for="team in availableTeams"
+                :key="team.id"
+                :value="team.id"
+                :disabled="team.ocupado"
               >
-                <option value="" disabled>Seleccione un equipo</option>
-                <option
-                  v-for="team in availableTeams"
-                  :key="team.id"
-                  :value="team.id"
-                  :disabled="team.ocupado"
-                >
-                  {{ team.nombre }} {{ team.ocupado ? '(Ocupado)' : '' }}
-                </option>
-              </select>
-            </div>
+                {{ team.nombre }} {{ team.ocupado ? '(Ocupado)' : '' }}
+              </option>
+            </select>
             <p v-if="selectedTeam" class="team-info">
-              <span class="team-members">👥 {{ selectedTeam.miembros }} miembros</span>
-              <span class="team-vehicle">🚐 {{ selectedTeam.vehiculo }}</span>
+              <span class="team-members">{{ selectedTeam.miembros }} miembros</span>
+              <span class="team-vehicle">{{ selectedTeam.vehiculo }}</span>
             </p>
           </div>
 
@@ -99,26 +97,27 @@
                   :value="priority.value"
                   class="priority-radio"
                 />
-                <span class="priority-icon">{{ priority.icon }}</span>
-                <span class="priority-label">{{ priority.label }}</span>
+                <span class="priority-badge-small" :class="`urgency-${priority.value}`">
+                  {{ priority.label }}
+                </span>
               </label>
             </div>
           </div>
 
-          <!-- Instrucciones especiales -->
+          <!-- Observaciones -->
           <div class="form-group">
-            <label class="form-label">Instrucciones especiales</label>
+            <label class="form-label">Observaciones</label>
             <textarea
-              v-model="form.instrucciones"
+              v-model="form.observaciones"
               class="form-control textarea"
               rows="3"
               placeholder="Indicaciones adicionales para el equipo de rescate..."
               maxlength="500"
             ></textarea>
-            <span class="char-count">{{ form.instrucciones.length }}/500</span>
+            <span class="char-count">{{ form.observaciones.length }}/500</span>
           </div>
 
-          <!-- Recursos necesarios -->
+          <!-- Recursos necesarios (comentado por el momento)
           <div class="form-group">
             <label class="form-label">Recursos necesarios</label>
             <div class="resources-grid">
@@ -137,8 +136,9 @@
               </label>
             </div>
           </div>
+          -->
 
-          <!-- Notificaciones -->
+          <!-- Notificaciones (comentado por el momento)
           <div class="form-group">
             <label class="form-label">Notificaciones</label>
             <div class="notification-options">
@@ -146,12 +146,13 @@
                 <input type="checkbox" v-model="form.notificar_equipo" />
                 <span>Notificar al equipo por SMS/Email</span>
               </label>
-              <label v-if="!complaint.es_anonimo" class="checkbox-option">
+              <label v-if="!complaint.es_anonima" class="checkbox-option">
                 <input type="checkbox" v-model="form.notificar_denunciante" />
                 <span>Notificar al denunciante</span>
               </label>
             </div>
           </div>
+          -->
         </form>
       </div>
 
@@ -175,6 +176,7 @@
 
 <script setup>
 import { ref, computed } from 'vue';
+import complaintService from '@/services/complaintService';
 
 const props = defineProps({
   complaint: {
@@ -190,16 +192,13 @@ const form = ref({
   equipo_id: '',
   fecha_programada: '',
   hora_programada: '',
-  prioridad: 'normal',
-  instrucciones: '',
-  recursos: [],
-  notificar_equipo: true,
-  notificar_denunciante: false
+  prioridad: 'media',
+  observaciones: ''
 });
 
 const isSubmitting = ref(false);
 
-// Equipos disponibles (mock data)
+// Equipos disponibles (mock data - en el futuro vendrá del backend)
 const availableTeams = ref([
   { id: 1, nombre: 'Equipo Alfa', miembros: 4, vehiculo: 'Camioneta 4x4', ocupado: false },
   { id: 2, nombre: 'Equipo Beta', miembros: 3, vehiculo: 'Van de rescate', ocupado: true },
@@ -207,22 +206,12 @@ const availableTeams = ref([
   { id: 4, nombre: 'Equipo Delta', miembros: 3, vehiculo: 'Motocicleta', ocupado: false }
 ]);
 
-// Prioridades
+// Prioridades (usando valores de la BD)
 const priorities = [
-  { value: 'inmediata', label: 'Inmediata', icon: '🚨' },
-  { value: 'alta', label: 'Alta', icon: '⚡' },
-  { value: 'normal', label: 'Normal', icon: '📋' },
-  { value: 'programada', label: 'Programada', icon: '📅' }
-];
-
-// Recursos disponibles
-const resources = [
-  { id: 'jaulas', name: 'Jaulas de transporte', icon: '📦' },
-  { id: 'redes', name: 'Redes de captura', icon: '🥅' },
-  { id: 'sedantes', name: 'Sedantes', icon: '💉' },
-  { id: 'alimento', name: 'Alimento/Agua', icon: '🍖' },
-  { id: 'botiquin', name: 'Botiquín veterinario', icon: '🩺' },
-  { id: 'guantes', name: 'Equipo de protección', icon: '🧤' }
+  { value: 'urgente', label: 'URGENTE' },
+  { value: 'alta', label: 'ALTA' },
+  { value: 'media', label: 'MEDIA' },
+  { value: 'baja', label: 'BAJA' }
 ];
 
 // Computed
@@ -243,19 +232,23 @@ const isFormValid = computed(() => {
 // Helpers
 function getComplaintTypeLabel(type) {
   const labels = {
-    maltrato_fisico: 'Maltrato físico',
+    maltrato: 'Maltrato',
     abandono: 'Abandono',
-    negligencia: 'Negligencia',
-    hacinamiento: 'Hacinamiento',
     animal_herido: 'Animal herido',
-    envenenamiento: 'Envenenamiento'
+    animal_peligroso: 'Animal peligroso',
+    otro: 'Otro'
   };
-  return labels[type] || type;
+  return labels[type] || type || 'Sin tipo';
 }
 
 function getUrgencyLabel(urgency) {
-  const labels = { critico: 'CRÍTICO', alto: 'ALTO', medio: 'MEDIO', bajo: 'BAJO' };
-  return labels[urgency] || urgency;
+  const labels = {
+    urgente: 'URGENTE',
+    alta: 'ALTA',
+    media: 'MEDIA',
+    baja: 'BAJA'
+  };
+  return labels[urgency] || urgency?.toUpperCase() || '';
 }
 
 // Submit
@@ -265,29 +258,31 @@ async function handleSubmit() {
   isSubmitting.value = true;
 
   try {
-    // Simular llamada a API
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Construir fecha_programada completa
+    const fechaProgramada = `${form.value.fecha_programada} ${form.value.hora_programada}:00`;
 
-    const assignmentData = {
+    const rescateData = {
       denuncia_id: props.complaint.id,
-      equipo_id: form.value.equipo_id,
-      equipo_nombre: selectedTeam.value?.nombre,
-      fecha_programada: `${form.value.fecha_programada}T${form.value.hora_programada}`,
-      prioridad: form.value.prioridad,
-      instrucciones: form.value.instrucciones,
-      recursos: form.value.recursos,
-      notificaciones: {
-        equipo: form.value.notificar_equipo,
-        denunciante: form.value.notificar_denunciante
-      }
+      fecha_programada: fechaProgramada,
+      equipo_rescate: {
+        id: form.value.equipo_id,
+        nombre: selectedTeam.value?.nombre,
+        miembros: selectedTeam.value?.miembros,
+        vehiculo: selectedTeam.value?.vehiculo
+      },
+      observaciones: form.value.observaciones || null
     };
 
-    emit('assigned', assignmentData);
+    // Llamar al servicio para crear el rescate
+    const response = await complaintService.createRescate(rescateData);
+
+    // Emitir evento con los datos del rescate creado
+    emit('assigned', response.data);
     emit('close');
 
   } catch (error) {
     console.error('Error al asignar equipo:', error);
-    alert('Error al asignar el equipo. Intente nuevamente.');
+    alert(error.response?.data?.message || 'Error al asignar el equipo. Intente nuevamente.');
   } finally {
     isSubmitting.value = false;
   }
@@ -392,10 +387,18 @@ async function handleSubmit() {
   color: white;
 }
 
-.urgency-critico { background: #A80521; }
-.urgency-alto { background: #FFAB00; color: #333; }
-.urgency-medio { background: #3366CC; }
-.urgency-bajo { background: #737373; }
+.urgency-urgente { background: #A80521; }
+.urgency-alta { background: #FFAB00; color: #333; }
+.urgency-media { background: #3366CC; }
+.urgency-baja { background: #737373; }
+
+.priority-badge-small {
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+}
 
 /* Form */
 .assignment-form {
@@ -483,24 +486,23 @@ async function handleSubmit() {
 
 /* Priority options */
 .priority-options {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .priority-option {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  padding: 0.75rem;
-  border: 2px solid #E0E0E0;
+  padding: 0.5rem;
+  border: 2px solid transparent;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .priority-option:hover {
-  border-color: #3366CC;
+  background: #f0f0f0;
 }
 
 .priority-option.active {
@@ -510,17 +512,6 @@ async function handleSubmit() {
 
 .priority-radio {
   display: none;
-}
-
-.priority-icon {
-  font-size: 1.5rem;
-  margin-bottom: 0.25rem;
-}
-
-.priority-label {
-  font-size: 0.8rem;
-  color: #333;
-  text-align: center;
 }
 
 /* Resources grid */

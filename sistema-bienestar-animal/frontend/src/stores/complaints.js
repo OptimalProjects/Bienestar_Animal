@@ -226,10 +226,32 @@ export const useComplaintsStore = defineStore('complaints', () => {
 
     try {
       const response = await complaintService.createRescate(data);
-      rescates.value.unshift(response.data);
-      return response.data;
+      // Agregar el nuevo rescate a la lista
+      const nuevoRescate = response.data?.data || response.data;
+      rescates.value.unshift(nuevoRescate);
+      return nuevoRescate;
     } catch (err) {
       error.value = err.response?.data?.message || 'Error al crear rescate';
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function actualizarRescate(id, data) {
+    loading.value = true;
+
+    try {
+      const response = await complaintService.updateRescate(id, data);
+      const rescateActualizado = response.data?.data || response.data;
+      // Actualizar en la lista
+      const index = rescates.value.findIndex(r => r.id === id);
+      if (index !== -1) {
+        rescates.value[index] = rescateActualizado;
+      }
+      return rescateActualizado;
+    } catch (err) {
+      error.value = err.response?.data?.message || 'Error al actualizar rescate';
       throw err;
     } finally {
       loading.value = false;
@@ -285,6 +307,7 @@ export const useComplaintsStore = defineStore('complaints', () => {
     fetchMapaCalor,
     fetchRescates,
     crearRescate,
+    actualizarRescate,
     setFilters,
     clearFilters,
     setPage,
