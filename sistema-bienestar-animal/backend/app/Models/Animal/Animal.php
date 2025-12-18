@@ -60,6 +60,7 @@ class Animal extends Model
     protected $appends = [
         'edad_formateada',
         'foto_url',
+        'galeria_urls',
     ];
 
     /**
@@ -145,6 +146,20 @@ class Animal extends Model
         }
 
         return url('storage/' . $this->foto_principal);
+    }
+
+    /**
+     * Accessor: URLs completas de galería de fotos.
+     */
+    public function getGaleriaUrlsAttribute(): array
+    {
+        if (!$this->galeria_fotos || !is_array($this->galeria_fotos)) {
+            return [];
+        }
+
+        return array_map(function ($path) {
+            return url('storage/' . $path);
+        }, $this->galeria_fotos);
     }
 
     /**

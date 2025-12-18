@@ -34,6 +34,12 @@ api.interceptors.request.use(
     // Agregar trace ID para auditoria
     config.headers['X-Trace-ID'] = generateTraceId();
 
+    // Si es FormData, eliminar Content-Type para que axios lo establezca automáticamente
+    // con el boundary correcto para multipart/form-data
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+
     return config;
   },
   (error) => {

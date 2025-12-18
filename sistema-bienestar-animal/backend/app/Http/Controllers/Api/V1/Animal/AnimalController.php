@@ -94,7 +94,13 @@ class AnimalController extends BaseController
     ) {}
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+        // Preprocesar esterilizacion para convertir strings a boolean
+        $data = $request->all();
+        if (isset($data['esterilizacion'])) {
+            $data['esterilizacion'] = filter_var($data['esterilizacion'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        }
+
+        $validator = Validator::make($data, [
             'nombre' => 'nullable|string|max:100',
             'especie' => 'required|string|max:50',
             'raza' => 'nullable|string|max:100',
@@ -105,9 +111,9 @@ class AnimalController extends BaseController
             'tamanio' => 'nullable|in:pequenio,mediano,grande,muy_grande',
             'esterilizacion' => 'nullable|boolean',
             'senias_particulares' => 'nullable|string',
-            'foto_principal' => 'nullable|file|image',
+            'foto_principal' => 'nullable|file|image|max:10240',
             'galeria_fotos' => 'nullable|array',
-            'galeria_fotos.*' => 'file|image',
+            'galeria_fotos.*' => 'file|image|max:10240',
             'fecha_rescate' => 'nullable|date',
             'ubicacion_rescate' => 'nullable|string',
             'estado' => 'required|in:en_calle,en_refugio,en_adopcion,adoptado,fallecido,en_tratamiento',
@@ -120,8 +126,18 @@ class AnimalController extends BaseController
         }
 
         try {
+            // Agregar foto principal si existe
+            if ($request->hasFile('foto_principal')) {
+                $data['foto_principal'] = $request->file('foto_principal');
+            }
+
+            // Agregar galería de fotos si existe
+            if ($request->hasFile('galeria_fotos')) {
+                $data['galeria_fotos'] = $request->file('galeria_fotos');
+            }
+
             $animal = $this->animalService->registrar(
-                $request->all(),
+                $data,
                 auth()->id()
             );
 

@@ -69,6 +69,21 @@
               <dd>{{ animal.veterinario_esterilizacion || animal.neuteringVet || 'No registrado' }}</dd>
             </dl>
           </div>
+
+          <!-- Galería de fotos adicionales -->
+          <div v-if="galeriaFotos.length > 0" class="detail-section govco-bg-hawkes-blue full-width">
+            <h4 class="h6-tipografia-govco section-subtitle govcolor-marine">Galería de fotos ({{ galeriaFotos.length }})</h4>
+            <div class="gallery-grid">
+              <div
+                v-for="(foto, index) in galeriaFotos"
+                :key="index"
+                class="gallery-item"
+                @click="openGalleryImage(foto)"
+              >
+                <img :src="foto" :alt="`Foto ${index + 1} de ${displayId}`" />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -288,6 +303,19 @@ const displayFechaRescate = computed(() => {
   }
 });
 
+// Galería de fotos adicionales
+const galeriaFotos = computed(() => {
+  // Intentar obtener desde galeria_urls (accessor del backend) o galeria_fotos
+  const galeria = props.animal?.galeria_urls || props.animal?.galeria_fotos || [];
+  if (!Array.isArray(galeria) || galeria.length === 0) return [];
+  return galeria.map(foto => resolveMediaUrl(foto));
+});
+
+function openGalleryImage(url) {
+  // Abrir imagen en nueva pestaña para verla en tamaño completo
+  window.open(url, '_blank');
+}
+
 function getStatusLabel(status) {
   const labels = {
     en_calle: 'En calle',
@@ -446,17 +474,46 @@ function handleClose() {
 .detail-image {
   grid-column: 1 / 3;
   width: 100%;
-  height: 300px;
+  aspect-ratio: 16 / 9;
   border-radius: 8px;
   overflow: hidden;
-  background: linear-gradient(135deg, #3366cc 0%, #004884 100%);
-  /* govco-bg-marine to govco-bg-blue-dark */
+  background: #f0f0f0;
 }
 
 .detail-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
+}
+
+/* Galería de fotos */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.gallery-item {
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  background: #f0f0f0;
+}
+
+.gallery-item:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 
 .detail-section {

@@ -12,7 +12,7 @@
         <h3 class="h5-tipografia-govco section-title">Identificación y características básicas</h3>
         
         <div class="form-grid">
-<!-- Nombre -->
+          <!-- Nombre -->
           <InputGovCo
             id="name"
             v-model="form.name"
@@ -231,9 +231,9 @@
               v-model="form.photos"
               accept="image/jpeg,image/jpg,image/png"
               :max-files="10"
-              :max-size-m-b="2"
+              :max-size-m-b="10"
               label="Fotografías del animal"
-              help-text="Opcional. JPG/PNG. Peso máximo: 2 MB por archivo"
+              help-text="Opcional. JPG/PNG. Peso máximo: 10 MB por archivo"
               :required="false"
               :multiple="true"
             />
@@ -276,14 +276,18 @@
             <ButtonGovCo
               type="button"
               variant="secondary"
-              label="Descargar detalles (JSON)"
-              @click="downloadCreatedAnimal"
+              label="Descargar ficha PDF"
+              @click="downloadAnimalPDF"
             />
+            <!--
             <a v-if="detailsUrl" class="details-link" :href="detailsUrl" target="_blank" rel="noopener">
               Abrir endpoint de detalles
             </a>
+            -->
           </div>
+           
         </div>
+       
 
         <div class="result-qr">
           <p class="qr-title"><strong>QR para acceder/descargar detalles</strong></p>
@@ -298,6 +302,7 @@
 
 <script setup>
 import { reactive, ref, onMounted } from 'vue';
+import { jsPDF } from 'jspdf';
 import MapSelector from '../common/MapSelector.vue';
 import InputGovCo from '../common/InputGovCo.vue';
 import CalendarioGovco from '../common/CalendarioGovco.vue';
@@ -355,7 +360,7 @@ const sterilizacionOptions = [
 
 const originOptions = [
   { value: 'rescate', text: 'Rescate' },
-  { value: 'entrega', text: 'Entrega voluntaria' },
+  { value: 'entrega_voluntaria', text: 'Entrega voluntaria' },
   { value: 'otra', text: 'Otra' }
 ];
 
@@ -456,18 +461,240 @@ function setQrForAnimal(animal) {
   qrUrl.value = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(detailsUrl.value)}`;
 }
 
-function downloadCreatedAnimal() {
+// Helper para cargar imagen como base64 para el PDF
+function loadImageAsBase64(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      try {
+        const dataURL = canvas.toDataURL('image/png');
+        resolve(dataURL);
+      } catch (e) {
+        reject(e);
+      }
+    };
+    img.onerror = () => reject(new Error('No se pudo cargar la imagen'));
+    img.src = url;
+  });
+}
+
+async function downloadAnimalPDF() {
   if (!createdAnimal.value) return;
-  const fileName = `${createdAnimal.value.codigo_unico || createdAnimal.value.id || 'animal'}.json`;
-  const blob = new Blob([JSON.stringify(createdAnimal.value, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+
+  const animal = createdAnimal.value;
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  // Colores institucionales
+  const primaryColor = [51, 102, 204]; // #3366CC - Azul institucional
+  const secondaryColor = [0, 72, 132]; // #004884 - Azul oscuro
+  const grayColor = [100, 100, 100];
+
+  let y = 20;
+
+  // === HEADER ===
+  doc.setFillColor(...primaryColor);
+  doc.rect(0, 0, pageWidth, 35, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.text('FICHA DE REGISTRO ANIMAL', pageWidth / 2, 15, { align: 'center' });
+
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Sistema de Bienestar Animal', pageWidth / 2, 24, { align: 'center' });
+
+  doc.setFontSize(10);
+  doc.text(`Fecha de generación: ${new Date().toLocaleDateString('es-CO')}`, pageWidth / 2, 31, { align: 'center' });
+
+  y = 45;
+
+  // === CÓDIGO ÚNICO ===
+  doc.setFillColor(232, 240, 254); // #E8F0FE
+  doc.rect(15, y, pageWidth - 30, 12, 'F');
+  doc.setTextColor(...secondaryColor);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Código: ${animal.codigo_unico || animal.id || 'N/A'}`, pageWidth / 2, y + 8, { align: 'center' });
+
+  y += 20;
+
+  // Función helper para agregar sección
+  function addSection(title, yPos) {
+    doc.setFillColor(...primaryColor);
+    doc.rect(15, yPos, pageWidth - 30, 8, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(title, 20, yPos + 6);
+    return yPos + 12;
+  }
+
+  // Función helper para agregar campo
+  function addField(label, value, xPos, yPos) {
+    doc.setTextColor(...grayColor);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(label, xPos, yPos);
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(String(value || 'No especificado'), xPos, yPos + 5);
+    return yPos + 14;
+  }
+
+  // === SECCIÓN: IDENTIFICACIÓN ===
+  y = addSection('IDENTIFICACIÓN Y CARACTERÍSTICAS', y);
+
+  const col1 = 20;
+  const col2 = 110;
+
+  addField('Nombre', animal.nombre || 'Sin nombre', col1, y);
+  addField('Especie', formatLabel(animal.especie), col2, y);
+  y += 14;
+
+  addField('Raza', animal.raza, col1, y);
+  addField('Color', animal.color, col2, y);
+  y += 14;
+
+  addField('Sexo', formatLabel(animal.sexo), col1, y);
+  addField('Tamaño', formatLabel(animal.tamanio), col2, y);
+  y += 14;
+
+  addField('Edad aproximada', formatEdad(animal.edad_aproximada), col1, y);
+  addField('Esterilizado', animal.esterilizacion ? 'Sí' : 'No', col2, y);
+  y += 18;
+
+  // === SECCIÓN: ESTADO Y CONDICIÓN ===
+  y = addSection('ESTADO Y CONDICIÓN', y);
+
+  addField('Estado actual', formatLabel(animal.estado), col1, y);
+  addField('Condición de salud', formatLabel(animal.estado_salud), col2, y);
+  y += 18;
+
+  // === SECCIÓN: INFORMACIÓN DE RESCATE ===
+  y = addSection('INFORMACIÓN DE RESCATE', y);
+
+  addField('Fecha de ingreso', formatFecha(animal.fecha_rescate), col1, y);
+  addField('Ubicación', animal.ubicacion_rescate || 'No especificada', col2, y);
+  y += 18;
+
+  // === SECCIÓN: OBSERVACIONES ===
+  if (animal.observaciones) {
+    y = addSection('OBSERVACIONES', y);
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+
+    const splitText = doc.splitTextToSize(animal.observaciones, pageWidth - 40);
+    doc.text(splitText, 20, y + 4);
+    y += splitText.length * 5 + 10;
+  }
+
+  // === QR CODE ===
+  // Centrar el QR en la página
+  const qrSize = 30;
+  const qrX = (pageWidth - qrSize) / 2;
+
+  y += 5;
+  doc.setTextColor(...grayColor);
+  doc.setFontSize(9);
+  doc.text('Escanea el código QR para ver detalles en línea:', pageWidth / 2, y, { align: 'center' });
+
+  // Agregar el QR como imagen (usamos la URL del servicio QR)
+  if (qrUrl.value) {
+    try {
+      // Cargar imagen del QR y agregarla al PDF
+      const qrImage = await loadImageAsBase64(qrUrl.value);
+      if (qrImage) {
+        doc.addImage(qrImage, 'PNG', qrX, y + 3, qrSize, qrSize);
+        y += qrSize + 8;
+      }
+    } catch (e) {
+      console.warn('No se pudo cargar el QR en el PDF:', e);
+      y += 10;
+    }
+  }
+
+  // === FOOTER ===
+  const footerY = doc.internal.pageSize.getHeight() - 15;
+  doc.setDrawColor(...primaryColor);
+  doc.setLineWidth(0.5);
+  doc.line(15, footerY - 5, pageWidth - 15, footerY - 5);
+
+  doc.setTextColor(...grayColor);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Sistema de Bienestar Animal - Documento generado automáticamente', pageWidth / 2, footerY, { align: 'center' });
+  doc.text(`ID: ${animal.id || 'N/A'} | Código: ${animal.codigo_unico || 'N/A'}`, pageWidth / 2, footerY + 4, { align: 'center' });
+
+  // Guardar PDF
+  const fileName = `ficha_animal_${animal.codigo_unico || animal.id || 'registro'}.pdf`;
+  doc.save(fileName);
+}
+
+// Helpers para formatear datos en el PDF
+function formatLabel(value) {
+  if (!value) return 'No especificado';
+  const labels = {
+    // Especies
+    canino: 'Canino',
+    felino: 'Felino',
+    equino: 'Equino',
+    otro: 'Otro',
+    // Sexo
+    macho: 'Macho',
+    hembra: 'Hembra',
+    // Tamaño
+    pequenio: 'Pequeño',
+    mediano: 'Mediano',
+    grande: 'Grande',
+    // Estado
+    en_calle: 'En calle',
+    en_refugio: 'En refugio',
+    en_adopcion: 'En adopción',
+    adoptado: 'Adoptado',
+    en_tratamiento: 'En tratamiento',
+    fallecido: 'Fallecido',
+    // Condición
+    excelente: 'Excelente',
+    bueno: 'Bueno',
+    estable: 'Estable',
+    grave: 'Grave',
+    critico: 'Crítico'
+  };
+  return labels[value] || value;
+}
+
+function formatEdad(meses) {
+  if (!meses && meses !== 0) return 'No especificada';
+  if (meses < 12) return `${meses} ${meses === 1 ? 'mes' : 'meses'}`;
+  const anios = Math.floor(meses / 12);
+  const mesesRestantes = meses % 12;
+  if (mesesRestantes === 0) return `${anios} ${anios === 1 ? 'año' : 'años'}`;
+  return `${anios} ${anios === 1 ? 'año' : 'años'} y ${mesesRestantes} ${mesesRestantes === 1 ? 'mes' : 'meses'}`;
+}
+
+function formatFecha(fecha) {
+  if (!fecha) return 'No especificada';
+  try {
+    return new Date(fecha).toLocaleDateString('es-CO', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    });
+  } catch {
+    return fecha;
+  }
 }
 
 async function onSubmit() {
@@ -511,7 +738,12 @@ async function onSubmit() {
       Object.entries(payload).forEach(([k, v]) => {
         if (v === null || v === undefined || v === '') return;
         if (typeof v === 'number' && !Number.isFinite(v)) return;
-        fd.append(k, String(v));
+        // Para booleanos, enviar 1 o 0 (Laravel los interpreta correctamente)
+        if (typeof v === 'boolean') {
+          fd.append(k, v ? '1' : '0');
+        } else {
+          fd.append(k, String(v));
+        }
       });
 
       // 1ra foto como foto_principal, el resto como galeria_fotos[]
@@ -523,9 +755,7 @@ async function onSubmit() {
         if (f) fd.append('galeria_fotos[]', f);
       });
 
-      res = await api.post('/animals', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      res = await api.post('/animals', fd);
     } else {
       res = await api.post('/animals', payload);
     }

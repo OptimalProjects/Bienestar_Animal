@@ -162,14 +162,16 @@ function getStatusLabel(status) {
 .card-image {
   position: relative;
   width: 100%;
-  height: 200px;
-  background: linear-gradient(135deg, #3366cc 0%, #004884 100%);
+  aspect-ratio: 1 / 1;
+  background: #f0f0f0;
+  overflow: hidden;
 }
 
 .card-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
 }
 
 .status-badge {
