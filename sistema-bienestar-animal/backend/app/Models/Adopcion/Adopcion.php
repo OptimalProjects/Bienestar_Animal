@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Adopcion extends Model
 {
@@ -83,6 +84,14 @@ class Adopcion extends Model
     }
 
     /**
+     * Relacion: Devolucion (si el animal fue devuelto).
+     */
+    public function devolucion(): HasOne
+    {
+        return $this->hasOne(Devolucion::class, 'adopcion_id');
+    }
+
+    /**
      * Obtener visita pre-adopcion.
      */
     public function visitaPreAdopcion()
@@ -153,6 +162,14 @@ class Adopcion extends Model
     public function scopeRevocadas($query)
     {
         return $query->where('estado', 'revocada');
+    }
+
+    /**
+     * Scope: Devueltas.
+     */
+    public function scopeDevueltas($query)
+    {
+        return $query->where('estado', 'devuelta');
     }
 
     /**

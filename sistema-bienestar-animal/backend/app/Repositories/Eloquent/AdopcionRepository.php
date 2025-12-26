@@ -183,8 +183,9 @@ class AdopcionRepository extends BaseRepository implements AdopcionRepositoryInt
             $busqueda = $filters['busqueda'];
             $query->where(function ($q) use ($busqueda) {
                 $q->whereHas('adoptante', function ($sub) use ($busqueda) {
-                    $sub->where('nombre_completo', 'like', "%{$busqueda}%")
-                        ->orWhere('documento_identidad', 'like', "%{$busqueda}%");
+                    $sub->where('nombres', 'like', "%{$busqueda}%")
+                        ->orWhere('apellidos', 'like', "%{$busqueda}%")
+                        ->orWhere('numero_documento', 'like', "%{$busqueda}%");
                 })
                 ->orWhereHas('animal', function ($sub) use ($busqueda) {
                     $sub->where('nombre', 'like', "%{$busqueda}%")

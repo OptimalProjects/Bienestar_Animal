@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Adoptions;
 use App\Http\Controllers\Api\V1\BaseController;
 use App\Services\AdopcionService;
 use App\Services\ContratoAdopcionService;
+use App\Services\DenunciaService;
 use App\Models\Adopcion\VisitaDomiciliaria;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -15,7 +16,8 @@ class VisitaSeguimientoController extends BaseController
 {
     public function __construct(
         protected AdopcionService $adopcionService,
-        protected ContratoAdopcionService $contratoService
+        protected ContratoAdopcionService $contratoService,
+        protected DenunciaService $denunciaService
     ) {}
 
     /**
@@ -263,7 +265,104 @@ class VisitaSeguimientoController extends BaseController
                 }
             }
 
-            $responseData = $visita->fresh(['adopcion.animal', 'adopcion.adoptante', 'visitador']);
+            // Variables para respuesta de rescate
+            $rescateIniciado = false;
+            $denunciaInfo = null;
+            $rescateInfo = null;
+
+            // Si es visita de seguimiento post-adopción con resultado crítico, crear denuncia y rescate automáticamente
+            Log::info('Verificando condiciones para rescate automático', [
+                'visita_id' => $visita->id,
+                'tipo_visita' => $visita->tipo_visita,
+                'resultado' => $request->resultado,
+                'es_post_adopcion' => $visita->tipo_visita !== 'pre_adopcion',
+                'es_critica' => $request->resultado === 'critica',
+            ]);
+
+            if ($visita->tipo_visita !== 'pre_adopcion' && $request->resultado === 'critica') {
+                $adopcion = $visita->adopcion;
+                $adopcion->load(['animal', 'adoptante']);
+
+                try {
+                    // Construir descripción para la denuncia
+                    $descripcion = $this->construirDescripcionDenuncia($visita, $adopcion->animal, $adopcion->adoptante);
+
+                    // Crear la denuncia automáticamente
+                    // Nota: usar 'web' como canal hasta que se ejecute la migración que añade 'sistema'
+                    $resultadoDenuncia = $this->denunciaService->registrar([
+                        'canal_recepcion' => 'web',
+                        'tipo_denuncia' => 'maltrato',
+                        'prioridad' => 'urgente',
+                        'descripcion' => $descripcion,
+                        'ubicacion' => $adopcion->adoptante->direccion ?? 'Dirección del adoptante no registrada',
+                        'es_anonima' => false,
+                        'denunciante' => [
+                            'nombres' => 'Sistema de Seguimiento',
+                            'apellidos' => 'Post-Adopción',
+                            'email' => 'seguimiento@sistema.gov.co',
+                        ],
+                    ]);
+
+                    $denuncia = $resultadoDenuncia['denuncia'];
+
+                    // Programar el rescate para hoy
+                    $rescate = $this->denunciaService->registrarRescate($denuncia->id, [
+                        'fecha_programada' => now()->format('Y-m-d'),
+                        'observaciones' => "Rescate automático por visita de seguimiento crítica. Animal: {$adopcion->animal->nombre} ({$adopcion->animal->codigo_unico})",
+                        'animal_id' => $adopcion->animal->id,
+                    ]);
+
+                    // Mantener la denuncia en estado 'recibida' (el servicio la cambia a 'en_atencion')
+                    $denuncia->update(['estado' => 'recibida']);
+
+                    // Vincular la denuncia a la visita
+                    $visita->update(['denuncia_id' => $denuncia->id]);
+
+                    // Revocar la adopción
+                    $adopcion->update([
+                        'estado' => 'revocada',
+                        'motivo_rechazo' => "Adopción revocada por resultado crítico en visita de seguimiento. Proceso de rescate iniciado (Ticket: {$denuncia->numero_ticket})",
+                    ]);
+
+                    // Cambiar estado del animal
+                    $adopcion->animal->update(['estado' => 'en_tratamiento']);
+
+                    $rescateIniciado = true;
+                    $denunciaInfo = [
+                        'id' => $denuncia->id,
+                        'ticket' => $denuncia->numero_ticket,
+                        'tipo' => $denuncia->tipo_denuncia,
+                        'prioridad' => $denuncia->prioridad,
+                        'estado' => 'recibida',
+                    ];
+                    $rescateInfo = [
+                        'id' => $rescate->id,
+                        'fecha_programada' => $rescate->fecha_programada,
+                    ];
+
+                    $mensaje = "Visita registrada con resultado crítico. Se ha iniciado automáticamente un proceso de rescate (Ticket: {$denuncia->numero_ticket}). La adopción ha sido revocada.";
+
+                    Log::info('Rescate iniciado automáticamente por visita crítica', [
+                        'visita_id' => $visita->id,
+                        'adopcion_id' => $adopcion->id,
+                        'denuncia_id' => $denuncia->id,
+                        'denuncia_ticket' => $denuncia->numero_ticket,
+                        'rescate_id' => $rescate->id,
+                        'usuario_id' => auth()->id(),
+                    ]);
+
+                } catch (\Exception $e) {
+                    Log::error('Error al crear denuncia/rescate automático', [
+                        'visita_id' => $visita->id,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                    // No fallar la operación, la visita ya fue registrada
+                    $mensaje = 'Visita registrada con resultado crítico. Nota: No se pudo crear el proceso de rescate automáticamente. Por favor, créelo manualmente desde el módulo de denuncias.';
+                }
+            }
+
+            $responseData = $visita->fresh(['adopcion.animal', 'adopcion.adoptante', 'visitador', 'denuncia']);
 
             // Añadir información adicional si se aprobó la adopción
             if ($adopcionAprobada) {
@@ -271,6 +370,17 @@ class VisitaSeguimientoController extends BaseController
                     'visita' => $responseData,
                     'adopcion_aprobada' => true,
                     'contrato_url' => $contratoGenerado,
+                ];
+            }
+
+            // Añadir información de rescate si se inició
+            if ($rescateIniciado) {
+                $responseData = [
+                    'visita' => is_array($responseData) ? $responseData['visita'] : $responseData,
+                    'rescate_iniciado' => true,
+                    'adopcion_revocada' => true,
+                    'denuncia' => $denunciaInfo,
+                    'rescate' => $rescateInfo,
                 ];
             }
 
@@ -355,7 +465,7 @@ class VisitaSeguimientoController extends BaseController
     public function visitasPorAdopcion(string $adopcionId)
     {
         try {
-            $visitas = VisitaDomiciliaria::with(['visitador'])
+            $visitas = VisitaDomiciliaria::with(['visitador', 'denuncia'])
                 ->where('adopcion_id', $adopcionId)
                 ->orderBy('fecha_programada', 'desc')
                 ->get();
@@ -364,5 +474,91 @@ class VisitaSeguimientoController extends BaseController
         } catch (\Exception $e) {
             return $this->serverErrorResponse('Error al obtener visitas de la adopción');
         }
+    }
+
+    /**
+     * Construir descripción detallada para la denuncia de rescate.
+     */
+    protected function construirDescripcionDenuncia(
+        VisitaDomiciliaria $visita,
+        $animal,
+        $adoptante
+    ): string {
+        $partes = [];
+
+        $partes[] = "RESCATE AUTOMÁTICO POR VISITA DE SEGUIMIENTO POST-ADOPCIÓN CON RESULTADO CRÍTICO";
+        $partes[] = "";
+        $partes[] = "=== DATOS DEL ANIMAL ===";
+        $partes[] = "Nombre: " . ($animal->nombre ?? 'Sin nombre');
+        $partes[] = "Código: " . $animal->codigo_unico;
+        $partes[] = "Especie: " . $animal->especie;
+        $partes[] = "Raza: " . ($animal->raza ?? 'Mestizo');
+
+        $partes[] = "";
+        $partes[] = "=== DATOS DE LA VISITA ===";
+        $partes[] = "Tipo de visita: " . $this->getTipoVisitaTexto($visita->tipo_visita);
+        $partes[] = "Fecha de visita: " . ($visita->fecha_realizada?->format('d/m/Y') ?? now()->format('d/m/Y'));
+
+        if ($visita->condiciones_hogar) {
+            $partes[] = "";
+            $partes[] = "Condiciones del hogar:";
+            if (isset($visita->condiciones_hogar['limpieza'])) {
+                $partes[] = "- Limpieza: " . $visita->condiciones_hogar['limpieza'];
+            }
+            if (isset($visita->condiciones_hogar['espacio'])) {
+                $partes[] = "- Espacio: " . $visita->condiciones_hogar['espacio'];
+            }
+            if (isset($visita->condiciones_hogar['seguridad'])) {
+                $partes[] = "- Seguridad: " . $visita->condiciones_hogar['seguridad'];
+            }
+        }
+
+        if ($visita->estado_animal) {
+            $partes[] = "";
+            $partes[] = "Estado del animal encontrado:";
+            if (isset($visita->estado_animal['salud'])) {
+                $partes[] = "- Salud: " . $visita->estado_animal['salud'];
+            }
+            if (isset($visita->estado_animal['comportamiento'])) {
+                $partes[] = "- Comportamiento: " . $visita->estado_animal['comportamiento'];
+            }
+            if (isset($visita->estado_animal['alimentacion'])) {
+                $partes[] = "- Alimentación: " . $visita->estado_animal['alimentacion'];
+            }
+        }
+
+        if ($visita->observaciones) {
+            $partes[] = "";
+            $partes[] = "=== OBSERVACIONES DE LA VISITA ===";
+            $partes[] = $visita->observaciones;
+        }
+
+        if ($visita->recomendaciones) {
+            $partes[] = "";
+            $partes[] = "=== RECOMENDACIONES ===";
+            $partes[] = $visita->recomendaciones;
+        }
+
+        $partes[] = "";
+        $partes[] = "=== UBICACIÓN DEL RESCATE ===";
+        $partes[] = "Dirección: " . ($adoptante->direccion ?? 'No registrada');
+        $partes[] = "Teléfono contacto: " . ($adoptante->telefono ?? 'No registrado');
+
+        return implode("\n", $partes);
+    }
+
+    /**
+     * Obtener texto legible del tipo de visita.
+     */
+    protected function getTipoVisitaTexto(string $tipo): string
+    {
+        return match($tipo) {
+            'pre_adopcion' => 'Pre-adopción',
+            'seguimiento_1mes' => 'Seguimiento 1 mes',
+            'seguimiento_3meses' => 'Seguimiento 3 meses',
+            'seguimiento_6meses' => 'Seguimiento 6 meses',
+            'extraordinaria' => 'Extraordinaria',
+            default => $tipo,
+        };
     }
 }

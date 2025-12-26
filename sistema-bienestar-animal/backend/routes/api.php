@@ -122,6 +122,14 @@ Route::prefix('v1')->group(function () {
         Route::prefix('adopciones')->group(function () {
             Route::get('/estadisticas', [AdopcionController::class, 'estadisticas']);
             Route::get('/pendientes', [AdopcionController::class, 'pendientes']);
+
+            // Devoluciones
+            Route::get('/devoluciones', [AdopcionController::class, 'listarDevoluciones']);
+            Route::get('/devoluciones/motivos', [AdopcionController::class, 'motivosDevolucion']);
+            Route::get('/devoluciones/estadisticas', [AdopcionController::class, 'estadisticasDevoluciones']);
+            Route::get('/devoluciones/{devolucionId}', [AdopcionController::class, 'obtenerDevolucion']);
+            Route::put('/devoluciones/{devolucionId}/revision', [AdopcionController::class, 'completarRevisionDevolucion']);
+
             Route::get('/', [AdopcionController::class, 'index']);
             Route::post('/', [AdopcionController::class, 'store']);
             Route::get('/{id}', [AdopcionController::class, 'show']);
@@ -130,6 +138,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/{id}/contrato/descargar', [AdopcionController::class, 'descargarContrato']);
             Route::post('/{id}/contrato/firmar', [AdopcionController::class, 'firmarContrato']);
             Route::get('/{id}/estado-contrato', [AdopcionController::class, 'estadoContrato']);
+            Route::post('/{id}/devolucion', [AdopcionController::class, 'registrarDevolucion']);
         });
 
         Route::prefix('visitas-seguimiento')->group(function () {

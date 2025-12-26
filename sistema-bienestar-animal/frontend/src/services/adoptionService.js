@@ -448,12 +448,76 @@ export async function fetchActiveAdoptionsBySearch(term) {
   return response.data;
 }
 
+// ============================================
+// DEVOLUCIONES DE ANIMALES ADOPTADOS
+// ============================================
+
 /**
- * @deprecated Not implemented in backend
+ * Obtener motivos de devolución disponibles
+ * GET /api/v1/adopciones/devoluciones/motivos
+ */
+export async function fetchReturnReasons() {
+  const response = await api.get('/adopciones/devoluciones/motivos');
+  return response.data;
+}
+
+/**
+ * Listar devoluciones
+ * GET /api/v1/adopciones/devoluciones
+ */
+export async function fetchReturns(params = {}) {
+  const response = await api.get('/adopciones/devoluciones', { params });
+  return response.data;
+}
+
+/**
+ * Obtener estadísticas de devoluciones
+ * GET /api/v1/adopciones/devoluciones/estadisticas
+ */
+export async function fetchReturnStats() {
+  const response = await api.get('/adopciones/devoluciones/estadisticas');
+  return response.data;
+}
+
+/**
+ * Obtener detalle de una devolución
+ * GET /api/v1/adopciones/devoluciones/{id}
+ */
+export async function fetchReturn(returnId) {
+  const response = await api.get(`/adopciones/devoluciones/${returnId}`);
+  return response.data;
+}
+
+/**
+ * Registrar devolución de animal adoptado
+ * POST /api/v1/adopciones/{id}/devolucion
+ * @param {string} adoptionId - ID de la adopción
+ * @param {object} payload - Datos de la devolución
+ * @param {string} payload.motivo - Motivo de devolución
+ * @param {string} payload.descripcion_motivo - Descripción detallada
+ * @param {string} payload.estado_animal_devolucion - Estado del animal (bueno, regular, malo, critico)
+ * @param {string} payload.observaciones_estado - Observaciones adicionales
+ * @param {string} payload.fecha_devolucion - Fecha de devolución (opcional)
  */
 export async function registerReturn(adoptionId, payload) {
-  console.warn('registerReturn is not implemented in backend');
-  return { success: false, message: 'Not implemented' };
+  const response = await api.post(`/adopciones/${adoptionId}/devolucion`, payload);
+  return response.data;
+}
+
+/**
+ * Completar revisión veterinaria de devolución
+ * PUT /api/v1/adopciones/devoluciones/{id}/revision
+ * @param {string} returnId - ID de la devolución
+ * @param {object} payload - Datos de la revisión
+ * @param {string} payload.diagnostico - Diagnóstico veterinario
+ * @param {string} payload.observaciones_veterinario - Observaciones
+ * @param {string} payload.recomendaciones - Recomendaciones
+ * @param {boolean} payload.apto_adopcion - Si está apto para re-adopción
+ * @param {string} payload.estado_salud - Estado de salud actual
+ */
+export async function completeReturnReview(returnId, payload) {
+  const response = await api.put(`/adopciones/devoluciones/${returnId}/revision`, payload);
+  return response.data;
 }
 
 /**
@@ -507,13 +571,20 @@ export default {
   rescheduleFollowUpVisit,
   fetchVisitsByAdoption,
 
+  // Returns (Devoluciones)
+  fetchReturnReasons,
+  fetchReturns,
+  fetchReturnStats,
+  fetchReturn,
+  registerReturn,
+  completeReturnReview,
+
   // Legacy functions (deprecated)
   fetchApprovedRequestsWithoutContract,
   scheduleHomeVisit,
   saveHomeVisitReport,
   saveFollowUpResult,
   fetchActiveAdoptionsBySearch,
-  registerReturn,
   fetchAnimalAdoptionHistory,
   registerContractSignature,
 };

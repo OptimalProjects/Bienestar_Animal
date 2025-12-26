@@ -3,6 +3,7 @@
 namespace App\Models\Adopcion;
 
 use App\Models\User\Usuario;
+use App\Models\Denuncia\Denuncia;
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -28,6 +29,7 @@ class VisitaDomiciliaria extends Model
         'resultado',
         'recomendaciones',
         'fotos_respaldo',
+        'denuncia_id',
     ];
 
     protected $casts = [
@@ -73,6 +75,14 @@ class VisitaDomiciliaria extends Model
     public function funcionario(): BelongsTo
     {
         return $this->visitador();
+    }
+
+    /**
+     * Relacion: Denuncia (si se inicio rescate desde esta visita critica).
+     */
+    public function denuncia(): BelongsTo
+    {
+        return $this->belongsTo(Denuncia::class, 'denuncia_id');
     }
 
     /**

@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\V1\Adoptions;
 use App\Http\Controllers\Api\V1\BaseController;
 use App\Services\AdopcionService;
 use App\Services\ContratoAdopcionService;
+use App\Services\DevolucionService;
 use App\Models\Adopcion\Adopcion;
+use App\Models\Adopcion\Devolucion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
@@ -14,7 +16,8 @@ class AdopcionController extends BaseController
 {
     public function __construct(
         protected AdopcionService $adopcionService,
-        protected ContratoAdopcionService $contratoService
+        protected ContratoAdopcionService $contratoService,
+        protected DevolucionService $devolucionService
     ) {}
 
     /**
@@ -497,6 +500,144 @@ class AdopcionController extends BaseController
             return $this->notFoundResponse('Adopcion no encontrada');
         } catch (\Exception $e) {
             return $this->serverErrorResponse('Error al firmar contrato: ' . $e->getMessage());
+        }
+    }
+
+    // ============================================
+    // DEVOLUCIONES
+    // ============================================
+
+    /**
+     * Listar devoluciones.
+     * GET /api/v1/adopciones/devoluciones
+     */
+    public function listarDevoluciones(Request $request)
+    {
+        try {
+            $filters = $request->only([
+                'motivo',
+                'estado_proceso',
+                'fecha_desde',
+                'fecha_hasta',
+                'pendientes_revision',
+            ]);
+
+            $devoluciones = $this->devolucionService->listar(
+                $request->get('per_page', 15),
+                $filters
+            );
+
+            return $this->successResponse($devoluciones);
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Error al listar devoluciones: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Obtener motivos de devolucion disponibles.
+     * GET /api/v1/adopciones/devoluciones/motivos
+     */
+    public function motivosDevolucion()
+    {
+        return $this->successResponse(Devolucion::MOTIVOS);
+    }
+
+    /**
+     * Obtener estadisticas de devoluciones.
+     * GET /api/v1/adopciones/devoluciones/estadisticas
+     */
+    public function estadisticasDevoluciones()
+    {
+        try {
+            $stats = $this->devolucionService->getEstadisticas();
+            return $this->successResponse($stats);
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Error al obtener estadisticas de devoluciones');
+        }
+    }
+
+    /**
+     * Registrar devolucion de animal adoptado.
+     * POST /api/v1/adopciones/{id}/devolucion
+     */
+    public function registrarDevolucion(Request $request, string $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'motivo' => 'required|in:incompatibilidad,cambio_situacion,problemas_comportamiento,enfermedad_animal,enfermedad_adoptante,mudanza,economico,fallecimiento_adoptante,alergias,otro',
+            'descripcion_motivo' => 'required|string|min:10|max:2000',
+            'estado_animal_devolucion' => 'required|in:bueno,regular,malo,critico',
+            'observaciones_estado' => 'nullable|string|max:1000',
+            'fecha_devolucion' => 'nullable|date|before_or_equal:today',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->validationErrorResponse($validator->errors());
+        }
+
+        try {
+            $data = $request->all();
+            $data['adopcion_id'] = $id;
+
+            $resultado = $this->devolucionService->registrarDevolucion($data, auth()->id());
+
+            return $this->createdResponse($resultado, $resultado['mensaje']);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->notFoundResponse('Adopcion no encontrada');
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Error al registrar devolucion: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Obtener detalle de una devolucion.
+     * GET /api/v1/adopciones/devoluciones/{devolucionId}
+     */
+    public function obtenerDevolucion(string $devolucionId)
+    {
+        try {
+            $devolucion = $this->devolucionService->obtener($devolucionId);
+            return $this->successResponse($devolucion);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->notFoundResponse('Devolucion no encontrada');
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Error al obtener devolucion');
+        }
+    }
+
+    /**
+     * Completar revision veterinaria de devolucion.
+     * PUT /api/v1/adopciones/devoluciones/{devolucionId}/revision
+     */
+    public function completarRevisionDevolucion(Request $request, string $devolucionId)
+    {
+        $validator = Validator::make($request->all(), [
+            'diagnostico' => 'required|string|max:2000',
+            'observaciones_veterinario' => 'nullable|string|max:1000',
+            'recomendaciones' => 'nullable|string|max:1000',
+            'apto_adopcion' => 'required|boolean',
+            'estado_salud' => 'required|in:critico,grave,estable,bueno,excelente',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->validationErrorResponse($validator->errors());
+        }
+
+        try {
+            $devolucion = $this->devolucionService->completarRevision(
+                $devolucionId,
+                $request->all(),
+                auth()->id()
+            );
+
+            $mensaje = $request->apto_adopcion
+                ? 'Revision completada. El animal ha sido aprobado para re-adopcion.'
+                : 'Revision completada. El animal requiere tratamiento antes de re-adopcion.';
+
+            return $this->successResponse($devolucion, $mensaje);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->notFoundResponse('Devolucion no encontrada');
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Error al completar revision: ' . $e->getMessage());
         }
     }
 }

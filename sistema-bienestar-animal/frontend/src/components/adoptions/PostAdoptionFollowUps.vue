@@ -104,10 +104,15 @@
               </span>
             </td>
             <td>
-              <span v-if="visit.resultado" class="result-badge" :class="`result-${visit.resultado}`">
-                {{ getResultLabel(visit.resultado) }}
-              </span>
-              <span v-else class="result-badge result-none">Sin resultado</span>
+              <div class="result-cell">
+                <span v-if="visit.resultado" class="result-badge" :class="`result-${visit.resultado}`">
+                  {{ getResultLabel(visit.resultado) }}
+                </span>
+                <span v-else class="result-badge result-none">Sin resultado</span>
+                <span v-if="visit.denuncia_id" class="rescue-badge" title="Rescate iniciado">
+                  Rescate
+                </span>
+              </div>
             </td>
             <td>
               <div class="action-buttons">
@@ -659,7 +664,7 @@ async function submitVisitResult() {
     // Extraer archivos de las fotos seleccionadas
     const fotosArchivos = selectedPhotos.value.map(p => p.file);
 
-    await adoptionService.registerFollowUpResult(
+    const response = await adoptionService.registerFollowUpResult(
       selectedVisit.value.id,
       {
         resultado: registerForm.resultado,
@@ -672,10 +677,35 @@ async function submitVisitResult() {
       fotosArchivos
     );
 
-    if (window.$toast) {
-      window.$toast.success('Visita registrada exitosamente');
+    const responseData = response.data || response;
+
+    // Verificar si se inició un rescate automático (resultado crítico en seguimiento post-adopción)
+    if (responseData.rescate_iniciado) {
+      const ticket = responseData.denuncia?.ticket || 'N/A';
+      if (window.$toast) {
+        window.$toast.warning(
+          'Rescate iniciado automáticamente',
+          `Resultado crítico detectado. Se ha creado la denuncia ${ticket} y se ha programado el rescate. La adopción ha sido revocada.`
+        );
+      } else {
+        alert(`Resultado crítico detectado. Se ha iniciado automáticamente un proceso de rescate.\n\nTicket de denuncia: ${ticket}\n\nLa adopción ha sido revocada.`);
+      }
+    } else if (responseData.adopcion_aprobada) {
+      // Caso de visita pre-adopción satisfactoria
+      if (window.$toast) {
+        window.$toast.success(
+          'Adopción aprobada',
+          'La visita fue satisfactoria y la adopción ha sido aprobada. El contrato está listo para firma.'
+        );
+      } else {
+        alert('La visita fue satisfactoria y la adopción ha sido aprobada. El contrato está listo para firma.');
+      }
     } else {
-      alert('Visita registrada exitosamente');
+      if (window.$toast) {
+        window.$toast.success('Visita registrada exitosamente');
+      } else {
+        alert('Visita registrada exitosamente');
+      }
     }
 
     closeModals();
@@ -900,6 +930,25 @@ onMounted(loadVisits);
 .result-none {
   background: #F5F5F5;
   color: #9E9E9E;
+}
+
+.result-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.rescue-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: #B71C1C;
+  color: white;
+  letter-spacing: 0.5px;
 }
 
 .action-buttons {
