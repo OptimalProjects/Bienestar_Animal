@@ -2,7 +2,7 @@
 <!-- Modal para registrar resultado de operativo de rescate (HU-017) -->
 <template>
   <div class="modal-overlay" @click="$emit('close')">
-    <div class="modal-content" @click.stop>
+    <div class="modal-content modal-large" @click.stop>
       <!-- Header -->
       <div class="modal-header">
         <div class="header-info">
@@ -152,7 +152,7 @@
         <!-- PASO 2: Registrar Animal (solo si exitoso) -->
         <div v-if="currentStep === 1" class="step-content">
           <div class="step-intro">
-            <p>Registre la información del animal rescatado para vincularlo al sistema.</p>
+            <p>Registre la información completa del animal rescatado para vincularlo al sistema.</p>
           </div>
 
           <form @submit.prevent class="result-form">
@@ -189,81 +189,221 @@
               </div>
             </div>
 
-            <!-- Datos del animal (solo si se rescató) -->
+            <!-- Datos completos del animal (solo si se rescató) -->
             <template v-if="form.animal_rescatado === true">
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label required">Especie</label>
-                  <select v-model="form.animal.especie" class="form-control" required>
-                    <option value="">Seleccione...</option>
-                    <option value="canino">Canino</option>
-                    <option value="felino">Felino</option>
-                    <option value="ave">Ave</option>
-                    <option value="otro">Otro</option>
-                  </select>
+              <!-- Sección: Identificación básica -->
+              <div class="animal-section">
+                <h5 class="section-title">Identificación del animal</h5>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Nombre (opcional)</label>
+                    <input
+                      type="text"
+                      v-model="form.animal.nombre"
+                      class="form-control"
+                      placeholder="Si se conoce el nombre..."
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label required">Especie</label>
+                    <select v-model="form.animal.especie" class="form-control" required>
+                      <option value="">Seleccione...</option>
+                      <option value="canino">Canino (Perro)</option>
+                      <option value="felino">Felino (Gato)</option>
+                      <option value="equino">Equino</option>
+                      <option value="ave">Ave</option>
+                      <option value="otro">Otro</option>
+                    </select>
+                  </div>
                 </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Raza (aproximada)</label>
+                    <input
+                      type="text"
+                      v-model="form.animal.raza"
+                      class="form-control"
+                      placeholder="Ej: Mestizo, Labrador, Criollo..."
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Sexo</label>
+                    <select v-model="form.animal.sexo" class="form-control">
+                      <option value="desconocido">Desconocido</option>
+                      <option value="macho">Macho</option>
+                      <option value="hembra">Hembra</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Sección: Características físicas -->
+              <div class="animal-section">
+                <h5 class="section-title">Características físicas</h5>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Color</label>
+                    <input
+                      type="text"
+                      v-model="form.animal.color"
+                      class="form-control"
+                      placeholder="Ej: Negro, Blanco con manchas café..."
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Tamaño</label>
+                    <select v-model="form.animal.tamanio" class="form-control">
+                      <option value="">Seleccione...</option>
+                      <option value="pequenio">Pequeño</option>
+                      <option value="mediano">Mediano</option>
+                      <option value="grande">Grande</option>
+                      <option value="muy_grande">Muy grande</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Edad aproximada (meses)</label>
+                    <input
+                      type="number"
+                      v-model.number="form.animal.edad_aproximada"
+                      class="form-control"
+                      min="0"
+                      placeholder="Ej: 24 (para 2 años)"
+                    />
+                    <span class="form-hint">Ingrese en meses (12 = 1 año)</span>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Peso aproximado (kg)</label>
+                    <input
+                      type="number"
+                      v-model.number="form.animal.peso_actual"
+                      class="form-control"
+                      min="0"
+                      step="0.1"
+                      placeholder="Ej: 15.5"
+                    />
+                  </div>
+                </div>
+
                 <div class="form-group">
-                  <label class="form-label">Raza (aproximada)</label>
+                  <label class="form-label">Señas particulares</label>
+                  <textarea
+                    v-model="form.animal.senias_particulares"
+                    class="form-control textarea"
+                    rows="2"
+                    placeholder="Cicatrices, marcas, collar, microchip visible, etc..."
+                  ></textarea>
+                </div>
+              </div>
+
+              <!-- Sección: Estado de salud -->
+              <div class="animal-section">
+                <h5 class="section-title">Estado de salud al rescate</h5>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label required">Estado de salud</label>
+                    <select v-model="form.animal.estado_salud" class="form-control" required>
+                      <option value="">Seleccione...</option>
+                      <option value="critico">Crítico - Requiere atención inmediata</option>
+                      <option value="grave">Grave - Requiere atención urgente</option>
+                      <option value="estable">Estable - Condición controlada</option>
+                      <option value="bueno">Bueno - Sin problemas aparentes</option>
+                      <option value="excelente">Excelente - Muy buen estado</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">¿Está esterilizado?</label>
+                    <select v-model="form.animal.esterilizacion" class="form-control">
+                      <option :value="null">Desconocido</option>
+                      <option :value="true">Sí</option>
+                      <option :value="false">No</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Observaciones médicas</label>
+                  <textarea
+                    v-model="form.animal.observaciones"
+                    class="form-control textarea"
+                    rows="2"
+                    placeholder="Lesiones, enfermedades visibles, comportamiento, etc..."
+                  ></textarea>
+                </div>
+              </div>
+
+              <!-- Sección: Destino y ubicación -->
+              <div class="animal-section">
+                <h5 class="section-title">Destino del animal</h5>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label required">Estado inicial</label>
+                    <select v-model="form.animal.estado" class="form-control" required>
+                      <option value="">Seleccione...</option>
+                      <option value="en_refugio">En refugio</option>
+                      <option value="en_tratamiento">En tratamiento médico</option>
+                      <option value="en_adopcion">Disponible para adopción</option>
+                      <option value="fallecido">Fallecido</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label required">Destino</label>
+                    <select v-model="form.animal.destino" class="form-control" required>
+                      <option value="">Seleccione...</option>
+                      <option value="refugio">Refugio municipal</option>
+                      <option value="clinica_veterinaria">Clínica veterinaria</option>
+                      <option value="hogar_paso">Hogar de paso</option>
+                      <option value="liberado">Liberado (fauna silvestre)</option>
+                      <option value="fallecido">Fallecido en sitio</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Sección: Fotografías -->
+              <div class="animal-section">
+                <h5 class="section-title">Fotografías del animal</h5>
+
+                <div class="photo-upload-area">
                   <input
-                    type="text"
-                    v-model="form.animal.raza"
-                    class="form-control"
-                    placeholder="Ej: Mestizo, Labrador..."
+                    type="file"
+                    ref="fileInput"
+                    @change="handleFileSelect"
+                    accept="image/jpeg,image/jpg,image/png"
+                    multiple
+                    class="file-input-hidden"
                   />
+                  <button type="button" @click="triggerFileInput" class="upload-btn">
+                    <span class="upload-icon">📷</span>
+                    <span>Agregar fotografías</span>
+                  </button>
+                  <p class="upload-hint">JPG o PNG. Máximo 10 MB por archivo.</p>
                 </div>
-              </div>
 
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Sexo</label>
-                  <select v-model="form.animal.sexo" class="form-control">
-                    <option value="">Desconocido</option>
-                    <option value="macho">Macho</option>
-                    <option value="hembra">Hembra</option>
-                  </select>
+                <!-- Preview de fotos -->
+                <div v-if="form.animal.fotos.length > 0" class="photos-preview">
+                  <div
+                    v-for="(foto, index) in form.animal.fotos"
+                    :key="index"
+                    class="photo-item"
+                  >
+                    <img :src="foto.preview" :alt="`Foto ${index + 1}`" />
+                    <button
+                      type="button"
+                      @click="removePhoto(index)"
+                      class="photo-remove"
+                      title="Eliminar foto"
+                    >×</button>
+                    <span v-if="index === 0" class="photo-badge">Principal</span>
+                  </div>
                 </div>
-                <div class="form-group">
-                  <label class="form-label">Edad aproximada</label>
-                  <input
-                    type="text"
-                    v-model="form.animal.edad_aproximada"
-                    class="form-control"
-                    placeholder="Ej: 2 años, 6 meses..."
-                  />
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label required">Estado del animal al rescate</label>
-                <select v-model="form.animal.estado_rescate" class="form-control" required>
-                  <option value="">Seleccione...</option>
-                  <option value="critico">Crítico</option>
-                  <option value="grave">Grave</option>
-                  <option value="estable">Estable</option>
-                  <option value="bueno">Bueno</option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">Descripción física</label>
-                <textarea
-                  v-model="form.animal.descripcion"
-                  class="form-control textarea"
-                  rows="2"
-                  placeholder="Color, tamaño, señas particulares..."
-                ></textarea>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label required">Destino del animal</label>
-                <select v-model="form.animal.destino" class="form-control" required>
-                  <option value="">Seleccione...</option>
-                  <option value="refugio">Refugio municipal</option>
-                  <option value="clinica_veterinaria">Clínica veterinaria</option>
-                  <option value="hogar_paso">Hogar de paso</option>
-                  <option value="liberado">Liberado (fauna silvestre)</option>
-                  <option value="fallecido">Fallecido</option>
-                </select>
               </div>
             </template>
 
@@ -312,12 +452,53 @@
             </template>
 
             <template v-if="form.exitoso && form.animal_rescatado">
-              <div class="summary-section">
+              <div class="summary-section animal-summary">
                 <div class="summary-label">Animal rescatado:</div>
-                <div class="summary-value">
-                  {{ form.animal.especie || 'No especificado' }} -
-                  Estado: {{ estadoAnimalLabel(form.animal.estado_rescate) }} -
-                  Destino: {{ destinoAnimalLabel(form.animal.destino) }}
+                <div class="summary-value animal-details">
+                  <div class="animal-info-grid">
+                    <div class="animal-info-item">
+                      <span class="info-label">Especie:</span>
+                      <span class="info-value">{{ especieLabel(form.animal.especie) }}</span>
+                    </div>
+                    <div v-if="form.animal.raza" class="animal-info-item">
+                      <span class="info-label">Raza:</span>
+                      <span class="info-value">{{ form.animal.raza }}</span>
+                    </div>
+                    <div class="animal-info-item">
+                      <span class="info-label">Sexo:</span>
+                      <span class="info-value">{{ sexoLabel(form.animal.sexo) }}</span>
+                    </div>
+                    <div v-if="form.animal.color" class="animal-info-item">
+                      <span class="info-label">Color:</span>
+                      <span class="info-value">{{ form.animal.color }}</span>
+                    </div>
+                    <div v-if="form.animal.tamanio" class="animal-info-item">
+                      <span class="info-label">Tamaño:</span>
+                      <span class="info-value">{{ tamanioLabel(form.animal.tamanio) }}</span>
+                    </div>
+                    <div v-if="form.animal.edad_aproximada" class="animal-info-item">
+                      <span class="info-label">Edad:</span>
+                      <span class="info-value">{{ formatEdad(form.animal.edad_aproximada) }}</span>
+                    </div>
+                    <div class="animal-info-item">
+                      <span class="info-label">Estado salud:</span>
+                      <span class="info-value" :class="`health-${form.animal.estado_salud}`">
+                        {{ estadoSaludLabel(form.animal.estado_salud) }}
+                      </span>
+                    </div>
+                    <div class="animal-info-item">
+                      <span class="info-label">Estado:</span>
+                      <span class="info-value">{{ estadoAnimalLabel(form.animal.estado) }}</span>
+                    </div>
+                    <div class="animal-info-item">
+                      <span class="info-label">Destino:</span>
+                      <span class="info-value">{{ destinoAnimalLabel(form.animal.destino) }}</span>
+                    </div>
+                  </div>
+                  <div v-if="form.animal.fotos.length > 0" class="animal-photos-summary">
+                    <span class="info-label">Fotos:</span>
+                    <span class="info-value">{{ form.animal.fotos.length }} fotografía(s) adjunta(s)</span>
+                  </div>
                 </div>
               </div>
             </template>
@@ -389,6 +570,7 @@
 import { ref, computed } from 'vue';
 import { useComplaintsStore } from '@/stores/complaints';
 import complaintService from '@/services/complaintService';
+import api from '@/services/api';
 
 const props = defineProps({
   complaint: {
@@ -401,6 +583,7 @@ const emit = defineEmits(['close', 'saved']);
 
 const complaintsStore = useComplaintsStore();
 const isSubmitting = ref(false);
+const fileInput = ref(null);
 
 // Stepper
 const currentStep = ref(0);
@@ -430,15 +613,69 @@ const form = ref({
   hora_ejecucion: new Date().toTimeString().slice(0, 5),
   animal_rescatado: null,
   animal: {
+    nombre: '',
     especie: '',
     raza: '',
-    sexo: '',
-    edad_aproximada: '',
-    estado_rescate: '',
-    descripcion: '',
-    destino: ''
+    sexo: 'desconocido',
+    color: '',
+    tamanio: '',
+    edad_aproximada: null,
+    peso_actual: null,
+    senias_particulares: '',
+    estado_salud: '',
+    estado: '',
+    esterilizacion: null,
+    observaciones: '',
+    destino: '',
+    fotos: [] // Array de { file: File, preview: string }
   }
 });
+
+// Funciones para manejo de fotos
+function triggerFileInput() {
+  fileInput.value?.click();
+}
+
+function handleFileSelect(event) {
+  const files = event.target.files;
+  if (!files || files.length === 0) return;
+
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+
+  for (const file of files) {
+    if (!allowedTypes.includes(file.type)) {
+      if (window.$toast) {
+        window.$toast.warning('Archivo no válido', `${file.name} no es un formato permitido (JPG/PNG).`);
+      }
+      continue;
+    }
+
+    if (file.size > maxSize) {
+      if (window.$toast) {
+        window.$toast.warning('Archivo muy grande', `${file.name} supera el límite de 10 MB.`);
+      }
+      continue;
+    }
+
+    // Crear preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      form.value.animal.fotos.push({
+        file: file,
+        preview: e.target.result
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // Limpiar input para permitir seleccionar el mismo archivo de nuevo
+  event.target.value = '';
+}
+
+function removePhoto(index) {
+  form.value.animal.fotos.splice(index, 1);
+}
 
 // Computed
 const todayDate = computed(() => {
@@ -476,7 +713,8 @@ const canProceed = computed(() => {
 
     // Si hay animal, validar campos requeridos
     return form.value.animal.especie !== '' &&
-           form.value.animal.estado_rescate !== '' &&
+           form.value.animal.estado_salud !== '' &&
+           form.value.animal.estado !== '' &&
            form.value.animal.destino !== '';
   }
 
@@ -498,7 +736,8 @@ const isFormValid = computed(() => {
   if (form.value.animal_rescatado === true) {
     return baseValid &&
            form.value.animal.especie !== '' &&
-           form.value.animal.estado_rescate !== '' &&
+           form.value.animal.estado_salud !== '' &&
+           form.value.animal.estado !== '' &&
            form.value.animal.destino !== '';
   }
 
@@ -540,10 +779,23 @@ function formatDateTime(dateString) {
 
 function estadoAnimalLabel(estado) {
   const estados = {
+    en_refugio: 'En refugio',
+    en_tratamiento: 'En tratamiento',
+    en_adopcion: 'En adopción',
+    adoptado: 'Adoptado',
+    fallecido: 'Fallecido',
+    en_calle: 'En calle'
+  };
+  return estados[estado] || estado || 'No especificado';
+}
+
+function estadoSaludLabel(estado) {
+  const estados = {
     critico: 'Crítico',
     grave: 'Grave',
     estable: 'Estable',
-    bueno: 'Bueno'
+    bueno: 'Bueno',
+    excelente: 'Excelente'
   };
   return estados[estado] || estado || 'No especificado';
 }
@@ -554,9 +806,49 @@ function destinoAnimalLabel(destino) {
     clinica_veterinaria: 'Clínica veterinaria',
     hogar_paso: 'Hogar de paso',
     liberado: 'Liberado',
-    fallecido: 'Fallecido'
+    fallecido: 'Fallecido en sitio'
   };
   return destinos[destino] || destino || 'No especificado';
+}
+
+function especieLabel(especie) {
+  const especies = {
+    canino: 'Canino (Perro)',
+    felino: 'Felino (Gato)',
+    equino: 'Equino',
+    ave: 'Ave',
+    otro: 'Otro'
+  };
+  return especies[especie] || especie || 'No especificada';
+}
+
+function sexoLabel(sexo) {
+  const sexos = {
+    macho: 'Macho',
+    hembra: 'Hembra',
+    desconocido: 'Desconocido'
+  };
+  return sexos[sexo] || sexo || 'Desconocido';
+}
+
+function tamanioLabel(tamanio) {
+  const tamanios = {
+    pequenio: 'Pequeño',
+    mediano: 'Mediano',
+    grande: 'Grande',
+    muy_grande: 'Muy grande'
+  };
+  return tamanios[tamanio] || tamanio || 'No especificado';
+}
+
+function formatEdad(meses) {
+  if (!meses) return 'Desconocida';
+  const anios = Math.floor(meses / 12);
+  const mesesRestantes = meses % 12;
+  const partes = [];
+  if (anios > 0) partes.push(`${anios} año${anios > 1 ? 's' : ''}`);
+  if (mesesRestantes > 0) partes.push(`${mesesRestantes} mes${mesesRestantes > 1 ? 'es' : ''}`);
+  return partes.join(' y ') || 'Desconocida';
 }
 
 // Submit
@@ -576,26 +868,97 @@ async function handleSubmit() {
     // Construir fecha_ejecucion completa
     const fechaEjecucion = `${form.value.fecha_ejecucion} ${form.value.hora_ejecucion}:00`;
 
-    // 1. Actualizar el rescate
+    let animalCreado = null;
+
+    // 1. Si hay animal rescatado, crear el animal en el sistema PRIMERO
+    if (form.value.exitoso && form.value.animal_rescatado && form.value.animal.especie) {
+      console.log('Registrando animal rescatado...');
+
+      // Preparar datos del animal
+      const animalData = {
+        nombre: form.value.animal.nombre || null,
+        especie: form.value.animal.especie,
+        raza: form.value.animal.raza || null,
+        sexo: form.value.animal.sexo || 'desconocido',
+        color: form.value.animal.color || null,
+        tamanio: form.value.animal.tamanio || null,
+        edad_aproximada: form.value.animal.edad_aproximada || null,
+        peso_actual: form.value.animal.peso_actual || null,
+        senias_particulares: form.value.animal.senias_particulares || null,
+        estado_salud: form.value.animal.estado_salud,
+        estado: form.value.animal.estado,
+        esterilizacion: form.value.animal.esterilizacion,
+        observaciones: form.value.animal.observaciones || null,
+        fecha_rescate: form.value.fecha_ejecucion,
+        ubicacion_rescate: props.complaint.ubicacion || props.complaint.direccion || null,
+        procedencia: 'rescate'
+      };
+
+      // Verificar si hay fotos para usar FormData
+      const hasPhotos = form.value.animal.fotos.length > 0;
+
+      if (hasPhotos) {
+        // Usar FormData para enviar con fotos
+        const fd = new FormData();
+
+        // Agregar campos del animal
+        Object.entries(animalData).forEach(([key, value]) => {
+          if (value === null || value === undefined || value === '') return;
+          if (typeof value === 'boolean') {
+            fd.append(key, value ? '1' : '0');
+          } else {
+            fd.append(key, String(value));
+          }
+        });
+
+        // Agregar foto principal (primera foto)
+        const primeraFoto = form.value.animal.fotos[0]?.file;
+        if (primeraFoto) {
+          fd.append('foto_principal', primeraFoto);
+        }
+
+        // Agregar galería (resto de fotos)
+        form.value.animal.fotos.slice(1).forEach((foto) => {
+          if (foto.file) {
+            fd.append('galeria_fotos[]', foto.file);
+          }
+        });
+
+        const response = await api.post('/animals', fd);
+        animalCreado = response.data?.data ?? response.data;
+      } else {
+        // Sin fotos, enviar JSON normal
+        const response = await api.post('/animals', animalData);
+        animalCreado = response.data?.data ?? response.data;
+      }
+
+      console.log('Animal registrado:', animalCreado);
+    }
+
+    // 2. Actualizar el rescate
     const rescateData = {
       exitoso: form.value.exitoso,
       observaciones: form.value.observaciones,
       fecha_ejecucion: fechaEjecucion,
       motivo_fallo: form.value.exitoso === false ? form.value.motivo_fallo : null,
-      estado_animal_rescate: form.value.animal_rescatado ? form.value.animal.estado_rescate : null,
-      destino: form.value.animal_rescatado ? form.value.animal.destino : null
+      estado_animal_rescate: form.value.animal_rescatado ? form.value.animal.estado_salud : null,
+      destino: form.value.animal_rescatado ? form.value.animal.destino : null,
+      animal_id: animalCreado?.id || null
     };
 
     await complaintService.updateRescate(rescateId, rescateData);
 
-    // 2. Si hay animal rescatado, crear el animal en el sistema
-    // TODO: Implementar cuando tengas el endpoint de animales
-    if (form.value.exitoso && form.value.animal_rescatado && form.value.animal.especie) {
-      console.log('Animal a registrar:', form.value.animal);
-      // await animalService.crear(form.value.animal);
+    // 3. Si se creó animal, vincular al rescate
+    if (animalCreado?.id) {
+      try {
+        await complaintService.vincularAnimal(rescateId, animalCreado.id);
+        console.log('Animal vinculado al rescate');
+      } catch (vinculaError) {
+        console.warn('No se pudo vincular animal al rescate:', vinculaError);
+      }
     }
 
-    // 3. Actualizar estado de la denuncia
+    // 4. Actualizar estado de la denuncia
     const nuevoEstado = form.value.exitoso ? 'resuelta' : 'cerrada';
     const estadoData = {
       estado: nuevoEstado,
@@ -612,10 +975,10 @@ async function handleSubmit() {
 
     // Notificar éxito
     if (window.$toast) {
-      window.$toast.success(
-        'Resultado registrado',
-        `El operativo ha sido marcado como ${form.value.exitoso ? 'exitoso' : 'no exitoso'}.`
-      );
+      const mensaje = animalCreado
+        ? `El operativo fue exitoso y se registró el animal (${animalCreado.codigo_unico || 'ID: ' + animalCreado.id}).`
+        : `El operativo ha sido marcado como ${form.value.exitoso ? 'exitoso' : 'no exitoso'}.`;
+      window.$toast.success('Resultado registrado', mensaje);
     }
 
     emit('saved');
@@ -659,6 +1022,10 @@ async function handleSubmit() {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.modal-content.modal-large {
+  max-width: 800px;
 }
 
 .modal-header {
@@ -962,6 +1329,191 @@ async function handleSubmit() {
   font-size: 0.9rem;
 }
 
+/* Animal sections */
+.animal-section {
+  background: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.animal-section .section-title {
+  margin: 0 0 1rem 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #3366cc;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.form-hint {
+  font-size: 0.75rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+/* Photo upload */
+.photo-upload-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem;
+  border: 2px dashed #d0d0d0;
+  border-radius: 8px;
+  background: #fafafa;
+  margin-bottom: 1rem;
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+.upload-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: #3366cc;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.upload-btn:hover {
+  background: #2850a0;
+}
+
+.upload-icon {
+  font-size: 1.25rem;
+}
+
+.upload-hint {
+  margin: 0.75rem 0 0 0;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.photos-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 0.75rem;
+}
+
+.photo-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f0f0f0;
+}
+
+.photo-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  background: rgba(168, 5, 33, 0.9);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-remove:hover {
+  background: #a80521;
+}
+
+.photo-badge {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  padding: 2px 8px;
+  background: #068460;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: 4px;
+}
+
+/* Animal summary in cierre step */
+.animal-summary {
+  flex-direction: column;
+}
+
+.animal-summary .summary-label {
+  margin-bottom: 0.75rem;
+}
+
+.animal-details {
+  background: #f5f5f5;
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+.animal-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.animal-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.animal-info-item .info-label {
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.animal-info-item .info-value {
+  font-weight: 500;
+  color: #333;
+}
+
+.animal-photos-summary {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.animal-photos-summary .info-label {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.animal-photos-summary .info-value {
+  font-weight: 500;
+  color: #068460;
+}
+
+/* Health status colors */
+.health-critico { color: #a80521; font-weight: 600; }
+.health-grave { color: #e65100; font-weight: 600; }
+.health-estable { color: #ff9800; }
+.health-bueno { color: #068460; }
+.health-excelente { color: #2e7d32; font-weight: 600; }
+
 /* Summary card (cierre) */
 .summary-card {
   background: #f5f5f5;
@@ -1076,6 +1628,12 @@ async function handleSubmit() {
 .govco-bg-concrete { background: #737373; }
 .govco-bg-elf-green { background: #068460; }
 
+@media (max-width: 768px) {
+  .animal-info-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 576px) {
   .stepper {
     flex-wrap: wrap;
@@ -1119,6 +1677,14 @@ async function handleSubmit() {
 
   .govco-btn {
     width: 100%;
+  }
+
+  .animal-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .photos-preview {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 </style>

@@ -11,6 +11,7 @@ import ComplaintsView from '../views/ComplaintsView.vue';
 import AdoptionsView from '../views/AdoptionsView.vue';
 import AdminView from '../views/AdminView.vue';
 import AdoptionsCoordinatorView from '../views/AdoptionsCoordinatorView.vue';
+import AdoptionStatusQuery from '../components/adoptions/AdoptionStatusQuery.vue';
 
 // Roles
 import { getCurrentRole, ROLES } from '../composables/useRol.js';
@@ -100,6 +101,16 @@ const routes = [
     component: AdoptionsView,
     meta: {
       title: 'Adopciones - Sistema Bienestar Animal',
+      requiresAuth: false,
+      layout: 'app'
+    }
+  },
+  {
+    path: '/adopciones/consultar',
+    name: 'adoption-status-query',
+    component: AdoptionStatusQuery,
+    meta: {
+      title: 'Consultar Estado de Adopción - Sistema Bienestar Animal',
       requiresAuth: false,
       layout: 'app'
     }

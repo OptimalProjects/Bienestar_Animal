@@ -64,10 +64,67 @@ export async function fetchAdoptionRequests(filters = {}) {
 }
 
 /**
- * Enviar solicitud de adopción
+ * Enviar solicitud de adopción (con archivos)
+ * POST /api/v1/adopciones/solicitud
+ *
+ * @param {Object} adoptanteData - Datos del adoptante
+ * @param {string} animalId - ID del animal
+ * @param {Object} solicitudData - Datos adicionales de la solicitud
+ * @param {Object} archivos - { copia_cedula, comprobante_domicilio }
+ */
+export async function submitAdoptionRequest(adoptanteData, animalId, solicitudData = {}, archivos = {}) {
+  const formData = new FormData();
+
+  // Animal
+  formData.append('animal_id', animalId);
+
+  // Datos del adoptante (prefijo adoptante.)
+  Object.keys(adoptanteData).forEach(key => {
+    const value = adoptanteData[key];
+    if (value !== null && value !== undefined) {
+      // Convertir booleanos a "1" o "0" para que Laravel los interprete correctamente
+      if (typeof value === 'boolean') {
+        formData.append(`adoptante[${key}]`, value ? '1' : '0');
+      } else {
+        formData.append(`adoptante[${key}]`, value);
+      }
+    }
+  });
+
+  // Datos de la solicitud
+  Object.keys(solicitudData).forEach(key => {
+    const value = solicitudData[key];
+    if (value !== null && value !== undefined) {
+      // Convertir booleanos a "1" o "0"
+      if (typeof value === 'boolean') {
+        formData.append(key, value ? '1' : '0');
+      } else {
+        formData.append(key, value);
+      }
+    }
+  });
+
+  // Archivos
+  if (archivos.copia_cedula) {
+    formData.append('copia_cedula', archivos.copia_cedula);
+  }
+  if (archivos.comprobante_domicilio) {
+    formData.append('comprobante_domicilio', archivos.comprobante_domicilio);
+  }
+
+  const response = await api.post('/adopciones/solicitud', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+}
+
+/**
+ * Enviar solicitud de adopción simple (sin archivos - legacy)
  * POST /api/v1/adopciones
  */
-export async function submitAdoptionRequest(payload) {
+export async function submitAdoptionRequestSimple(payload) {
   const response = await api.post('/adopciones', payload);
   return response.data;
 }
@@ -126,12 +183,85 @@ export async function fetchAdoptionContract(requestId) {
 }
 
 /**
+ * Descargar contrato de adopción como PDF
+ * GET /api/v1/adopciones/{id}/contrato/descargar
+ */
+export async function downloadAdoptionContract(requestId) {
+  const response = await api.get(`/adopciones/${requestId}/contrato/descargar`, {
+    responseType: 'blob'
+  });
+  return response.data;
+}
+
+/**
+ * Firmar contrato de adopción electrónicamente
+ * POST /api/v1/adopciones/{id}/contrato/firmar
+ * @param {string} requestId - ID de la adopción
+ * @param {string} firmaBase64 - Imagen de la firma en Base64
+ */
+export async function signAdoptionContract(requestId, firmaBase64) {
+  const response = await api.post(`/adopciones/${requestId}/contrato/firmar`, {
+    firma: firmaBase64,
+    acepta_terminos: true,
+  });
+  return response.data;
+}
+
+/**
+ * Obtener estado del contrato y adopción
+ * GET /api/v1/adopciones/{id}/estado-contrato
+ */
+export async function fetchContractStatus(requestId) {
+  const response = await api.get(`/adopciones/${requestId}/estado-contrato`);
+  return response.data;
+}
+
+/**
+ * @deprecated Use downloadAdoptionContract instead
  * Generar/descargar contrato de adopción (PDF)
- * GET /api/v1/adopciones/{id}/contrato
+ * GET /api/v1/adopciones/{id}/contrato/descargar
  */
 export async function generateAdoptionContract(requestId) {
-  const response = await api.get(`/adopciones/${requestId}/contrato`, {
-    responseType: 'blob'
+  return downloadAdoptionContract(requestId);
+}
+
+// ============================================
+// CONSULTA PÚBLICA DE ADOPCIONES (SIN AUTENTICACIÓN)
+// ============================================
+
+/**
+ * Consultar estado de adopción públicamente (sin autenticación)
+ * GET /api/v1/adopciones/consulta-publica
+ * @param {string} tipoDocumento - Tipo de documento (CC, CE, TI, PA, PEP)
+ * @param {string} numeroDocumento - Número de documento
+ * @param {string} codigoAdopcion - Código de adopción (opcional)
+ */
+export async function consultarAdopcionPublica(tipoDocumento, numeroDocumento, codigoAdopcion = null) {
+  const params = {
+    tipo_documento: tipoDocumento,
+    numero_documento: numeroDocumento,
+  };
+  if (codigoAdopcion) {
+    params.codigo_adopcion = codigoAdopcion;
+  }
+  const response = await api.get('/adopciones/consulta-publica', { params });
+  return response.data;
+}
+
+/**
+ * Firmar contrato de adopción públicamente (sin autenticación)
+ * POST /api/v1/adopciones/{id}/contrato/firmar-publico
+ * @param {string} adopcionId - ID de la adopción
+ * @param {string} tipoDocumento - Tipo de documento del adoptante
+ * @param {string} numeroDocumento - Número de documento del adoptante
+ * @param {string} firmaBase64 - Imagen de la firma en Base64
+ */
+export async function firmarContratoPublico(adopcionId, tipoDocumento, numeroDocumento, firmaBase64) {
+  const response = await api.post(`/adopciones/${adopcionId}/contrato/firmar-publico`, {
+    tipo_documento: tipoDocumento,
+    numero_documento: numeroDocumento,
+    firma: firmaBase64,
+    acepta_terminos: true,
   });
   return response.data;
 }
@@ -186,20 +316,69 @@ export async function fetchFollowUpVisit(visitId) {
 }
 
 /**
- * Registrar resultado de visita de seguimiento
- * PUT /api/v1/visitas-seguimiento/{id}/registrar
+ * Registrar resultado de visita de seguimiento (con fotos de respaldo)
+ * POST /api/v1/visitas-seguimiento/{id}/registrar
+ *
+ * @param {string} visitId - ID de la visita
+ * @param {Object} resultData - Datos del resultado
+ * @param {File[]} fotos - Array de archivos de fotos (opcional)
  */
-export async function registerFollowUpResult(visitId, resultData) {
-  const response = await api.put(`/visitas-seguimiento/${visitId}/registrar`, resultData);
+export async function registerFollowUpResult(visitId, resultData, fotos = []) {
+  const formData = new FormData();
+
+  // Agregar datos básicos
+  if (resultData.resultado) {
+    formData.append('resultado', resultData.resultado);
+  }
+  if (resultData.fecha_realizada) {
+    formData.append('fecha_realizada', resultData.fecha_realizada);
+  }
+  if (resultData.observaciones) {
+    formData.append('observaciones', resultData.observaciones);
+  }
+  if (resultData.recomendaciones) {
+    formData.append('recomendaciones', resultData.recomendaciones);
+  }
+
+  // Agregar condiciones_hogar como array asociativo
+  if (resultData.condiciones_hogar) {
+    Object.keys(resultData.condiciones_hogar).forEach(key => {
+      if (resultData.condiciones_hogar[key]) {
+        formData.append(`condiciones_hogar[${key}]`, resultData.condiciones_hogar[key]);
+      }
+    });
+  }
+
+  // Agregar estado_animal como array asociativo
+  if (resultData.estado_animal) {
+    Object.keys(resultData.estado_animal).forEach(key => {
+      if (resultData.estado_animal[key]) {
+        formData.append(`estado_animal[${key}]`, resultData.estado_animal[key]);
+      }
+    });
+  }
+
+  // Agregar fotos de respaldo
+  if (fotos && fotos.length > 0) {
+    fotos.forEach((foto) => {
+      formData.append('fotos_respaldo[]', foto);
+    });
+  }
+
+  const response = await api.post(`/visitas-seguimiento/${visitId}/registrar`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return response.data;
 }
 
 /**
- * Cancelar visita de seguimiento
- * PUT /api/v1/visitas-seguimiento/{id}/cancelar
+ * Eliminar visita programada (no realizada)
+ * DELETE /api/v1/visitas-seguimiento/{id}
  */
-export async function cancelFollowUpVisit(visitId, motivo) {
-  const response = await api.put(`/visitas-seguimiento/${visitId}/cancelar`, { motivo });
+export async function deleteFollowUpVisit(visitId) {
+  const response = await api.delete(`/visitas-seguimiento/${visitId}`);
   return response.data;
 }
 
@@ -207,8 +386,20 @@ export async function cancelFollowUpVisit(visitId, motivo) {
  * Reprogramar visita de seguimiento
  * PUT /api/v1/visitas-seguimiento/{id}/reprogramar
  */
-export async function rescheduleFollowUpVisit(visitId, newDate) {
-  const response = await api.put(`/visitas-seguimiento/${visitId}/reprogramar`, { nueva_fecha: newDate });
+export async function rescheduleFollowUpVisit(visitId, fecha_programada, observaciones = '') {
+  const response = await api.put(`/visitas-seguimiento/${visitId}/reprogramar`, {
+    fecha_programada,
+    observaciones
+  });
+  return response.data;
+}
+
+/**
+ * Obtener visitas de una adopción específica
+ * GET /api/v1/visitas-seguimiento/adopcion/{adopcionId}
+ */
+export async function fetchVisitsByAdoption(adopcionId) {
+  const response = await api.get(`/visitas-seguimiento/adopcion/${adopcionId}`);
   return response.data;
 }
 
@@ -288,12 +479,22 @@ export default {
   fetchPendingAdoptions,
   fetchAdoptionRequests,
   submitAdoptionRequest,
+  submitAdoptionRequestSimple,
   fetchAdoptionRequest,
   evaluateAdoptionRequest,
   approveAdoptionRequest,
   rejectAdoptionRequest,
+
+  // Contract functions
   fetchAdoptionContract,
+  downloadAdoptionContract,
+  signAdoptionContract,
+  fetchContractStatus,
   generateAdoptionContract,
+
+  // Public consultation (no auth required)
+  consultarAdopcionPublica,
+  firmarContratoPublico,
 
   // Follow-up visits
   fetchPendingFollowUps,
@@ -302,8 +503,9 @@ export default {
   scheduleFollowUpVisit,
   fetchFollowUpVisit,
   registerFollowUpResult,
-  cancelFollowUpVisit,
+  deleteFollowUpVisit,
   rescheduleFollowUpVisit,
+  fetchVisitsByAdoption,
 
   // Legacy functions (deprecated)
   fetchApprovedRequestsWithoutContract,

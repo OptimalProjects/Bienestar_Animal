@@ -39,13 +39,19 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/login', [LoginController::class, 'login']);
     Route::post('/auth/mfa/verify', [LoginController::class, 'verificarMfa']);
 
-    // Catalogo de adopcion (publico)
-    Route::get('/animals/catalogo-adopcion', [AnimalController::class, 'index'])
-        ->defaults('estado', 'en_adopcion');
+    // Catalogo de adopcion (publico) - Solo animales en estado 'en_adopcion' y saludables
+    Route::get('/animals/catalogo-adopcion', [AnimalController::class, 'catalogoAdopcion']);
 
     // Denuncias publicas
     Route::post('/denuncias', [DenunciaController::class, 'store']);
     Route::get('/denuncias/consultar/{ticket}', [DenunciaController::class, 'consultarTicket']);
+
+    // Solicitud de adopcion (publico)
+    Route::post('/adopciones/solicitud', [AdopcionController::class, 'store']);
+
+    // Consulta publica de estado de adopcion (sin autenticacion)
+    Route::get('/adopciones/consulta-publica', [AdopcionController::class, 'consultaPublica']);
+    Route::post('/adopciones/{id}/contrato/firmar-publico', [AdopcionController::class, 'firmarContratoPublico']);
 
     // ============================================
     // RUTAS PROTEGIDAS (Requieren autenticacion)
@@ -121,17 +127,21 @@ Route::prefix('v1')->group(function () {
             Route::get('/{id}', [AdopcionController::class, 'show']);
             Route::put('/{id}/evaluar', [AdopcionController::class, 'evaluar']);
             Route::get('/{id}/contrato', [AdopcionController::class, 'contrato']);
+            Route::get('/{id}/contrato/descargar', [AdopcionController::class, 'descargarContrato']);
+            Route::post('/{id}/contrato/firmar', [AdopcionController::class, 'firmarContrato']);
+            Route::get('/{id}/estado-contrato', [AdopcionController::class, 'estadoContrato']);
         });
 
         Route::prefix('visitas-seguimiento')->group(function () {
             Route::get('/pendientes', [VisitaSeguimientoController::class, 'pendientes']);
             Route::get('/requieren-visita', [VisitaSeguimientoController::class, 'requierenVisita']);
+            Route::get('/adopcion/{adopcionId}', [VisitaSeguimientoController::class, 'visitasPorAdopcion']);
             Route::get('/', [VisitaSeguimientoController::class, 'index']);
             Route::post('/', [VisitaSeguimientoController::class, 'store']);
             Route::get('/{id}', [VisitaSeguimientoController::class, 'show']);
-            Route::put('/{id}/registrar', [VisitaSeguimientoController::class, 'registrar']);
-            Route::put('/{id}/cancelar', [VisitaSeguimientoController::class, 'cancelar']);
+            Route::post('/{id}/registrar', [VisitaSeguimientoController::class, 'registrar']);
             Route::put('/{id}/reprogramar', [VisitaSeguimientoController::class, 'reprogramar']);
+            Route::delete('/{id}', [VisitaSeguimientoController::class, 'destroy']);
         });
 
         // ============================================

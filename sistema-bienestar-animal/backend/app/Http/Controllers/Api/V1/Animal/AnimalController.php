@@ -240,6 +240,53 @@ class AnimalController extends BaseController
     }
 
     /**
+     * Catálogo de adopción (público).
+     * GET /api/v1/animals/catalogo-adopcion
+     */
+    public function catalogoAdopcion(Request $request)
+    {
+        try {
+            $query = Animal::disponiblesAdopcion()
+                ->saludable()
+                ->with(['historialClinico']);
+
+            // Filtro por especie
+            if ($request->has('especie') && $request->especie) {
+                $query->where('especie', $request->especie);
+            }
+
+            // Filtro por tamaño
+            if ($request->has('tamanio') && $request->tamanio) {
+                $query->where('tamanio', $request->tamanio);
+            }
+
+            // Filtro por sexo
+            if ($request->has('sexo') && $request->sexo) {
+                $query->where('sexo', $request->sexo);
+            }
+
+            // Filtro por rango de edad (en meses)
+            if ($request->has('edad_min') && $request->edad_min) {
+                $query->where('edad_aproximada', '>=', (int)$request->edad_min);
+            }
+            if ($request->has('edad_max') && $request->edad_max) {
+                $query->where('edad_aproximada', '<=', (int)$request->edad_max);
+            }
+
+            // Ordenamiento por defecto: más recientes primero
+            $query->orderBy('created_at', 'desc');
+
+            // Sin paginación para catálogo público (o paginación grande)
+            $perPage = $request->get('per_page', 50);
+            $animals = $query->paginate($perPage);
+
+            return $this->successResponse($animals, 'Catálogo de adopción obtenido exitosamente');
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Error al obtener catálogo: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Obtener estadísticas de animales.
      * GET /api/v1/animals/statistics
      */
