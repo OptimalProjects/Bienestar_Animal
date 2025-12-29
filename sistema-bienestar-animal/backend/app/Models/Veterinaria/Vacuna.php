@@ -28,19 +28,25 @@ class Vacuna extends Model
         'observaciones',
         'reacciones_adversas',
         'estado',
+        'nombre_vacuna',
+        'fecha_vencimiento',
+        'dosis',
+        'via_administracion',
+        'sitio_aplicacion',
+        'numero_dosis',
     ];
 
     protected $casts = [
         'fecha_aplicacion' => 'date',
         'fecha_proxima_dosis' => 'date',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
+        'fecha_vencimiento' => 'date',
+        'dosis' => 'decimal:2',
     ];
 
     /**
      * Relacion: Historial clinico.
      */
-    public function historialClinico(): BelongsTo
+    public function historialClinico()
     {
         return $this->belongsTo(HistorialClinico::class, 'historial_clinico_id');
     }
@@ -48,7 +54,7 @@ class Vacuna extends Model
     /**
      * Relacion: Tipo de vacuna.
      */
-    public function tipoVacuna(): BelongsTo
+    public function tipoVacuna()
     {
         return $this->belongsTo(TipoVacuna::class, 'tipo_vacuna_id');
     }
@@ -56,7 +62,7 @@ class Vacuna extends Model
     /**
      * Relacion: Veterinario que aplico la vacuna.
      */
-    public function veterinario(): BelongsTo
+    public function veterinario()
     {
         return $this->belongsTo(Veterinario::class, 'veterinario_id');
     }

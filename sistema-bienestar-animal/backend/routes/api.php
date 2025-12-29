@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 // Controllers
 use App\Http\Controllers\Api\V1\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Animal\AnimalController;
+use App\Http\Controllers\Api\V1\Veterinary\VeterinarioController;
 use App\Http\Controllers\Api\V1\Veterinary\ConsultaController;
 use App\Http\Controllers\Api\V1\Veterinary\VacunaController;
 use App\Http\Controllers\Api\V1\Veterinary\CirugiaController;
@@ -87,6 +88,8 @@ Route::prefix('v1')->group(function () {
         // ============================================
         // MODULO: VETERINARIA
         // ============================================
+        Route::get('/veterinarios', [VeterinarioController::class, 'index']);
+        
         Route::prefix('consultas')->group(function () {
             Route::get('/estadisticas', [ConsultaController::class, 'estadisticas']);
             Route::get('/hoy', [ConsultaController::class, 'consultasHoy']);

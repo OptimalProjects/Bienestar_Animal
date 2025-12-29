@@ -13,161 +13,135 @@
       <p>Cargando datos...</p>
     </div>
 
-    <form v-else ref="formEl" @submit.prevent="onSubmit" novalidate>
+    <form v-else @submit.prevent="onSubmit" novalidate>
       <!-- SECCIÓN 1: DATOS GENERALES -->
       <div class="form-section">
         <h3 class="h5-tipografia-govco section-title">Datos generales</h3>
 
         <div class="form-grid">
           <!-- Animal -->
-          <div class="input-like-govco">
-            <label for="animal">Animal<span aria-required="true">*</span></label>
-            <div class="desplegable-govco" data-type="basic">
-              <select
-                id="animal"
-                v-model="form.animalId"
-                class="browser-default"
-              >
-                <option value="" disabled>Seleccione un animal</option>
-                <option
-                  v-for="animal in animals"
-                  :key="animal.id"
-                  :value="animal.id"
-                >
-                  {{ animal.name }} ({{ animal.microchip }})
-                </option>
-              </select>
-            </div>
-            <span v-if="errors.animalId" class="alert-desplegable-govco">
-              {{ errors.animalId }}
-            </span>
-          </div>
+          <DesplegableGovco
+            id="animal-select"
+            v-model="form.animalId"
+            label="Animal"
+            placeholder="Seleccione un animal"
+            :options="animalOptions"
+            :required="true"
+            :error="!!errors.animalId"
+            :alert-text="errors.animalId"
+          />
 
-          <!-- Veterinario principal -->
-          <div class="input-like-govco">
-            <label for="veterinarian">
-              Veterinario responsable<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco" data-type="basic">
-              <select
-                id="veterinarian"
-                v-model="form.veterinarianId"
-                class="browser-default"
-              >
-                <option value="" disabled>Seleccione veterinario</option>
-                <option
-                  v-for="vet in veterinarians"
-                  :key="vet.id"
-                  :value="vet.id"
-                >
-                  {{ vet.name }} ({{ vet.license }})
-                </option>
-              </select>
-            </div>
-            <span v-if="errors.veterinarianId" class="alert-desplegable-govco">
-              {{ errors.veterinarianId }}
-            </span>
-          </div>
+          <!-- Veterinario cirujano -->
+          <DesplegableGovco
+            id="cirujano-select"
+            v-model="form.cirujanoId"
+            label="Veterinario cirujano"
+            placeholder="Seleccione veterinario cirujano"
+            :options="veterinarianOptions"
+            :required="true"
+            :error="!!errors.cirujanoId"
+            :alert-text="errors.cirujanoId"
+          />
 
           <!-- Tipo cirugía -->
-          <div class="entradas-de-texto-govco">
-            <label for="surgeryType">
-              Tipo de cirugía<span aria-required="true">*</span>
-            </label>
-            <input
-              id="surgeryType"
-              v-model="form.surgeryType"
-              type="text"
-              placeholder="Esterilización, laparotomía exploratoria, etc."
-            />
-            <span v-if="errors.surgeryType" class="error-text">
-              {{ errors.surgeryType }}
-            </span>
-          </div>
+          <DesplegableGovco
+            id="tipo-cirugia-select"
+            v-model="form.tipoCirugia"
+            label="Tipo de cirugía"
+            placeholder="Seleccione tipo de cirugía"
+            :options="tiposCirugia"
+            :required="true"
+            :error="!!errors.tipoCirugia"
+            :alert-text="errors.tipoCirugia"
+          />
 
-          <!-- Urgencia -->
-          <div class="input-like-govco">
-            <label for="urgency">Tipo de procedimiento</label>
-            <div class="desplegable-govco" data-type="basic">
-              <select
-                id="urgency"
-                v-model="form.urgency"
-                class="browser-default"
-              >
-                <option value="programada">Programada</option>
-                <option value="emergencia">Emergencia</option>
-              </select>
-            </div>
-          </div>
+          <!-- Estado -->
+          <DesplegableGovco
+            id="estado-select"
+            v-model="form.estado"
+            label="Estado de la cirugía"
+            :options="estadosOptions"
+            :required="true"
+          />
 
-          <!-- Fecha y hora -->
-          <div class="entradas-de-texto-govco">
-            <label for="surgeryDate">
-              Fecha y hora<span aria-required="true">*</span>
-            </label>
-            <input
-              id="surgeryDate"
-              v-model="form.surgeryDateTime"
-              type="datetime-local"
-            />
-            <span v-if="errors.surgeryDateTime" class="error-text">
-              {{ errors.surgeryDateTime }}
-            </span>
-          </div>
+          <!-- Fecha programada -->
+          <CalendarioGovco
+            id="fecha-programada"
+            input-id="fecha-programada-input"
+            v-model="form.fechaProgramada"
+            label="Fecha programada"
+            placeholder="Seleccione fecha"
+            :required="true"
+            :error="!!errors.fechaProgramada"
+            :alert-text="errors.fechaProgramada"
+          />
+
+          <!-- Fecha realización (si ya se realizó) -->
+          <CalendarioGovco
+            v-if="form.estado === 'realizada'"
+            id="fecha-realizacion"
+            input-id="fecha-realizacion-input"
+            v-model="form.fechaRealizacion"
+            label="Fecha de realización"
+            placeholder="Seleccione fecha"
+            :max="new Date().toISOString().split('T')[0]"
+          />
 
           <!-- Duración -->
-          <div class="entradas-de-texto-govco">
-            <label for="duration">
-              Duración (minutos)<span aria-required="true">*</span>
-            </label>
-            <input
-              id="duration"
-              v-model.number="form.durationMinutes"
-              type="number"
-              min="0"
-            />
-            <span v-if="errors.durationMinutes" class="error-text">
-              {{ errors.durationMinutes }}
-            </span>
-          </div>
+          <InputGovCo
+            id="duracion-input"
+            v-model="form.duracionMinutos"
+            label="Duración (minutos)"
+            type="number"
+            placeholder="90"
+            :min="0"
+            :required="true"
+            :error="!!errors.duracionMinutos"
+            :alert-text="errors.duracionMinutos"
+          />
+
+          <!-- Resultado (si ya se realizó) -->
+          <DesplegableGovco
+            v-if="form.estado === 'realizada'"
+            id="resultado-select"
+            v-model="form.resultado"
+            label="Resultado de la cirugía"
+            :options="resultadosOptions"
+          />
         </div>
       </div>
 
-      <!-- SECCIÓN 2: DETALLES Y ANESTESIA -->
+      <!-- SECCIÓN 2: DESCRIPCIÓN Y ANESTESIA -->
       <div class="form-section">
         <h3 class="h5-tipografia-govco section-title">
-          Detalles de la cirugía
+          Descripción del procedimiento
         </h3>
 
         <div class="form-grid">
-          <div class="entradas-de-texto-govco full-width">
-            <label for="anesthesia">
-              Anestesia utilizada<span aria-required="true">*</span>
-            </label>
-            <textarea
-              id="anesthesia"
-              v-model="form.anesthesia"
-              rows="2"
-              placeholder="Protocolo anestésico, medicamentos, dosis..."
+          <div class="full-width">
+            <InputGovCo
+              id="descripcion-input"
+              v-model="form.descripcion"
+              label="Descripción del procedimiento"
+              type="textarea"
+              placeholder="Describa el procedimiento quirúrgico realizado..."
+              :required="true"
+              :error="!!errors.descripcion"
+              :alert-text="errors.descripcion"
             />
-            <span v-if="errors.anesthesia" class="error-text">
-              {{ errors.anesthesia }}
-            </span>
           </div>
 
-          <div class="entradas-de-texto-govco full-width">
-            <label for="findings">
-              Hallazgos quirúrgicos<span aria-required="true">*</span>
-            </label>
-            <textarea
-              id="findings"
-              v-model="form.findings"
-              rows="4"
-              placeholder="Descripción de hallazgos intraoperatorios"
+          <div class="full-width">
+            <InputGovCo
+              id="anestesia-input"
+              v-model="form.tipoAnestesia"
+              label="Tipo de anestesia utilizada"
+              type="textarea"
+              placeholder="Protocolo anestésico, medicamentos, dosis..."
+              :required="form.estado === 'realizada'"
+              :error="!!errors.tipoAnestesia"
+              :alert-text="errors.tipoAnestesia"
             />
-            <span v-if="errors.findings" class="error-text">
-              {{ errors.findings }}
-            </span>
           </div>
         </div>
       </div>
@@ -179,29 +153,76 @@
         </h3>
 
         <div class="form-grid">
-          <div class="entradas-de-texto-govco">
-            <label for="assistant">Ayudante</label>
-            <input
-              id="assistant"
-              v-model="form.assistantName"
-              type="text"
-              placeholder="Nombre del ayudante"
+          <!-- Anestesiólogo -->
+          <DesplegableGovco
+            id="anestesiologo-select"
+            v-model="form.anestesiologoId"
+            label="Anestesiólogo"
+            placeholder="Seleccione anestesiólogo"
+            :options="veterinarianOptions"
+          />
+
+          <!-- Asistentes (campo de texto por ahora, luego se puede mejorar a multi-select) -->
+          <InputGovCo
+            id="asistentes-input"
+            v-model="form.asistentesTexto"
+            label="Asistentes"
+            placeholder="Nombres de los asistentes (separados por coma)"
+            help-text="Ejemplo: Dr. Juan Pérez, Aux. María López"
+          />
+        </div>
+      </div>
+
+      <!-- SECCIÓN 4: RESULTADO Y OBSERVACIONES (si ya se realizó) -->
+      <div v-if="form.estado === 'realizada'" class="form-section">
+        <h3 class="h5-tipografia-govco section-title">
+          Resultado y observaciones
+        </h3>
+
+        <div class="form-grid">
+          <div class="full-width">
+            <InputGovCo
+              id="complicaciones-input"
+              v-model="form.complicaciones"
+              label="Complicaciones"
+              type="textarea"
+              placeholder="Describa cualquier complicación presentada durante el procedimiento..."
             />
           </div>
 
-          <div class="entradas-de-texto-govco">
-            <label for="anesthetist">Anestesista</label>
-            <input
-              id="anesthetist"
-              v-model="form.anesthetistName"
-              type="text"
-              placeholder="Nombre del anestesista"
+          <div class="full-width">
+            <InputGovCo
+              id="postoperatorio-input"
+              v-model="form.postoperatorio"
+              label="Indicaciones postoperatorias"
+              type="textarea"
+              placeholder="Cuidados postoperatorios, medicación, restricciones..."
             />
+          </div>
+
+          <!-- Estado del animal -->
+          <DesplegableGovco
+            id="estado-animal-select"
+            v-model="form.estadoAnimal"
+            label="Estado del animal"
+            :options="estadosAnimalOptions"
+          />
+
+          <!-- Seguimiento requerido -->
+          <div class="checkbox-wrapper full-width">
+            <input
+              id="seguimiento-checkbox"
+              v-model="form.seguimientoRequerido"
+              type="checkbox"
+            />
+            <label for="seguimiento-checkbox">
+              Requiere seguimiento postoperatorio
+            </label>
           </div>
         </div>
       </div>
 
-      <!-- SECCIÓN 4: DOCUMENTACIÓN -->
+      <!-- SECCIÓN 5: DOCUMENTACIÓN -->
       <div class="form-section">
         <h3 class="h5-tipografia-govco section-title">
           Documentación del procedimiento
@@ -214,6 +235,7 @@
               accept="image/*"
               :max-files="10"
               :max-size-m-b="10"
+              :multiple="true"
               label="Fotografías del procedimiento"
               help-text="Opcional. Máximo 10 imágenes, 10MB cada una."
             />
@@ -221,93 +243,32 @@
         </div>
       </div>
 
-      <!-- SECCIÓN 5: SEGUIMIENTO -->
-      <div class="form-section">
-        <h3 class="h5-tipografia-govco section-title">
-          Seguimiento postoperatorio
-        </h3>
-
-        <div class="form-grid">
-          <div class="checkbox-govco full-width">
-            <input
-              id="autoFollowups"
-              v-model="form.autoFollowups"
-              type="checkbox"
-            />
-            <label for="autoFollowups">
-              Programar controles postoperatorios automáticos
-            </label>
-          </div>
-
-          <div class="entradas-de-texto-govco">
-            <label for="followupCount">Número de controles</label>
-            <input
-              id="followupCount"
-              v-model.number="form.followupCount"
-              type="number"
-              min="1"
-              :disabled="!form.autoFollowups"
-            />
-          </div>
-
-          <div class="entradas-de-texto-govco">
-            <label for="followupInterval">
-              Intervalo entre controles (días)
-            </label>
-            <input
-              id="followupInterval"
-              v-model.number="form.followupIntervalDays"
-              type="number"
-              min="1"
-              :disabled="!form.autoFollowups"
-            />
-          </div>
-
-          <div class="entradas-de-texto-govco">
-            <label for="firstFollowup">
-              Primer control postoperatorio
-            </label>
-            <input
-              id="firstFollowup"
-              v-model="form.firstFollowupDate"
-              type="date"
-              :disabled="!form.autoFollowups"
-            />
-          </div>
-
-          <div class="checkbox-govco full-width">
-            <input
-              id="notifyAdopter"
-              v-model="form.notifyAdopter"
-              type="checkbox"
-            />
-            <label for="notifyAdopter">
-              Enviar notificaciones de seguimiento al adoptante
-            </label>
-          </div>
-        </div>
-      </div>
-
       <!-- ACCIONES -->
       <div class="form-actions">
-        <button
-          type="button"
-          class="govco-btn govco-bg-concrete"
+        <ButtonGovCo
+          label="Cancelar"
+          variant="secondary"
           @click="resetForm"
-        >
-          Cancelar
-        </button>
-        <button type="submit" class="govco-btn govco-bg-elf-green">
-          Guardar cirugía
-        </button>
+        />
+        <ButtonGovCo
+          type="submit"
+          label="Guardar cirugía"
+          variant="primary"
+          :loading="isSubmitting"
+          :disabled="isSubmitting"
+        />
       </div>
     </form>
   </section>
 </template>
 
 <script setup>
-import { reactive, ref, onMounted, watch, nextTick } from 'vue';
+import { reactive, ref, onMounted, computed, watch } from 'vue';
+import ButtonGovCo from '../common/ButtonGovCo.vue';
+import CalendarioGovco from '../common/CalendarioGovco.vue';
+import DesplegableGovco from '../common/DesplegableGovco.vue';
 import FileUploader from '../common/FileUploader.vue';
+import InputGovCo from '../common/InputGovCo.vue';
 import { useVeterinaryStore } from '@/stores/veterinary';
 import { useAnimalsStore } from '@/stores/animals';
 import animalService from '@/services/animalService';
@@ -326,7 +287,6 @@ const props = defineProps({
 
 const veterinaryStore = useVeterinaryStore();
 const animalsStore = useAnimalsStore();
-const formEl = ref(null);
 const isSubmitting = ref(false);
 const loadingData = ref(true);
 
@@ -334,53 +294,108 @@ const loadingData = ref(true);
 const animals = ref([]);
 const veterinarians = ref([]);
 
-// Función para reinicializar componentes GOV.CO
-function initGovCoComponents() {
-  console.log('🔄 Inicializando componentes GOV.CO...');
+// Opciones para desplegables
+const tiposCirugia = [
+  { value: 'esterilizacion', text: 'Esterilización' },
+  { value: 'castracion', text: 'Castración' },
+  { value: 'ortopedica', text: 'Ortopédica' },
+  { value: 'abdominal', text: 'Abdominal' },
+  { value: 'oftalmologica', text: 'Oftalmológica' },
+  { value: 'dental', text: 'Dental' },
+  { value: 'oncologica', text: 'Oncológica' },
+  { value: 'emergencia', text: 'Emergencia' },
+  { value: 'otra', text: 'Otra' }
+];
 
-  nextTick(() => {
-    // Intentar con window.GOVCo
-    if (window.GOVCo?.init) {
-      const dropdowns = document.querySelectorAll('.surgery-form .desplegable-govco');
-      console.log(`📦 Encontrados ${dropdowns.length} dropdowns`);
-      dropdowns.forEach((dd, index) => {
-        try {
-          window.GOVCo.init(dd.parentElement || dd);
-          console.log(`✅ Dropdown ${index + 1} inicializado`);
-        } catch (e) {
-          console.warn(`⚠️ Error en dropdown ${index + 1}:`, e);
-        }
-      });
-    }
+const estadosOptions = [
+  { value: 'programada', text: 'Programada' },
+  { value: 'realizada', text: 'Realizada' },
+  { value: 'cancelada', text: 'Cancelada' }
+];
 
-    // Intentar con reinitGovCo global
-    if (window.reinitGovCo) {
-      setTimeout(() => {
-        window.reinitGovCo();
-        console.log('✅ reinitGovCo ejecutado');
-      }, 100);
-    }
-  });
-}
+const resultadosOptions = [
+  { value: 'exitosa', text: 'Exitosa' },
+  { value: 'con_complicaciones', text: 'Con complicaciones' },
+  { value: 'fallida', text: 'Fallida' }
+];
+
+const estadosAnimalOptions = [
+  { value: 'en_tratamiento', text: 'En tratamiento' },
+  { value: 'en_recuperacion', text: 'En recuperación' },
+  { value: 'estable', text: 'Estable' }
+];
+
+const animalOptions = computed(() =>
+  animals.value.map(animal => ({
+    value: animal.id,
+    text: `${animal.name} (${animal.microchip})`
+  }))
+);
+
+const veterinarianOptions = computed(() =>
+  veterinarians.value.map(vet => ({
+    value: vet.id,
+    text: `${vet.name} (${vet.license})`
+  }))
+);
+
+// Formulario alineado con backend
+const form = reactive({
+  // Campos básicos
+  animalId: '',
+  historialClinicoId: '',
+  cirujanoId: '',
+  anestesiologoId: '',
+  tipoCirugia: '',
+  descripcion: '',
+  
+  // Fechas
+  fechaProgramada: '',
+  fechaRealizacion: '',
+  
+  // Detalles quirúrgicos
+  duracionMinutos: null,
+  tipoAnestesia: '',
+  asistentesTexto: '', // Se convertirá a array antes de enviar
+  
+  // Resultado
+  estado: 'programada',
+  resultado: 'exitosa',
+  complicaciones: '',
+  postoperatorio: '',
+  estadoAnimal: '',
+  seguimientoRequerido: false,
+  
+  // Documentación
+  photos: []
+});
+
+const errors = reactive({
+  animalId: '',
+  cirujanoId: '',
+  tipoCirugia: '',
+  descripcion: '',
+  fechaProgramada: '',
+  duracionMinutos: '',
+  tipoAnestesia: ''
+});
 
 // Cargar datos iniciales
 async function loadInitialData() {
   loadingData.value = true;
-  console.log('🔄 SurgeryForm: Cargando datos iniciales...');
+  console.log('📄 SurgeryForm: Cargando datos iniciales...');
 
   try {
     // Cargar animales
     console.log('📦 Cargando animales...');
     let animalsData = [];
 
-    // Intentar primero con el store
     try {
       await animalsStore.fetchAnimals();
       animalsData = animalsStore.animals || [];
       console.log('✅ Animales desde store:', animalsData.length);
     } catch (storeError) {
       console.warn('⚠️ Error con store, intentando servicio directo:', storeError);
-      // Fallback al servicio directo
       const animalsResponse = await animalService.getAll();
       animalsData = animalsResponse?.data?.data || animalsResponse?.data || [];
       console.log('✅ Animales desde servicio:', animalsData.length);
@@ -393,7 +408,7 @@ async function loadInitialData() {
       historialClinicoId: animal.historial_clinico?.id || animal.historial_clinico_id
     }));
 
-    console.log('✅ Animales procesados:', animals.value.length, animals.value);
+    console.log('✅ Animales procesados:', animals.value.length);
 
     // Cargar veterinarios
     console.log('📦 Cargando veterinarios...');
@@ -410,7 +425,7 @@ async function loadInitialData() {
       license: vet.tarjeta_profesional || vet.licencia || 'N/A'
     }));
 
-    console.log('✅ Veterinarios procesados:', veterinarians.value.length, veterinarians.value);
+    console.log('✅ Veterinarios procesados:', veterinarians.value.length);
 
     // Pre-seleccionar si vienen props
     if (props.animalId) {
@@ -421,12 +436,6 @@ async function loadInitialData() {
       form.historialClinicoId = props.historialClinicoId;
     }
 
-    // Reinicializar GOV.CO después de cargar datos
-    await nextTick();
-    setTimeout(() => {
-      initGovCoComponents();
-    }, 200);
-
   } catch (error) {
     console.error('❌ Error cargando datos iniciales:', error);
     alert('Error al cargar datos. Por favor recargue la página.');
@@ -436,55 +445,26 @@ async function loadInitialData() {
   }
 }
 
-const form = reactive({
-  animalId: '',
-  historialClinicoId: '',
-  veterinarianId: '',
-  surgeryType: '',
-  urgency: 'programada',
-  surgeryDateTime: '',
-  durationMinutes: null,
-  anesthesia: '',
-  findings: '',
-  assistantName: '',
-  anesthetistName: '',
-  photos: [],
-  autoFollowups: true,
-  followupCount: 2,
-  followupIntervalDays: 7,
-  firstFollowupDate: '',
-  notifyAdopter: true
-});
-
-const errors = reactive({
-  animalId: '',
-  veterinarianId: '',
-  surgeryType: '',
-  surgeryDateTime: '',
-  durationMinutes: '',
-  anesthesia: '',
-  findings: ''
-});
-
 function resetForm() {
   Object.assign(form, {
     animalId: '',
     historialClinicoId: '',
-    veterinarianId: '',
-    surgeryType: '',
-    urgency: 'programada',
-    surgeryDateTime: '',
-    durationMinutes: null,
-    anesthesia: '',
-    findings: '',
-    assistantName: '',
-    anesthetistName: '',
-    photos: [],
-    autoFollowups: true,
-    followupCount: 2,
-    followupIntervalDays: 7,
-    firstFollowupDate: '',
-    notifyAdopter: true
+    cirujanoId: '',
+    anestesiologoId: '',
+    tipoCirugia: '',
+    descripcion: '',
+    fechaProgramada: '',
+    fechaRealizacion: '',
+    duracionMinutos: null,
+    tipoAnestesia: '',
+    asistentesTexto: '',
+    estado: 'programada',
+    resultado: 'exitosa',
+    complicaciones: '',
+    postoperatorio: '',
+    estadoAnimal: '',
+    seguimientoRequerido: false,
+    photos: []
   });
 
   Object.keys(errors).forEach(k => (errors[k] = ''));
@@ -499,28 +479,28 @@ function validate() {
     errors.animalId = 'Debe seleccionar un animal';
     isValid = false;
   }
-  if (!form.veterinarianId) {
-    errors.veterinarianId = 'Debe seleccionar veterinario responsable';
+  if (!form.cirujanoId) {
+    errors.cirujanoId = 'Debe seleccionar veterinario cirujano';
     isValid = false;
   }
-  if (!form.surgeryType.trim()) {
-    errors.surgeryType = 'Campo requerido';
+  if (!form.tipoCirugia) {
+    errors.tipoCirugia = 'Debe seleccionar tipo de cirugía';
     isValid = false;
   }
-  if (!form.surgeryDateTime) {
-    errors.surgeryDateTime = 'Debe indicar fecha y hora';
+  if (!form.descripcion.trim()) {
+    errors.descripcion = 'La descripción es requerida';
     isValid = false;
   }
-  if (!form.durationMinutes || form.durationMinutes <= 0) {
-    errors.durationMinutes = 'Duración inválida';
+  if (!form.fechaProgramada) {
+    errors.fechaProgramada = 'Debe indicar fecha programada';
     isValid = false;
   }
-  if (!form.anesthesia.trim()) {
-    errors.anesthesia = 'Campo requerido';
+  if (!form.duracionMinutos || form.duracionMinutos <= 0) {
+    errors.duracionMinutos = 'Duración inválida';
     isValid = false;
   }
-  if (!form.findings.trim()) {
-    errors.findings = 'Campo requerido';
+  if (form.estado === 'realizada' && !form.tipoAnestesia.trim()) {
+    errors.tipoAnestesia = 'Debe especificar el tipo de anestesia utilizada';
     isValid = false;
   }
 
@@ -543,33 +523,40 @@ async function onSubmit() {
       historialId = selectedAnimal?.historialClinicoId;
     }
 
-    // Separar fecha y hora del datetime-local
-    const dateTimeParts = form.surgeryDateTime.split('T');
-    const fechaProgramada = dateTimeParts[0];
-    const horaProgramada = dateTimeParts[1] || '00:00';
+    // Convertir asistentes de texto a array
+    const asistentesArray = form.asistentesTexto
+      ? form.asistentesTexto.split(',').map(a => a.trim()).filter(Boolean)
+      : [];
 
-    // Preparar datos para el backend
+    // Preparar datos alineados con backend y modelo
     const cirugiaData = {
+      // Relaciones
       historial_clinico_id: historialId,
-      veterinario_id: form.veterinarianId,
-      tipo_cirugia: form.surgeryType,
-      descripcion: form.findings,
-      fecha_programada: fechaProgramada,
-      hora_programada: horaProgramada,
-      duracion_minutos: form.durationMinutes,
-      anestesia_utilizada: form.anesthesia,
-      tipo_procedimiento: form.urgency,
-      ayudante: form.assistantName || null,
-      anestesista: form.anesthetistName || null,
-      estado: 'realizada',
-      resultado: 'exitoso',
-      observaciones: form.findings,
-      // Seguimiento postoperatorio
-      programar_controles: form.autoFollowups,
-      cantidad_controles: form.followupCount,
-      intervalo_controles_dias: form.followupIntervalDays,
-      fecha_primer_control: form.firstFollowupDate || null,
-      notificar_adoptante: form.notifyAdopter
+      cirujano_id: form.cirujanoId,
+      anestesiologo_id: form.anestesiologoId || null,
+      
+      // Tipo y descripción
+      tipo_cirugia: form.tipoCirugia,
+      descripcion: form.descripcion,
+      
+      // Fechas
+      fecha_programada: form.fechaProgramada,
+      fecha_realizacion: form.fechaRealizacion || null,
+      
+      // Detalles quirúrgicos
+      duracion: form.duracionMinutos,
+      tipo_anestesia: form.tipoAnestesia || null,
+      asistentes: asistentesArray,
+      
+      // Estado y resultado
+      estado: form.estado,
+      resultado: form.estado === 'realizada' ? form.resultado : null,
+      complicaciones: form.complicaciones || null,
+      postoperatorio: form.postoperatorio || null,
+      seguimiento_requerido: form.seguimientoRequerido,
+      
+      // Estado del animal (solo si está realizada)
+      estado_animal: form.estado === 'realizada' ? form.estadoAnimal : null
     };
 
     console.log('Guardando cirugía:', cirugiaData);
@@ -589,7 +576,7 @@ async function onSubmit() {
 }
 
 // Observar cambios en el animalId de props
-watch(() => props.animalId, async (newId) => {
+watch(() => props.animalId, (newId) => {
   if (newId && animals.value.length > 0) {
     console.log('🔄 Animal ID changed:', newId);
     form.animalId = newId;
@@ -597,28 +584,13 @@ watch(() => props.animalId, async (newId) => {
     if (selectedAnimal?.historialClinicoId) {
       form.historialClinicoId = selectedAnimal.historialClinicoId;
     }
-
-    await nextTick();
-    initGovCoComponents();
-  }
-});
-
-// Observar cuando se cargan los animales para reinicializar GOV.CO
-watch(() => animals.value.length, async (newLength) => {
-  if (newLength > 0) {
-    console.log('📦 Animales actualizados, reinicializando GOV.CO...');
-    await nextTick();
-    setTimeout(() => {
-      initGovCoComponents();
-    }, 100);
   }
 });
 
 onMounted(async () => {
-  console.log('📍 SurgeryForm mounted');
-  console.log('📍 Props:', { animalId: props.animalId, historialClinicoId: props.historialClinicoId });
+  console.log('🔍 SurgeryForm mounted');
+  console.log('🔍 Props:', { animalId: props.animalId, historialClinicoId: props.historialClinicoId });
 
-  // Cargar datos iniciales
   await loadInitialData();
 });
 </script>
@@ -630,11 +602,13 @@ onMounted(async () => {
   padding: 2rem;
   background: #f5f7fb;
 }
+
 .form-header {
   margin-bottom: 2rem;
   padding-bottom: 1rem;
   border-bottom: 3px solid #3366cc;
 }
+
 .form-section {
   background: #fff;
   border-radius: 8px;
@@ -642,6 +616,7 @@ onMounted(async () => {
   overflow: visible;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
+
 .section-title {
   margin: 0;
   padding: 1rem 1.5rem;
@@ -649,6 +624,7 @@ onMounted(async () => {
   color: #3366cc;
   font-weight: 600;
 }
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -656,26 +632,12 @@ onMounted(async () => {
   row-gap: 1.5rem;
   padding: 1.5rem;
 }
+
 .full-width {
   grid-column: 1 / 3;
 }
-.entradas-de-texto-govco input,
-.entradas-de-texto-govco textarea,
-.desplegable-govco select {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #d0d0d0;
-  border-radius: 4px;
-  font-size: 1rem;
-}
-.error-text,
-.alert-desplegable-govco {
-  display: block;
-  color: #b00020;
-  font-size: 0.85rem;
-  margin-top: 0.5rem;
-}
-.checkbox-govco {
+
+.checkbox-wrapper {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -683,26 +645,27 @@ onMounted(async () => {
   background: #f5f7fb;
   border-radius: 6px;
 }
+
+.checkbox-wrapper input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.checkbox-wrapper label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #344054;
+  cursor: pointer;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
   margin-top: 1.5rem;
 }
-.govco-btn {
-  padding: 0.75rem 2rem;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  color: #fff;
-}
-.govco-bg-concrete {
-  background-color: #737373;
-}
-.govco-bg-elf-green {
-  background-color: #069169;
-}
+
 .loading-overlay {
   display: flex;
   flex-direction: column;
@@ -714,6 +677,7 @@ onMounted(async () => {
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
+
 .spinner {
   border: 4px solid #f3f3f3;
   border-top: 4px solid #3366cc;
@@ -723,6 +687,7 @@ onMounted(async () => {
   animation: spin 1s linear infinite;
   margin-bottom: 1rem;
 }
+
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }

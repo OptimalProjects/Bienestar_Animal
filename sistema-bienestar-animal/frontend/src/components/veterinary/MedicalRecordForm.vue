@@ -368,17 +368,24 @@ async function loadInitialData() {
     console.log('✅ Animales procesados:', animals.value.length);
 
     // Cargar veterinarios
-    console.log('📦 Cargando veterinarios...');
-    try {
-      const vetsData = await veterinaryStore.fetchVeterinarios();
-      veterinarians.value = vetsData || veterinaryStore.veterinarios || [];
-      console.log('✅ Veterinarios cargados:', veterinarians.value.length);
-    } catch (vetsError) {
-      console.error('❌ Error cargando veterinarios:', vetsError);
-    }
+    // Cargar veterinarios
+console.log(' Cargando veterinarios...');
+try {
+  const vetsData = await veterinaryStore.fetchVeterinarios();
+
+  veterinarians.value = Array.isArray(vetsData) ? vetsData : [];
+
+  if (veterinarians.value.length === 0) {
+    console.warn('No hay veterinarios registrados en BD');
+    alert('No hay veterinarios registrados. Debes crear al menos uno para registrar consultas.');
+  }
+
+} catch (vetsError) {
+  console.warn(' Error cargando veterinarios', vetsError);
+}
 
     // Cargar medicamentos del inventario
-    console.log('📦 Cargando medicamentos...');
+    console.log(' Cargando medicamentos...');
     try {
       await veterinaryStore.fetchMedicamentos();
       medicationInventory.value = (veterinaryStore.medicamentos || []).map(m => ({
@@ -455,9 +462,11 @@ const prognosisOptions = [
 const veterinarianOptions = computed(() =>
   veterinarians.value.map(vet => ({
     value: vet.id,
-    text: `${vet.usuario?.nombres || vet.name || 'Dr.'} ${vet.usuario?.apellidos || ''} - Tarjeta Prof. ${vet.tarjeta_profesional || vet.license || 'N/A'}`
+    text: `${vet.nombre_completo ?? `${vet.nombres} ${vet.apellidos}`} - Tarjeta Prof. ${vet.numero_tarjeta_profesional ?? 'N/A'}`
   }))
 );
+
+
 
 const form = reactive({
   animalId: '',
@@ -804,11 +813,11 @@ function validate() {
     isValid = false;
   }
   
-  if (!form.veterinarianId) {
-    errors.veterinarianId = 'Debe seleccionar veterinario responsable';
-    isValid = false;
-  }
-  
+  // Veterinario es opcional si no hay veterinarios reales en BD
+if (!form.veterinarianId) {
+  errors.veterinarianId = 'Debe seleccionar un veterinario';
+  isValid = false;
+} 
   console.log('Validación completada:', { isValid, form, errors });
   
   return isValid;
@@ -876,10 +885,9 @@ async function onSubmit() {
   isSubmitting.value = true;
 
   try {
-    // Preparar datos para el backend
     const consultaData = {
       historial_clinico_id: form.historialClinicoId,
-      veterinario_id: String(form.veterinarianId), // Asegurar que sea string
+      veterinario_id: String(form.veterinarianId),
       fecha_consulta: formatDateForBackend(form.consultDate),
       tipo_consulta: form.consultType, // Ya está con valores correctos: general, emergencia, seguimiento, especializada
       motivo_consulta: form.reason,

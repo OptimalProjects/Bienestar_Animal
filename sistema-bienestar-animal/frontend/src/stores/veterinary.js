@@ -200,6 +200,19 @@ export const useVeterinaryStore = defineStore('veterinary', () => {
     }
   }
 
+  async function fetchHistorialClinico(animalId) {
+  try {
+    loading.value = true;
+    const response = await veterinaryService.getHistorialCompleto(animalId);
+    return response.data || response;
+  } catch (err) {
+    error.value = err.response?.data?.message || 'Error al cargar historial clínico';
+    throw err;
+  } finally {
+    loading.value = false;
+  }
+}
+
   async function fetchCirugiasAnimal(animalId) {
     try {
       const response = await veterinaryService.getCirugiasAnimal(animalId);
@@ -238,29 +251,18 @@ export const useVeterinaryStore = defineStore('veterinary', () => {
 
   // Actions - Historial Clinico
   async function fetchHistorialClinico(animalId) {
+  try {
     loading.value = true;
-    error.value = null;
-    console.log('📡 veterinaryStore.fetchHistorialClinico: Starting...', animalId);
-
-    try {
-      const response = await veterinaryService.getHistorialClinico(animalId);
-      console.log('✅ veterinaryStore.fetchHistorialClinico response:', response);
-
-      // Manejar diferentes estructuras de respuesta
-      // Puede venir como: response.data.data, response.data, o response
-      const data = response?.data?.data || response?.data || response;
-      console.log('✅ Historial clínico data:', data);
-
-      historialClinico.value = data;
-      return data;
-    } catch (err) {
-      console.error('❌ Error al cargar historial clinico:', err);
-      error.value = err.response?.data?.message || 'Error al cargar historial clinico';
-      throw err;
-    } finally {
-      loading.value = false;
-    }
+    const response = await veterinaryService.getHistorialCompleto(animalId);
+    return response.data || response;
+  } catch (err) {
+    error.value = err.response?.data?.message || 'Error al cargar historial clínico';
+    console.error('Error en fetchHistorialClinico:', err);
+    throw err;
+  } finally {
+    loading.value = false;
   }
+}
 
   // Actions - Alertas y Recordatorios
   async function fetchAlertas() {
@@ -564,6 +566,7 @@ export const useVeterinaryStore = defineStore('veterinary', () => {
     fetchConsultasPendientes,
     fetchConsulta,
     crearConsulta,
+    fetchHistorialClinico,
     // Actions - Veterinarios
     fetchVeterinarios,
     // Actions - Vacunas
