@@ -200,42 +200,65 @@ class SSOController extends BaseController
         }
     }
 
-    /**
-     * Validar JWT token del SSO externo
-     */
-    protected function validarJwtSso(string $jwtToken)
-    {
-        try {
-            // Configuración del JWT
-            $secretKey = env('SSO_JWT_SECRET');
-            $algorithm = env('SSO_JWT_ALGORITHM', 'HS256');
-
-            if (!$secretKey) {
-                throw new \Exception('SSO_JWT_SECRET no configurado');
+/**
+ * Validar JWT token del SSO externo
+ * Soporta RS256 (producción) y HS256 (desarrollo)
+ */
+protected function validarJwtSso(string $jwtToken)
+{
+    try {
+        // PRIORIDAD 1: Intentar con RS256 (producción - clave pública)
+        $publicKeyPath = storage_path('keys/jwt_public.pem');
+        
+        if (file_exists($publicKeyPath)) {
+            try {
+                $publicKey = file_get_contents($publicKeyPath);
+                \Log::info('🔐 Validando JWT SSO con RS256 (producción)');
+                
+                $decoded = JWT::decode($jwtToken, new Key($publicKey, 'RS256'));
+                
+                if (isset($decoded->email)) {
+                    \Log::info('✅ JWT SSO validado con RS256', [
+                        'email' => $decoded->email
+                    ]);
+                    return $decoded;
+                }
+            } catch (\Exception $e) {
+                \Log::warning('⚠️ Fallo RS256, intentando HS256: ' . $e->getMessage());
             }
-
-            // Decodificar el JWT
-            $decoded = JWT::decode($jwtToken, new Key($secretKey, $algorithm));
-
-            // Validar claims requeridos
+        }
+        
+        // PRIORIDAD 2: Fallback a HS256 (desarrollo - clave simétrica)
+        $secretKey = env('SSO_JWT_SECRET');
+        if ($secretKey) {
+            \Log::info('🔐 Validando JWT SSO con HS256 (desarrollo)');
+            
+            $decoded = JWT::decode($jwtToken, new Key($secretKey, 'HS256'));
+            
             if (!isset($decoded->email)) {
-                \Log::error('JWT SSO sin email');
+                \Log::error('❌ JWT SSO sin email');
                 return null;
             }
-
+            
+            \Log::info('✅ JWT SSO validado con HS256', [
+                'email' => $decoded->email
+            ]);
             return $decoded;
-
-        } catch (\Firebase\JWT\ExpiredException $e) {
-            \Log::error('JWT SSO expirado: ' . $e->getMessage());
-            return null;
-        } catch (\Firebase\JWT\SignatureInvalidException $e) {
-            \Log::error('JWT SSO firma inválida: ' . $e->getMessage());
-            return null;
-        } catch (\Exception $e) {
-            \Log::error('Error validando JWT SSO: ' . $e->getMessage());
-            return null;
         }
+        
+        throw new \Exception('No hay método de validación JWT disponible (ni RS256 ni HS256)');
+
+    } catch (\Firebase\JWT\ExpiredException $e) {
+        \Log::error('❌ JWT SSO expirado: ' . $e->getMessage());
+        return null;
+    } catch (\Firebase\JWT\SignatureInvalidException $e) {
+        \Log::error('❌ JWT SSO firma inválida: ' . $e->getMessage());
+        return null;
+    } catch (\Exception $e) {
+        \Log::error('❌ Error validando JWT SSO: ' . $e->getMessage());
+        return null;
     }
+}
 
     /**
      * Obtener o crear usuario basado en el payload del SSO
