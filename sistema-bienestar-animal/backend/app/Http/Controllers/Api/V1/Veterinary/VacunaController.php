@@ -91,8 +91,14 @@ class VacunaController extends BaseController
             'veterinario_id' => 'required|exists:veterinarios,id',
             'fecha_aplicacion' => 'nullable|date',
             'fecha_proxima' => 'nullable|date|after:fecha_aplicacion',
-            'lote' => 'nullable|string|max:100',
-            'fabricante' => 'nullable|string|max:100',
+            'nombre_vacuna' => 'required|string|max:100',
+            'lote' => 'required|string|max:100',
+            'fabricante' => 'required|string|max:100',
+            'fecha_vencimiento' => 'nullable|date|after:today',
+            'dosis' => 'required|numeric|min:0.1|max:50',
+            'via_administracion' => 'required|in:subcutanea,intramuscular,intranasal,oral,intravenosa',
+            'sitio_aplicacion' => 'nullable|string|max:100',
+            'numero_dosis' => 'required|in:1,2,3,refuerzo',
             'observaciones' => 'nullable|string',
         ]);
 

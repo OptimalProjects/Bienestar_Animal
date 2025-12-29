@@ -34,9 +34,7 @@
 
       <MedicationInventory v-else-if="activeTab === 'inventory'" />
 
-      <div v-else-if="activeTab === 'history'">
-        <MedicalHistory :animal-id="1" />
-      </div>
+      <HistoryViewer v-else-if="activeTab === 'history'" />
 
       <VeterinaryAlerts v-else-if="activeTab === 'alerts'" />
 
@@ -56,6 +54,7 @@ import MedicationInventory from '../components/veterinary/MedicationInventory.vu
 import MedicalHistory from '../components/veterinary/MedicalHistory.vue';
 import VeterinaryAlerts from '../components/veterinary/VeterinaryAlerts.vue';
 import CertificateGenerator from '../components/veterinary/CertificateGenerator.vue';
+import HistoryViewer from '../components/veterinary/HistoryViewer.vue';
 
 const activeTab = ref('consultation');
 

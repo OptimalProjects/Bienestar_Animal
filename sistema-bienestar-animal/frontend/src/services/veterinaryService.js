@@ -191,7 +191,7 @@ export const veterinaryService = {
   /**
    * Obtener historial clinico completo de un animal
    */
-  async getHistorialClinico(animalId) {
+  async getHistorialCompleto(animalId) {
     const response = await api.get(`/animals/${animalId}/historial-clinico`);
     return response.data;
   },

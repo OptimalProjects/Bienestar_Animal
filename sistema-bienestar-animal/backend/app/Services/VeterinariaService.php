@@ -11,12 +11,17 @@ use App\Models\Animal\HistorialClinico;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class VeterinariaService
 {
     public function __construct(
         protected ConsultaRepositoryInterface $consultaRepository
     ) {}
+
+    // ============================================
+    // CONSULTAS
+    // ============================================
 
     /**
      * Listar consultas con paginacion.
@@ -101,25 +106,43 @@ class VeterinariaService
         return $this->consultaRepository->getWithTratamientos($id);
     }
 
+    // ============================================
+    // VACUNAS
+    // ============================================
+
     /**
      * Registrar vacuna.
      */
     public function registrarVacuna(array $data): Vacuna
     {
-        return DB::transaction(function () use ($data) {
+        DB::beginTransaction();
+        
+        try {
             $vacuna = Vacuna::create([
                 'historial_clinico_id' => $data['historial_clinico_id'],
                 'tipo_vacuna_id' => $data['tipo_vacuna_id'],
                 'veterinario_id' => $data['veterinario_id'],
                 'fecha_aplicacion' => $data['fecha_aplicacion'] ?? now(),
-                'fecha_proxima' => $data['fecha_proxima'] ?? null,
-                'lote' => $data['lote'] ?? null,
-                'fabricante' => $data['fabricante'] ?? null,
+                'fecha_proxima_dosis' => $data['fecha_proxima'] ?? null, 
+                'nombre_vacuna' => $data['nombre_vacuna'],
+                'lote_vacuna' => $data['lote'], 
+                'fabricante' => $data['fabricante'],
+                'fecha_vencimiento' => $data['fecha_vencimiento'] ?? null,
+                'dosis' => $data['dosis'],
+                'via_administracion' => $data['via_administracion'],
+                'sitio_aplicacion' => $data['sitio_aplicacion'] ?? null,
+                'numero_dosis' => $data['numero_dosis'],
                 'observaciones' => $data['observaciones'] ?? null,
             ]);
 
-            return $vacuna->fresh(['tipoVacuna', 'veterinario.usuario']);
-        });
+            DB::commit();
+            
+            return $vacuna->load(['tipoVacuna', 'veterinario', 'historialClinico.animal']);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
     }
 
     /**
@@ -135,54 +158,319 @@ class VeterinariaService
             ->get();
     }
 
+    // ============================================
+    // CIRUGÍAS
+    // ============================================
+
     /**
-     * Registrar cirugia.
+     * Registrar una cirugía.
+     *
+     * @param array $data
+     * @return Cirugia
+     * @throws \Exception
      */
     public function registrarCirugia(array $data): Cirugia
     {
-        return DB::transaction(function () use ($data) {
-            // Determinar la fecha de la cirugía
-            $fechaCirugia = $data['fecha_cirugia'] ?? $data['fecha_programada'] ?? now();
+        DB::beginTransaction();
 
-            $cirugia = Cirugia::create([
+        try {
+            // Validar que el historial clínico existe
+            $historialClinico = HistorialClinico::findOrFail($data['historial_clinico_id']);
+
+            // Validar que el cirujano existe si se proporciona
+            if (isset($data['cirujano_id'])) {
+                $cirujano = \App\Models\Veterinaria\Veterinario::findOrFail($data['cirujano_id']);
+            }
+
+            // Validar que el anestesiólogo existe si se proporciona
+            if (isset($data['anestesiologo_id']) && !empty($data['anestesiologo_id'])) {
+                $anestesiologo = \App\Models\Veterinaria\Veterinario::findOrFail($data['anestesiologo_id']);
+            }
+
+            // Preparar datos para la cirugía
+            $cirugiaData = [
                 'historial_clinico_id' => $data['historial_clinico_id'],
-                'cirujano_id' => $data['veterinario_id'] ?? $data['cirujano_id'] ?? null,
-                'fecha_programada' => $fechaCirugia,
-                'fecha_realizacion' => $fechaCirugia,
+                'cirujano_id' => $data['cirujano_id'] ?? $data['veterinario_id'] ?? null,
+                'anestesiologo_id' => $data['anestesiologo_id'] ?? null,
                 'tipo_cirugia' => $data['tipo_cirugia'],
                 'descripcion' => $data['descripcion'] ?? null,
-                'tipo_anestesia' => $data['anestesia_utilizada'] ?? $data['tipo_anestesia'] ?? null,
-                'duracion' => $data['duracion_minutos'] ?? $data['duracion'] ?? null,
+                'fecha_programada' => $data['fecha_programada'] ?? $data['fecha_cirugia'] ?? now(),
+                'fecha_realizacion' => $data['fecha_realizacion'] ?? null,
+                'duracion' => $data['duracion'] ?? $data['duracion_minutos'] ?? null,
+                'tipo_anestesia' => $data['tipo_anestesia'] ?? $data['anestesia_utilizada'] ?? null,
+                'asistentes' => $data['asistentes'] ?? [],
+                'estado' => $data['estado'] ?? 'programada',
+                'resultado' => $data['resultado'] ?? null,
                 'complicaciones' => $data['complicaciones'] ?? null,
-                'resultado' => $data['resultado'] ?? 'exitosa',
-                'postoperatorio' => $data['notas_postoperatorias'] ?? $data['postoperatorio'] ?? null,
-                'estado' => 'realizada',
-            ]);
+                'postoperatorio' => $data['postoperatorio'] ?? $data['notas_postoperatorias'] ?? null,
+                'seguimiento_requerido' => $data['seguimiento_requerido'] ?? false,
+                'estado_animal' => $data['estado_animal'] ?? null,
+            ];
+
+            // Si el estado es "realizada" y no se proporcionó fecha_realizacion
+            if ($cirugiaData['estado'] === 'realizada' && empty($cirugiaData['fecha_realizacion'])) {
+                $cirugiaData['fecha_realizacion'] = now();
+            }
+
+            // Crear la cirugía
+            $cirugia = Cirugia::create($cirugiaData);
 
             // Actualizar estado del animal si se especifica
             if (!empty($data['estado_animal'])) {
-                $historial = HistorialClinico::find($data['historial_clinico_id']);
-                if ($historial && $historial->animal) {
-                    $historial->animal->update(['estado' => $data['estado_animal']]);
+                if ($historialClinico && $historialClinico->animal) {
+                    $historialClinico->animal->update(['estado' => $data['estado_animal']]);
                 }
             }
 
-            return $cirugia->fresh(['cirujano.usuario', 'historialClinico.animal']);
-        });
+            // Cargar relaciones
+            $cirugia->load([
+                'cirujano.usuario',
+                'anestesiologo.usuario',
+                'historialClinico.animal'
+            ]);
+
+            Log::info('Cirugía registrada exitosamente', [
+                'cirugia_id' => $cirugia->id,
+                'tipo' => $cirugia->tipo_cirugia,
+                'animal_id' => $historialClinico->animal_id
+            ]);
+
+            DB::commit();
+
+            return $cirugia;
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            Log::error('Error al registrar cirugía', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'data' => $data
+            ]);
+
+            throw new \Exception('Error al registrar la cirugía: ' . $e->getMessage());
+        }
     }
 
     /**
-     * Obtener cirugias de un animal.
+     * Obtener cirugías de un animal.
+     *
+     * @param string $animalId
+     * @return Collection
      */
     public function getCirugiasAnimal(string $animalId): Collection
     {
-        $historial = HistorialClinico::where('animal_id', $animalId)->firstOrFail();
+        try {
+            $historial = HistorialClinico::where('animal_id', $animalId)->firstOrFail();
 
-        return Cirugia::where('historial_clinico_id', $historial->id)
-            ->with(['cirujano.usuario'])
-            ->orderBy('fecha_realizacion', 'desc')
-            ->get();
+            $cirugias = Cirugia::where('historial_clinico_id', $historial->id)
+                ->with([
+                    'cirujano.usuario',
+                    'anestesiologo.usuario',
+                    'historialClinico'
+                ])
+                ->orderBy('fecha_programada', 'desc')
+                ->get();
+
+            return $cirugias;
+
+        } catch (\Exception $e) {
+            Log::error('Error al obtener cirugías del animal', [
+                'animal_id' => $animalId,
+                'error' => $e->getMessage()
+            ]);
+
+            throw new \Exception('Error al obtener cirugías del animal');
+        }
     }
+
+    /**
+     * Actualizar cirugía.
+     *
+     * @param string $cirugiaId
+     * @param array $data
+     * @return Cirugia
+     * @throws \Exception
+     */
+    public function actualizarCirugia(string $cirugiaId, array $data): Cirugia
+    {
+        DB::beginTransaction();
+
+        try {
+            $cirugia = Cirugia::findOrFail($cirugiaId);
+
+            // Validar que la cirugía puede ser editada
+            if (!$cirugia->puedeSerEditada() && !isset($data['resultado'])) {
+                throw new \Exception('Esta cirugía no puede ser editada porque ya fue realizada');
+            }
+
+            // Si se está cambiando a estado "realizada"
+            if (isset($data['estado']) && $data['estado'] === 'realizada') {
+                if (empty($data['fecha_realizacion']) && empty($cirugia->fecha_realizacion)) {
+                    $data['fecha_realizacion'] = now();
+                }
+            }
+
+            // Actualizar la cirugía
+            $cirugia->update($data);
+
+            // Cargar relaciones
+            $cirugia->load([
+                'cirujano.usuario',
+                'anestesiologo.usuario',
+                'historialClinico.animal'
+            ]);
+
+            Log::info('Cirugía actualizada exitosamente', [
+                'cirugia_id' => $cirugia->id
+            ]);
+
+            DB::commit();
+
+            return $cirugia;
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            Log::error('Error al actualizar cirugía', [
+                'cirugia_id' => $cirugiaId,
+                'error' => $e->getMessage()
+            ]);
+
+            throw new \Exception('Error al actualizar la cirugía: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Cancelar cirugía.
+     *
+     * @param string $cirugiaId
+     * @param string|null $motivo
+     * @return Cirugia
+     * @throws \Exception
+     */
+    public function cancelarCirugia(string $cirugiaId, ?string $motivo = null): Cirugia
+    {
+        DB::beginTransaction();
+
+        try {
+            $cirugia = Cirugia::findOrFail($cirugiaId);
+
+            if ($cirugia->estado === 'realizada') {
+                throw new \Exception('No se puede cancelar una cirugía ya realizada');
+            }
+
+            $cirugia->cancelar($motivo);
+
+            Log::info('Cirugía cancelada', [
+                'cirugia_id' => $cirugia->id,
+                'motivo' => $motivo
+            ]);
+
+            DB::commit();
+
+            return $cirugia;
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            Log::error('Error al cancelar cirugía', [
+                'cirugia_id' => $cirugiaId,
+                'error' => $e->getMessage()
+            ]);
+
+            throw new \Exception('Error al cancelar la cirugía: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Obtener cirugías programadas para hoy.
+     *
+     * @return Collection
+     */
+    public function getCirugiasHoy(): Collection
+    {
+        return Cirugia::with([
+            'cirujano.usuario',
+            'anestesiologo.usuario',
+            'historialClinico.animal'
+        ])
+        ->deHoy()
+        ->programadas()
+        ->orderBy('fecha_programada')
+        ->get();
+    }
+
+    /**
+     * Obtener cirugías pendientes.
+     *
+     * @return Collection
+     */
+    public function getCirugiasPendientes(): Collection
+    {
+        return Cirugia::with([
+            'cirujano.usuario',
+            'anestesiologo.usuario',
+            'historialClinico.animal'
+        ])
+        ->pendientes()
+        ->orderBy('fecha_programada')
+        ->get();
+    }
+
+    /**
+     * Obtener cirugías que requieren seguimiento.
+     *
+     * @return Collection
+     */
+    public function getCirugiasRequierenSeguimiento(): Collection
+    {
+        return Cirugia::with([
+            'cirujano.usuario',
+            'anestesiologo.usuario',
+            'historialClinico.animal'
+        ])
+        ->requierenSeguimiento()
+        ->orderBy('fecha_realizacion', 'desc')
+        ->get();
+    }
+
+    /**
+     * Estadísticas de cirugías.
+     *
+     * @param string|null $fechaInicio
+     * @param string|null $fechaFin
+     * @return array
+     */
+    public function getEstadisticasCirugias($fechaInicio = null, $fechaFin = null): array
+    {
+        $fechaInicio = $fechaInicio ?? now()->startOfMonth();
+        $fechaFin = $fechaFin ?? now()->endOfMonth();
+
+        $total = Cirugia::entreFechas($fechaInicio, $fechaFin)->count();
+        $realizadas = Cirugia::realizadas()->entreFechas($fechaInicio, $fechaFin)->count();
+        $programadas = Cirugia::programadas()->entreFechas($fechaInicio, $fechaFin)->count();
+        $exitosas = Cirugia::exitosas()->entreFechas($fechaInicio, $fechaFin)->count();
+        $conComplicaciones = Cirugia::conComplicaciones()->entreFechas($fechaInicio, $fechaFin)->count();
+
+        $tasaExito = $realizadas > 0 ? round(($exitosas / $realizadas) * 100, 1) : 0;
+
+        return [
+            'total' => $total,
+            'realizadas' => $realizadas,
+            'programadas' => $programadas,
+            'exitosas' => $exitosas,
+            'con_complicaciones' => $conComplicaciones,
+            'tasa_exito' => $tasaExito,
+            'duracion_promedio' => Cirugia::realizadas()
+                ->entreFechas($fechaInicio, $fechaFin)
+                ->avg('duracion'),
+        ];
+    }
+
+    // ============================================
+    // ESTADÍSTICAS GENERALES
+    // ============================================
 
     /**
      * Obtener estadisticas de veterinaria.
@@ -200,6 +488,10 @@ class VeterinariaService
         ]);
     }
 
+    // ============================================
+    // HISTORIAL CLÍNICO
+    // ============================================
+
     /**
      * Obtener historial clinico completo de un animal.
      */
@@ -213,8 +505,9 @@ class VeterinariaService
                 'consultas.tratamientos',
                 'vacunas' => fn($q) => $q->orderBy('fecha_aplicacion', 'desc'),
                 'vacunas.tipoVacuna',
-                'cirugias' => fn($q) => $q->orderBy('fecha_realizacion', 'desc'),
+                'cirugias' => fn($q) => $q->orderBy('fecha_programada', 'desc'),
                 'cirugias.cirujano.usuario',
+                'cirugias.anestesiologo.usuario',
                 // 'examenes' => fn($q) => $q->orderBy('fecha_examen', 'desc'), // TODO: Agregar relación cuando esté disponible
             ])
             ->firstOrFail();
@@ -234,6 +527,7 @@ class VeterinariaService
                 'total_cirugias' => $historial->cirugias->count(),
                 'ultima_consulta' => $historial->consultas->first()?->fecha_consulta,
                 'ultima_vacuna' => $historial->vacunas->first()?->fecha_aplicacion,
+                'ultima_cirugia' => $historial->cirugias->first()?->fecha_programada,
             ],
         ];
     }
