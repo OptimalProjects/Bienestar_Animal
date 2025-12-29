@@ -1,5 +1,5 @@
 /**
- * Auth Store
+ * Auth Store - Versión con SSO completo
  * Estado de autenticacion con Pinia
  */
 
@@ -25,7 +25,10 @@ export const useAuthStore = defineStore('auth', () => {
     return `${user.value.nombres} ${user.value.apellidos}`;
   });
 
-  // Actions
+  // ============================================
+  // LOGIN TRADICIONAL
+  // ============================================
+
   async function login(email, password) {
     loading.value = true;
     error.value = null;
@@ -42,31 +45,8 @@ export const useAuthStore = defineStore('auth', () => {
       }
 
       // Login exitoso
-      console.log('🔐 Login exitoso - Datos:', data);
-
-      setToken(data.access_token);
-      user.value = data.usuario;
-      permisos.value = data.permisos || [];
-      localStorage.setItem('user', JSON.stringify(data.usuario));
-
-      // Sincronizar rol con useRol composable
-      const rolCode = data.usuario.rol_codigo?.toLowerCase() || '';
-      console.log('🎭 Rol código del backend:', data.usuario.rol_codigo, '→ lowercase:', rolCode);
-
-      const rolMap = {
-        'admin': 'admin_sistema',
-        'administrador': 'admin_sistema',
-        'director': 'director',
-        'operador': 'operador_rescate',
-        'veterinario': 'medico_veterinario',
-        'coordinador': 'coordinador_adopciones',
-      };
-      const mappedRole = rolMap[rolCode] || 'ciudadano';
-      console.log('🗺️ Rol mapeado:', mappedRole);
-
-      localStorage.setItem('sba-role', mappedRole);
-      console.log('💾 Guardado sba-role:', localStorage.getItem('sba-role'));
-
+      console.log('🔐 Login tradicional exitoso');
+      procesarLoginExitoso(data);
       return { success: true };
     } catch (err) {
       error.value = err.response?.data?.message || 'Error al iniciar sesion';
@@ -87,26 +67,9 @@ export const useAuthStore = defineStore('auth', () => {
       });
       const data = response.data.data;
 
-      // Login exitoso
-      setToken(data.access_token);
-      user.value = data.usuario;
-      permisos.value = data.permisos || [];
-      localStorage.setItem('user', JSON.stringify(data.usuario));
+      procesarLoginExitoso(data);
       requiresMfa.value = false;
       mfaUserId.value = null;
-
-      // Sincronizar rol con useRol composable
-      const rolCode = data.usuario.rol_codigo?.toLowerCase() || '';
-      const rolMap = {
-        'admin': 'admin_sistema',
-        'administrador': 'admin_sistema',
-        'director': 'director',
-        'operador': 'operador_rescate',
-        'veterinario': 'medico_veterinario',
-        'coordinador': 'coordinador_adopciones',
-      };
-      const mappedRole = rolMap[rolCode] || 'ciudadano';
-      localStorage.setItem('sba-role', mappedRole);
 
       return { success: true };
     } catch (err) {
@@ -115,6 +78,72 @@ export const useAuthStore = defineStore('auth', () => {
     } finally {
       loading.value = false;
     }
+  }
+
+  // ============================================
+  // SSO - MÉTODO 1: CALLBACK DIRECTO
+  // ============================================
+
+  /**
+   * Login con SSO - Método directo
+   * Envía el jwt_token al endpoint /sso/callback
+   * Este es el método RECOMENDADO según la especificación de Joel
+   */
+  async function loginWithSSO(jwtToken) {
+    loading.value = true;
+    error.value = null;
+
+    try {
+      console.log('🔐 Iniciando login con SSO (método directo)...');
+      
+      // Enviar el JWT token al backend para validación
+      const response = await api.get('/sso/callback', {
+        params: { jwt_token: jwtToken }
+      });
+      
+      const data = response.data.data;
+      console.log('✅ Login SSO exitoso');
+
+      procesarLoginExitoso(data);
+      return { success: true };
+    } catch (err) {
+      console.error('❌ Error en login SSO:', err);
+      error.value = err.response?.data?.message || 'Error al autenticar con SSO';
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+
+  // ============================================
+  // FUNCIONES AUXILIARES
+  // ============================================
+
+  /**
+   * Procesar datos de login exitoso (común para todos los métodos)
+   */
+  function procesarLoginExitoso(data) {
+    // Guardar token de Sanctum
+    setToken(data.access_token);
+    user.value = data.usuario;
+    permisos.value = data.permisos || [];
+    localStorage.setItem('user', JSON.stringify(data.usuario));
+
+    // Sincronizar rol
+    const rolCode = data.usuario.rol_codigo?.toLowerCase() || '';
+    const rolMap = {
+      'admin': 'admin_sistema',
+      'administrador': 'admin_sistema',
+      'director': 'director',
+      'operador': 'operador_rescate',
+      'veterinario': 'medico_veterinario',
+      'coordinador': 'coordinador_adopciones',
+    };
+    const mappedRole = rolMap[rolCode] || 'ciudadano';
+    localStorage.setItem('sba-role', mappedRole);
+
+    console.log('💾 Login procesado. Token guardado. Rol:', mappedRole);
   }
 
   async function logout() {
@@ -174,7 +203,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   function hasPermission(permiso) {
     if (!permisos.value) return false;
-    // Admin tiene todos los permisos
     if (userRole.value?.toLowerCase() === 'administrador') return true;
     return permisos.value.includes(permiso);
   }
@@ -187,13 +215,11 @@ export const useAuthStore = defineStore('auth', () => {
     return rol.toLowerCase() === userRole.value.toLowerCase();
   }
 
-  // Inicializar usuario desde localStorage
   function initAuth() {
     const storedUser = localStorage.getItem('user');
     if (storedUser && token.value) {
       try {
         user.value = JSON.parse(storedUser);
-        // Refrescar datos del usuario
         fetchUser();
       } catch {
         clearAuth();
@@ -213,7 +239,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     userRole,
     userName,
-    // Actions
+    // Actions - Login tradicional
     login,
     verifyMfa,
     logout,
@@ -223,6 +249,8 @@ export const useAuthStore = defineStore('auth', () => {
     hasPermission,
     hasRole,
     initAuth,
+    // Actions - SSO
+    loginWithSSO,           
   };
 });
 
