@@ -16,7 +16,7 @@
               rel="noopener noreferrer"
             >
               <img
-                src="https://cdn.www.gov.co/assets/images/logoGovCO.png"
+                src="../../assets/icons/logo-govco.png"
                 alt="Logo GOV.CO"
                 class="govco-logo"
               />
