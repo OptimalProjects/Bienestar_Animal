@@ -313,7 +313,9 @@ class VisitaSeguimientoController extends BaseController
                     ]);
 
                     // Mantener la denuncia en estado 'recibida' (el servicio la cambia a 'en_atencion')
-                    $denuncia->update(['estado' => 'recibida']);
+                    // Usar query builder para asegurar que se actualice en la BD
+                    \App\Models\Denuncia\Denuncia::where('id', $denuncia->id)->update(['estado' => 'recibida']);
+                    $denuncia->refresh();
 
                     // Vincular la denuncia a la visita
                     $visita->update(['denuncia_id' => $denuncia->id]);
