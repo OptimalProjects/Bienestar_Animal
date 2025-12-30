@@ -162,8 +162,7 @@
         </div>
       </div>
 
-
-      <!-- CIRUGÍAS -->
+      <!-- CIRUGÍAS MEJORADO -->
       <div v-show="activeTab === 'cirugias'" class="tab-panel">
         <div v-if="!historial.cirugias || historial.cirugias.length === 0" class="empty-state">
           <p>🔬 No hay cirugías registradas</p>
@@ -176,15 +175,38 @@
             @click="openCirugiaModal(cirugia)"
           >
             <div class="card-header">
-              <h4>{{ cirugia.tipo_procedimiento || cirugia.nombre_cirugia }}</h4>
-              <span class="card-date">{{ formatDate(cirugia.fecha_cirugia) }}</span>
+              <div class="surgery-title-container">
+                <h4>{{ formatTipoCirugia(cirugia.tipo_cirugia) }}</h4>
+                <div class="surgery-badges">
+                  <span :class="['mini-badge', getTipoCirugiaBadge(cirugia.tipo_cirugia)]">
+                    {{ formatTipoCirugia(cirugia.tipo_cirugia) }}
+                  </span>
+                  <span :class="['mini-badge', 'estado', cirugia.estado]">
+                    {{ formatEstadoCirugia(cirugia.estado) }}
+                  </span>
+                </div>
+              </div>
+              <span class="card-date">{{ formatDate(cirugia.fecha_realizacion || cirugia.fecha_programada) }}</span>
             </div>
             <div class="card-body">
-              <p v-if="cirugia.descripcion">{{ truncate(cirugia.descripcion, 80) }}</p>
-              <p v-if="cirugia.estado" :class="['status', cirugia.estado]">
-                <strong>Estado:</strong> {{ formatStatus(cirugia.estado) }}
+              <p v-if="cirugia.descripcion" class="surgery-description">{{ truncate(cirugia.descripcion, 80) }}</p>
+              
+              <div class="surgery-quick-info">
+                <span class="info-pill">⏱️ {{ formatDuracion(cirugia.duracion) }}</span>
+                <span v-if="cirugia.resultado" :class="['info-pill', 'resultado', cirugia.resultado]">
+                  {{ formatResultado(cirugia.resultado) }}
+                </span>
+              </div>
+
+              <p v-if="getCirujanoNombre(cirugia)" class="surgeon-name">
+                👨‍⚕️ {{ getCirujanoNombre(cirugia) }}
               </p>
-              <div class="view-more">👁️ Ver detalles</div>
+
+              <div v-if="esEsterilizacionExitosa(cirugia)" class="mini-sterilization-badge">
+                ✂️ Animal esterilizado
+              </div>
+
+              <div class="view-more">👁️ Ver detalles completos</div>
             </div>
           </div>
         </div>
@@ -418,51 +440,138 @@
       </div>
     </div>
 
-    <!-- Modal Cirugía -->
+    <!-- Modal Cirugía MEJORADO -->
     <div v-if="selectedCirugia" class="modal-overlay" @click="closeModals">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>🔬 Detalle de Cirugía</h3>
+      <div class="modal-content large-modal" @click.stop>
+        <div class="modal-header surgery-header">
+          <div>
+            <h3>🔬 Detalle de Cirugía</h3>
+            <div class="modal-badges-row">
+              <span :class="['modal-badge', getTipoCirugiaBadge(selectedCirugia.tipo_cirugia)]">
+                {{ formatTipoCirugia(selectedCirugia.tipo_cirugia) }}
+              </span>
+              <span :class="['modal-badge', 'estado', selectedCirugia.estado]">
+                {{ formatEstadoCirugia(selectedCirugia.estado) }}
+              </span>
+              <span v-if="selectedCirugia.resultado" :class="['modal-badge', 'resultado', selectedCirugia.resultado]">
+                {{ formatResultado(selectedCirugia.resultado) }}
+              </span>
+            </div>
+          </div>
           <button class="close-btn" @click="closeModals">✕</button>
         </div>
+
         <div class="modal-body">
-          <div class="detail-section">
-            <h4>{{ selectedCirugia.tipo_procedimiento || selectedCirugia.nombre_cirugia }}</h4>
-            <p class="modal-date">📅 {{ formatDate(selectedCirugia.fecha_cirugia) }}</p>
-            <span v-if="selectedCirugia.estado" :class="['badge', selectedCirugia.estado]">
-              {{ formatStatus(selectedCirugia.estado) }}
-            </span>
+          
+          <!-- Alert Esterilización -->
+          <div v-if="esEsterilizacionExitosa(selectedCirugia)" class="detail-section alert-esterilizacion">
+            <div class="alert-content">
+              <span class="alert-icon">✂️</span>
+              <div>
+                <h4>Animal Esterilizado</h4>
+              </div>
+            </div>
           </div>
 
-          <div v-if="selectedCirugia.descripcion" class="detail-section">
-            <h4>Descripción del Procedimiento</h4>
+          <!-- Información General -->
+          <div class="detail-section">
+            <h4>📋 Información General</h4>
+            <div class="detail-grid">
+              <div class="detail-item">
+                <strong>Fecha Programada:</strong>
+                <span>📅 {{ formatDate(selectedCirugia.fecha_programada) }}</span>
+              </div>
+              <div v-if="selectedCirugia.fecha_realizacion" class="detail-item">
+                <strong>Fecha de Realización:</strong>
+                <span>✅ {{ formatDateWithTime(selectedCirugia.fecha_realizacion) }}</span>
+              </div>
+              <div class="detail-item">
+                <strong>Duración:</strong>
+                <span>⏱️ {{ formatDuracion(selectedCirugia.duracion) }}</span>
+              </div>
+              <div v-if="selectedCirugia.estado_animal" class="detail-item">
+                <strong>Estado del Animal:</strong>
+                <span>{{ formatEstadoAnimal(selectedCirugia.estado_animal) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Descripción -->
+          <div class="detail-section">
+            <h4>📝 Descripción del Procedimiento</h4>
             <p>{{ selectedCirugia.descripcion }}</p>
           </div>
 
-          <div v-if="selectedCirugia.anestesia" class="detail-section">
-            <h4>Anestesia</h4>
-            <p>{{ selectedCirugia.anestesia }}</p>
+          <!-- Anestesia -->
+          <div v-if="selectedCirugia.tipo_anestesia" class="detail-section">
+            <h4>💉 Protocolo Anestésico</h4>
+            <p class="preformatted-text">{{ selectedCirugia.tipo_anestesia }}</p>
           </div>
 
-          <div v-if="selectedCirugia.duracion_minutos" class="detail-section">
-            <h4>Duración</h4>
-            <p>{{ selectedCirugia.duracion_minutos }} minutos</p>
+          <!-- Equipo Quirúrgico -->
+          <div class="detail-section">
+            <h4>👥 Equipo Quirúrgico</h4>
+            <div class="team-grid">
+              <div class="team-member">
+                <span class="team-icon">👨‍⚕️</span>
+                <div>
+                  <p class="team-role">Cirujano</p>
+                  <p class="team-name">{{ getCirujanoNombre(selectedCirugia) }}</p>
+                  <p v-if="getCirujanoLicencia(selectedCirugia)" class="team-license">
+                    TP: {{ getCirujanoLicencia(selectedCirugia) }}
+                  </p>
+                </div>
+              </div>
+
+              <div v-if="selectedCirugia.anestesiologo" class="team-member">
+                <span class="team-icon">💉</span>
+                <div>
+                  <p class="team-role">Anestesiólogo</p>
+                  <p class="team-name">{{ getAnestesiologoNombre(selectedCirugia) }}</p>
+                </div>
+              </div>
+
+              <div v-if="selectedCirugia.asistentes && selectedCirugia.asistentes.length > 0" class="team-member full-width">
+                <span class="team-icon">🤝</span>
+                <div class="assistants-container">
+                  <p class="team-role">Asistentes</p>
+                  <div class="assistants-list">
+                    <span 
+                      v-for="(asistente, idx) in selectedCirugia.asistentes" 
+                      :key="idx"
+                      class="assistant-tag"
+                    >
+                      {{ asistente }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
+          <!-- Complicaciones -->
           <div v-if="selectedCirugia.complicaciones" class="detail-section alert-section">
             <h4>⚠️ Complicaciones</h4>
             <p>{{ selectedCirugia.complicaciones }}</p>
           </div>
 
-          <div v-if="selectedCirugia.observaciones_postoperatorias" class="detail-section">
-            <h4>Observaciones Post-Operatorias</h4>
-            <p>{{ selectedCirugia.observaciones_postoperatorias }}</p>
+          <!-- Postoperatorio -->
+          <div v-if="selectedCirugia.postoperatorio" class="detail-section">
+            <h4>💊 Indicaciones Postoperatorias</h4>
+            <p class="preformatted-text">{{ selectedCirugia.postoperatorio }}</p>
           </div>
 
-          <div v-if="selectedCirugia.veterinario" class="detail-section veterinarian-info">
-            <h4>Cirujano</h4>
-            <p>👨‍⚕️ {{ selectedCirugia.veterinario.nombre_completo || `${selectedCirugia.veterinario.nombres} ${selectedCirugia.veterinario.apellidos}` }}</p>
+          <!-- Seguimiento -->
+          <div v-if="selectedCirugia.seguimiento_requerido" class="detail-section alert-followup">
+            <div class="alert-content">
+              <span class="alert-icon">🔔</span>
+              <div>
+                <h4>Requiere Seguimiento</h4>
+                <p>Este animal necesita controles postoperatorios</p>
+              </div>
+            </div>
           </div>
+
         </div>
       </div>
     </div>
@@ -581,7 +690,6 @@ const historial = ref({
   examenes: []
 });
 
-// Estados de modales
 const selectedConsulta = ref(null);
 const selectedVacuna = ref(null);
 const selectedCirugia = ref(null);
@@ -602,26 +710,11 @@ const lastConsulta = computed(() => {
   return historial.value.consultas[0];
 });
 
-// Funciones de modales
-function openConsultaModal(consulta) {
-  selectedConsulta.value = consulta;
-}
-
-function openVacunaModal(vacuna) {
-  selectedVacuna.value = vacuna;
-}
-
-function openCirugiaModal(cirugia) {
-  selectedCirugia.value = cirugia;
-}
-
-function openDesparasitacionModal(desp) {
-  selectedDesparasitacion.value = desp;
-}
-
-function openExamenModal(examen) {
-  selectedExamen.value = examen;
-}
+function openConsultaModal(consulta) { selectedConsulta.value = consulta; }
+function openVacunaModal(vacuna) { selectedVacuna.value = vacuna; }
+function openCirugiaModal(cirugia) { selectedCirugia.value = cirugia; }
+function openDesparasitacionModal(desp) { selectedDesparasitacion.value = desp; }
+function openExamenModal(examen) { selectedExamen.value = examen; }
 
 function closeModals() {
   selectedConsulta.value = null;
@@ -641,10 +734,7 @@ async function loadHistory() {
   error.value = null;
 
   try {
-    console.log('🔄 Cargando historial para animal:', props.animalId);
     const data = await veterinaryStore.fetchHistorialClinico(props.animalId);
-    
-    console.log('✅ Historial recibido:', data);
     
     if (data.data) {
       historial.value = data.data;
@@ -664,14 +754,6 @@ async function loadHistory() {
       );
     }
 
-    console.log('📦 Historial procesado:', {
-      consultas: historial.value.consultas.length,
-      vacunas: historial.value.vacunas.length,
-      cirugias: historial.value.cirugias.length,
-      desparasitaciones: historial.value.desparasitaciones.length,
-      examenes: historial.value.examenes.length
-    });
-
   } catch (err) {
     console.error('❌ Error cargando historial:', err);
     error.value = err.response?.data?.message || 'Error al cargar el historial clínico';
@@ -680,8 +762,100 @@ async function loadHistory() {
   }
 }
 
-// ====== FUNCIONES PARA FORMATEAR DATOS DE VACUNAS ======
+// Funciones para Cirugías
+function formatTipoCirugia(tipo) {
+  const tipos = {
+    esterilizacion: 'Esterilización',
+    castracion: 'Castración',
+    ortopedica: 'Ortopédica',
+    abdominal: 'Abdominal',
+    oftalmologica: 'Oftalmológica',
+    dental: 'Dental',
+    oncologica: 'Oncológica',
+    emergencia: 'Emergencia',
+    otra: 'Otra'
+  };
+  return tipos[tipo] || tipo;
+}
 
+function formatEstadoCirugia(estado) {
+  const estados = {
+    programada: 'Programada',
+    realizada: 'Realizada',
+    cancelada: 'Cancelada'
+  };
+  return estados[estado] || estado;
+}
+
+function formatResultado(resultado) {
+  const resultados = {
+    exitosa: 'Exitosa',
+    con_complicaciones: 'Con complicaciones',
+    fallida: 'Fallida'
+  };
+  return resultados[resultado] || resultado;
+}
+
+function formatDuracion(minutos) {
+  if (!minutos) return 'N/A';
+  const horas = Math.floor(minutos / 60);
+  const mins = minutos % 60;
+  if (horas > 0) {
+    return mins > 0 ? `${horas}h ${mins}min` : `${horas}h`;
+  }
+  return `${mins}min`;
+}
+
+function formatEstadoAnimal(estado) {
+  const estados = {
+    en_tratamiento: '💊 En Tratamiento',
+    en_recuperacion: '🏥 En Recuperación',
+    estable: '✅ Estable'
+  };
+  return estados[estado] || estado;
+}
+
+function getTipoCirugiaBadge(tipo) {
+  const badges = {
+    esterilizacion: 'purple',
+    castracion: 'purple',
+    ortopedica: 'blue',
+    abdominal: 'orange',
+    emergencia: 'red',
+    oncologica: 'pink',
+    oftalmologica: 'cyan',
+    dental: 'green'
+  };
+  return badges[tipo] || 'gray';
+}
+
+function getCirujanoNombre(cirugia) {
+  if (!cirugia.cirujano) return 'No especificado';
+  return cirugia.cirujano.nombre_completo || 
+         `${cirugia.cirujano.usuario?.nombres || ''} ${cirugia.cirujano.usuario?.apellidos || ''}`.trim() ||
+         'Veterinario';
+}
+
+function getCirujanoLicencia(cirugia) {
+  return cirugia.cirujano?.tarjeta_profesional || 
+         cirugia.cirujano?.numero_tarjeta_profesional || 
+         null;
+}
+
+function getAnestesiologoNombre(cirugia) {
+  if (!cirugia.anestesiologo) return 'No especificado';
+  return cirugia.anestesiologo.nombre_completo || 
+         `${cirugia.anestesiologo.usuario?.nombres || ''} ${cirugia.anestesiologo.usuario?.apellidos || ''}`.trim() ||
+         'Veterinario';
+}
+
+function esEsterilizacionExitosa(cirugia) {
+  return (cirugia.tipo_cirugia === 'esterilizacion' || cirugia.tipo_cirugia === 'castracion') && 
+         cirugia.estado === 'realizada' && 
+         cirugia.resultado === 'exitosa';
+}
+
+// Funciones para Vacunas
 function formatDate(dateString) {
   if (!dateString) return 'N/A';
   const date = new Date(dateString);
@@ -689,6 +863,18 @@ function formatDate(dateString) {
     year: 'numeric', 
     month: 'long', 
     day: 'numeric' 
+  });
+}
+
+function formatDateWithTime(dateString) {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('es-CO', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
   });
 }
 
@@ -712,7 +898,6 @@ function getVacunaFechaAplicacion(v) {
 }
 
 function getVacunaFechaProxima(v) {
-  // Campo real en BD (vacunas): fecha_proxima_dosis
   return (
     v?.fecha_proxima_dosis ||
     v?.proxima_aplicacion ||
@@ -770,8 +955,7 @@ function formatNumeroDosis(numero) {
   return numeros[numero] || `Dosis ${numero}`;
 }
 
-// ====== OTRAS FUNCIONES DE FORMATO ======
-
+// Otras funciones de formato
 function formatConsultType(type) {
   const types = {
     general: 'General',
@@ -1125,20 +1309,52 @@ onMounted(() => {
   padding: 1rem 1.5rem;
   background: white;
   border-bottom: 1px solid #E0E0E0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
 
-.card-header h4 {
+.surgery-title-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.surgery-title-container h4 {
   margin: 0;
   color: #333;
   font-size: 1.1rem;
 }
 
+.surgery-badges {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.mini-badge {
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.mini-badge.purple { background: #E9D5FF; color: #7C3AED; }
+.mini-badge.blue { background: #DBEAFE; color: #2563EB; }
+.mini-badge.orange { background: #FED7AA; color: #EA580C; }
+.mini-badge.red { background: #FEE2E2; color: #DC2626; }
+.mini-badge.pink { background: #FCE7F3; color: #EC4899; }
+.mini-badge.cyan { background: #CFFAFE; color: #0891B2; }
+.mini-badge.green { background: #D1FAE5; color: #059669; }
+.mini-badge.gray { background: #F3F4F6; color: #6B7280; }
+
+.mini-badge.estado.programada { background: #DBEAFE; color: #1E40AF; }
+.mini-badge.estado.realizada { background: #D1FAE5; color: #065F46; }
+.mini-badge.estado.cancelada { background: #FEE2E2; color: #991B1B; }
+
 .card-date {
   color: #666;
   font-size: 0.85rem;
+  margin-top: 0.5rem;
+  display: block;
 }
 
 .card-body {
@@ -1150,7 +1366,52 @@ onMounted(() => {
   color: #333;
 }
 
-/* Estilos específicos para vacunas */
+.surgery-description {
+  font-weight: 500;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.surgery-quick-info {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+}
+
+.info-pill {
+  padding: 0.3rem 0.8rem;
+  background: #E8F0FE;
+  color: #3366CC;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.info-pill.resultado.exitosa { background: #D1FAE5; color: #065F46; }
+.info-pill.resultado.con_complicaciones { background: #FED7AA; color: #EA580C; }
+.info-pill.resultado.fallida { background: #FEE2E2; color: #DC2626; }
+
+.surgeon-name {
+  color: #666;
+  font-size: 0.9rem;
+  margin: 0.75rem 0;
+}
+
+.mini-sterilization-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.8rem;
+  background: linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%);
+  color: #6B21A8;
+  border-radius: 16px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-top: 0.5rem;
+}
+
+/* Vacunas */
 .next-dose {
   color: #F5576C;
   font-weight: 600;
@@ -1253,6 +1514,48 @@ onMounted(() => {
   background: #F5F7FB;
 }
 
+.surgery-header {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  color: white;
+}
+
+.surgery-header h3 {
+  color: white;
+}
+
+.modal-badges-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.modal-badge {
+  padding: 0.3rem 0.8rem;
+  border-radius: 16px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: white;
+}
+
+.modal-badge.purple { color: #7C3AED; }
+.modal-badge.blue { color: #2563EB; }
+.modal-badge.orange { color: #EA580C; }
+.modal-badge.red { color: #DC2626; }
+.modal-badge.pink { color: #EC4899; }
+.modal-badge.cyan { color: #0891B2; }
+.modal-badge.green { color: #059669; }
+.modal-badge.gray { color: #6B7280; }
+
+.modal-badge.estado.programada { color: #1E40AF; }
+.modal-badge.estado.realizada { color: #065F46; }
+.modal-badge.estado.cancelada { color: #991B1B; }
+
+.modal-badge.resultado.exitosa { color: #065F46; }
+.modal-badge.resultado.con_complicaciones { color: #D97706; }
+.modal-badge.resultado.fallida { color: #991B1B; }
+
 .modal-header h3 {
   margin: 0;
   color: #3366CC;
@@ -1277,6 +1580,14 @@ onMounted(() => {
 .close-btn:hover {
   background: #E0E0E0;
   color: #333;
+}
+
+.surgery-header .close-btn {
+  color: white;
+}
+
+.surgery-header .close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .modal-body {
@@ -1373,6 +1684,120 @@ onMounted(() => {
   border-left: 4px solid #FF9800;
 }
 
+.alert-esterilizacion {
+  background: linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%);
+  border-left: 4px solid #7C3AED;
+  padding: 1.5rem;
+  border-radius: 8px;
+}
+
+.alert-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.alert-icon {
+  font-size: 2rem;
+}
+
+.alert-content h4 {
+  margin: 0 0 0.25rem 0;
+  color: #6B21A8;
+  font-weight: 700;
+}
+
+.alert-content p {
+  margin: 0;
+  color: #7C3AED;
+  font-size: 0.9rem;
+}
+
+.alert-followup {
+  background: #FFF7ED;
+  border-left: 4px solid #EA580C;
+  padding: 1.5rem;
+  border-radius: 8px;
+}
+
+.alert-followup .alert-content h4 {
+  color: #EA580C;
+}
+
+.alert-followup .alert-content p {
+  color: #9A3412;
+}
+
+.preformatted-text {
+  white-space: pre-line;
+  line-height: 1.6;
+}
+
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.team-member {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  background: #F5F7FB;
+  border-radius: 8px;
+}
+
+.team-member.full-width {
+  grid-column: 1 / -1;
+}
+
+.team-icon {
+  font-size: 1.8rem;
+}
+
+.team-role {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.team-name {
+  margin: 0;
+  font-weight: 700;
+  color: #1f2937;
+  font-size: 1rem;
+}
+
+.team-license {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.assistants-container {
+  flex: 1;
+}
+
+.assistants-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.assistant-tag {
+  padding: 0.3rem 0.8rem;
+  background: #D1FAE5;
+  color: #065F46;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
 .veterinarian-info {
   background: #E8F0FE;
   padding: 1rem;
@@ -1431,6 +1856,22 @@ onMounted(() => {
 
   .vital-signs-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .team-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-badges-row {
+    margin-top: 0.75rem;
+  }
+
+  .surgery-title-container h4 {
+    font-size: 1rem;
+  }
+
+  .card-header {
+    padding: 1rem;
   }
 }
 </style>
