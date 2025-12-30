@@ -38,11 +38,6 @@ class LogAuditEvent
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // FIX: Excluir rutas SSO de auditoría (falta campo 'modulo')
-        if (str_contains($request->path(), '/sso/')) {
-            return $next($request);
-        }
-
         // Generar trace ID si no existe
         $traceId = $request->header('X-Trace-ID') ?? $this->generateTraceId();
         $request->headers->set('X-Trace-ID', $traceId);
@@ -93,6 +88,7 @@ class LogAuditEvent
             $evento = [
                 'trace_id' => $traceId,
                 'usuario_id' => $user?->id,
+                'modulo' => $this->determineModule($request),
                 'accion' => $this->determineAction($request),
                 'recurso' => $this->determineResource($request),
                 'recurso_id' => $this->extractResourceId($request),
@@ -221,5 +217,48 @@ class LogAuditEvent
             substr(md5(uniqid('', true)), 0, 8),
             substr(md5(random_bytes(8)), 0, 8)
         );
+    }
+
+    /**
+     * Determinar el módulo basado en la ruta.
+     */
+    protected function determineModule(Request $request): string
+    {
+        $path = $request->path();
+        
+        // Módulos específicos
+        if (str_contains($path, '/auth/')) {
+            return 'AUTENTICACION';
+        }
+        if (str_contains($path, '/sso/')) {
+            return 'SSO';
+        }
+        if (str_contains($path, '/usuarios/')) {
+            return 'USUARIOS';
+        }
+        if (str_contains($path, '/denuncias/')) {
+            return 'DENUNCIAS';
+        }
+        if (str_contains($path, '/adopciones/')) {
+            return 'ADOPCIONES';
+        }
+        if (str_contains($path, '/animales/')) {
+            return 'ANIMALES';
+        }
+        if (str_contains($path, '/rescates/')) {
+            return 'RESCATES';
+        }
+        if (str_contains($path, '/veterinaria/')) {
+            return 'VETERINARIA';
+        }
+        
+        // Por defecto, usar el primer segmento después de v1
+        $segments = explode('/', $path);
+        $v1Index = array_search('v1', $segments);
+        if ($v1Index !== false && isset($segments[$v1Index + 1])) {
+            return strtoupper($segments[$v1Index + 1]);
+        }
+        
+        return 'SISTEMA';
     }
 }
