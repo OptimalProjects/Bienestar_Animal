@@ -38,6 +38,11 @@ class LogAuditEvent
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // FIX: Excluir rutas SSO de auditoría (falta campo 'modulo')
+        if (str_contains($request->path(), '/sso/')) {
+            return $next($request);
+        }
+
         // Generar trace ID si no existe
         $traceId = $request->header('X-Trace-ID') ?? $this->generateTraceId();
         $request->headers->set('X-Trace-ID', $traceId);
