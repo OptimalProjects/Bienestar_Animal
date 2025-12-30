@@ -7,9 +7,13 @@ use App\Models\Adopcion\Adopcion;
 use App\Models\Adopcion\Adoptante;
 use App\Models\Adopcion\VisitaDomiciliaria;
 use App\Models\Animal\Animal;
+use App\Models\User\Usuario;
+use App\Models\User\Rol;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class AdopcionService
 {
@@ -44,9 +48,9 @@ class AdopcionService
     /**
      * Crear solicitud de adopcion.
      */
-    public function crearSolicitud(array $data): Adopcion
+    public function crearSolicitud(array $data, array $archivos = []): Adopcion
     {
-        return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data, $archivos) {
             // Verificar que el animal este disponible
             $animal = Animal::findOrFail($data['animal_id']);
             if ($animal->estado !== 'en_adopcion') {
@@ -54,22 +58,34 @@ class AdopcionService
             }
 
             // Buscar o crear adoptante
-            $adoptante = $this->obtenerOCrearAdoptante($data['adoptante']);
+            $adoptante = $this->obtenerOCrearAdoptante($data['adoptante'], $archivos);
 
-            // Crear solicitud
+            // Crear solicitud - Concatenar toda la informacion adicional en observaciones
+            $observaciones = [];
+            if (!empty($data['motivo_adopcion'])) {
+                $observaciones[] = "Motivo de adopcion: " . $data['motivo_adopcion'];
+            }
+            if (!empty($data['descripcion_hogar'])) {
+                $observaciones[] = "Descripcion del hogar: " . $data['descripcion_hogar'];
+            }
+            if (isset($data['acepta_visita_seguimiento'])) {
+                $acepta = filter_var($data['acepta_visita_seguimiento'], FILTER_VALIDATE_BOOLEAN);
+                $observaciones[] = "Acepta visitas de seguimiento: " . ($acepta ? 'Si' : 'No');
+            }
+
+            // Obtener coordinador disponible para asignar como evaluador
+            $evaluadorId = $this->obtenerCoordinadorDisponible();
+
             $adopcion = Adopcion::create([
                 'animal_id' => $data['animal_id'],
                 'adoptante_id' => $adoptante->id,
+                'evaluador_id' => $evaluadorId,
                 'fecha_solicitud' => now(),
-                'estado' => 'pendiente',
-                'motivo_adopcion' => $data['motivo_adopcion'] ?? null,
-                'experiencia_mascotas' => $data['experiencia_mascotas'] ?? null,
-                'tiene_otras_mascotas' => $data['tiene_otras_mascotas'] ?? false,
-                'descripcion_hogar' => $data['descripcion_hogar'] ?? null,
-                'acepta_visita_seguimiento' => $data['acepta_visita_seguimiento'] ?? true,
+                'estado' => 'solicitada',
+                'observaciones' => !empty($observaciones) ? implode("\n", $observaciones) : null,
             ]);
 
-            return $adopcion->fresh(['animal', 'adoptante']);
+            return $adopcion->fresh(['animal', 'adoptante', 'evaluador']);
         });
     }
 
@@ -197,25 +213,72 @@ class AdopcionService
     /**
      * Obtener o crear adoptante.
      */
-    protected function obtenerOCrearAdoptante(array $data): Adoptante
+    protected function obtenerOCrearAdoptante(array $data, array $archivos = []): Adoptante
     {
-        $adoptante = Adoptante::where('documento_identidad', $data['documento_identidad'])->first();
+        $adoptante = Adoptante::where('numero_documento', $data['numero_documento'])->first();
 
         if (!$adoptante) {
-            $adoptante = Adoptante::create([
+            $adoptanteData = [
+                'nombres' => $data['nombres'],
+                'apellidos' => $data['apellidos'],
                 'tipo_documento' => $data['tipo_documento'],
-                'documento_identidad' => $data['documento_identidad'],
-                'nombre_completo' => $data['nombre_completo'],
+                'numero_documento' => $data['numero_documento'],
+                'fecha_nacimiento' => $data['fecha_nacimiento'],
                 'telefono' => $data['telefono'],
                 'email' => $data['email'] ?? null,
                 'direccion' => $data['direccion'],
-                'comuna' => $data['comuna'] ?? null,
-                'barrio' => $data['barrio'] ?? null,
-                'ocupacion' => $data['ocupacion'] ?? null,
-            ]);
+                'tipo_vivienda' => $data['tipo_vivienda'] ?? 'casa',
+                'tiene_patio' => filter_var($data['tiene_patio'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                'experiencia_animales' => $data['experiencia_animales'] ?? null,
+                'num_personas_hogar' => $data['num_personas_hogar'] ?? null,
+                'estado' => 'activo',
+            ];
+
+            // Subir documentos si existen
+            if (isset($archivos['copia_cedula'])) {
+                $adoptanteData['copia_cedula'] = $this->guardarDocumento($archivos['copia_cedula'], 'adoptantes/cedulas');
+            }
+            if (isset($archivos['comprobante_domicilio'])) {
+                $adoptanteData['comprobante_domicilio'] = $this->guardarDocumento($archivos['comprobante_domicilio'], 'adoptantes/domicilios');
+            }
+
+            $adoptante = Adoptante::create($adoptanteData);
+        } else {
+            // Actualizar datos del adoptante existente si hay cambios
+            $updateData = [];
+
+            if (isset($data['telefono'])) $updateData['telefono'] = $data['telefono'];
+            if (isset($data['email'])) $updateData['email'] = $data['email'];
+            if (isset($data['direccion'])) $updateData['direccion'] = $data['direccion'];
+            if (isset($data['tipo_vivienda'])) $updateData['tipo_vivienda'] = $data['tipo_vivienda'];
+            if (isset($data['tiene_patio'])) $updateData['tiene_patio'] = filter_var($data['tiene_patio'], FILTER_VALIDATE_BOOLEAN);
+            if (isset($data['experiencia_animales'])) $updateData['experiencia_animales'] = $data['experiencia_animales'];
+            if (isset($data['num_personas_hogar'])) $updateData['num_personas_hogar'] = $data['num_personas_hogar'];
+
+            // Subir documentos si se proporcionan nuevos
+            if (isset($archivos['copia_cedula'])) {
+                $updateData['copia_cedula'] = $this->guardarDocumento($archivos['copia_cedula'], 'adoptantes/cedulas');
+            }
+            if (isset($archivos['comprobante_domicilio'])) {
+                $updateData['comprobante_domicilio'] = $this->guardarDocumento($archivos['comprobante_domicilio'], 'adoptantes/domicilios');
+            }
+
+            if (!empty($updateData)) {
+                $adoptante->update($updateData);
+            }
         }
 
         return $adoptante;
+    }
+
+    /**
+     * Guardar documento en storage.
+     */
+    protected function guardarDocumento($archivo, string $carpeta): string
+    {
+        $nombreArchivo = time() . '_' . uniqid() . '.' . $archivo->getClientOriginalExtension();
+        $path = $archivo->storeAs($carpeta, $nombreArchivo, 'public');
+        return $path;
     }
 
     /**
@@ -233,5 +296,45 @@ class AdopcionService
             'Esterilizar al animal si no lo esta (aplica condiciones)',
             'Cumplir con el calendario de vacunacion',
         ];
+    }
+
+    /**
+     * Obtener coordinador disponible para asignar como evaluador.
+     * Por ahora asigna al coordinador con menos adopciones pendientes.
+     * En el futuro se puede implementar logica mas avanzada de disponibilidad.
+     */
+    protected function obtenerCoordinadorDisponible(): ?string
+    {
+        // Buscar usuarios con rol COORDINADOR que esten activos
+        $coordinadores = Usuario::activos()
+            ->whereHas('roles', function ($query) {
+                $query->where('codigo', 'COORDINADOR')
+                      ->where('usuario_rol.activo', true);
+            })
+            ->get();
+
+        if ($coordinadores->isEmpty()) {
+            Log::warning('No hay coordinadores disponibles para asignar a la solicitud de adopcion');
+            return null;
+        }
+
+        // Si solo hay un coordinador, retornarlo directamente
+        if ($coordinadores->count() === 1) {
+            return $coordinadores->first()->id;
+        }
+
+        // Asignar al coordinador con menos adopciones pendientes (balanceo de carga)
+        $coordinadorConMenosCarga = $coordinadores->map(function ($coordinador) {
+            $adopcionesPendientes = Adopcion::where('evaluador_id', $coordinador->id)
+                ->whereIn('estado', ['solicitada', 'en_evaluacion'])
+                ->count();
+
+            return [
+                'id' => $coordinador->id,
+                'carga' => $adopcionesPendientes,
+            ];
+        })->sortBy('carga')->first();
+
+        return $coordinadorConMenosCarga['id'];
     }
 }

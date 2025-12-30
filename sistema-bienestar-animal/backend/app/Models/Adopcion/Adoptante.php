@@ -29,6 +29,8 @@ class Adoptante extends Model
         'experiencia_animales',
         'num_personas_hogar',
         'estado',
+        'copia_cedula',
+        'comprobante_domicilio',
     ];
 
     protected $casts = [
@@ -42,6 +44,8 @@ class Adoptante extends Model
     protected $appends = [
         'nombre_completo',
         'edad',
+        'copia_cedula_url',
+        'comprobante_domicilio_url',
     ];
 
     /**
@@ -61,6 +65,28 @@ class Adoptante extends Model
             return null;
         }
         return $this->fecha_nacimiento->age;
+    }
+
+    /**
+     * Accessor: URL de copia de cédula.
+     */
+    public function getCopiaCedulaUrlAttribute(): ?string
+    {
+        if (!$this->copia_cedula) {
+            return null;
+        }
+        return url('storage/' . $this->copia_cedula);
+    }
+
+    /**
+     * Accessor: URL de comprobante de domicilio.
+     */
+    public function getComprobanteDomicilioUrlAttribute(): ?string
+    {
+        if (!$this->comprobante_domicilio) {
+            return null;
+        }
+        return url('storage/' . $this->comprobante_domicilio);
     }
 
     /**

@@ -15,13 +15,23 @@
           </p>
         </div>
 
-        <!-- Botón temporal para ver gestión -->
-        <RouterLink
-          to="/adopciones/coordinador"
-          class="btn-govco btn-govco-secondary"
-        >
-          Ver gestión de adopciones
-        </RouterLink>
+        <div class="header-actions">
+          <!-- Botón para consultar estado de adopción -->
+          <RouterLink
+            to="/adopciones/consultar"
+            class="btn-govco btn-govco-outline"
+          >
+            Consultar mi solicitud
+          </RouterLink>
+
+          <!-- Botón temporal para ver gestión -->
+          <RouterLink
+            to="/adopciones/coordinador"
+            class="btn-govco btn-govco-secondary"
+          >
+            Ver gestión de adopciones
+          </RouterLink>
+        </div>
       </header>
 
       <!-- 🚨 IMPORTANTE: le pasamos filteredAnimals, NO animals -->
@@ -96,20 +106,24 @@ async function loadAnimals() {
   loadingAnimals.value = true;
   try {
     const response = await animalService.getCatalogoAdopcion();
-    // Mapear datos del backend al formato esperado por el componente
+    // El backend ahora devuelve solo animales en_adopcion y saludables con los accessors correctos
     const data = response.data || response;
-    animals.value = (Array.isArray(data) ? data : data.data || []).map(animal => ({
+    const rawAnimals = Array.isArray(data) ? data : data.data || [];
+
+    // Inicializar _currentSlide para el carrusel de cada animal
+    animals.value = rawAnimals.map(animal => ({
       ...animal,
-      // Mapear campos para compatibilidad con el template
-      name: animal.nombre || animal.name,
-      species: animal.especie || animal.species,
-      sex: animal.sexo || animal.sex,
-      size: animal.tamanio || animal.size,
-      ageInYears: animal.edad_aproximada ? Math.floor(animal.edad_aproximada / 12) : animal.ageInYears,
-      photoUrl: animal.url_foto_principal || animal.foto_principal || animal.photoUrl,
-      statusLabel: animal.estado === 'en_adopcion' ? 'Disponible' : (animal.estado || 'Disponible'),
-      shortDescription: animal.observaciones || animal.shortDescription || `${animal.raza || 'Mestizo'} de ${animal.color || 'varios colores'}.`
+      _currentSlide: 0,
+      // Labels de compatibilidad para el template
+      name: animal.nombre || animal.codigo_unico,
+      species: animal.especie,
+      sex: animal.sexo,
+      size: animal.tamanio,
+      statusLabel: 'Disponible',
+      photoUrl: animal.foto_url
     }));
+
+    console.log(`📋 Catálogo de adopción: ${animals.value.length} animales cargados`);
   } catch (error) {
     console.error('Error al cargar animales:', error);
     animals.value = [];
@@ -133,17 +147,24 @@ function closeAdoptionForm() {
   selectedAnimal.value = null;
 }
 
-async function handleAdoptionSubmitted(formData) {
-  console.log('Solicitud enviada (mock):', {
-    ...formData,
-    animalId: selectedAnimal.value?.id,
-  });
+async function handleAdoptionSubmitted(response) {
+  console.log('Solicitud de adopcion enviada:', response);
+
+  // Mostrar mensaje de exito
   if (window.$toast) {
-    window.$toast.success('Solicitud enviada', 'Tu solicitud de adopcion fue enviada correctamente. Te contactaremos pronto.');
+    window.$toast.success(
+      'Solicitud enviada exitosamente',
+      'Tu solicitud de adopcion fue enviada correctamente. Nos pondremos en contacto contigo pronto para continuar con el proceso.'
+    );
   } else {
-    alert('Tu solicitud de adopción fue enviada (mock).');
+    alert('Tu solicitud de adopcion fue enviada exitosamente. Te contactaremos pronto.');
   }
+
+  // Cerrar el formulario
   closeAdoptionForm();
+
+  // Recargar la lista de animales (el animal adoptado podria ya no estar disponible)
+  await loadAnimals();
 }
 
 onMounted(loadAnimals);
@@ -166,5 +187,38 @@ onMounted(loadAnimals);
   align-items: flex-start;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-govco-outline {
+  background: transparent;
+  border: 2px solid #3366cc;
+  color: #3366cc;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s;
+}
+
+.btn-govco-outline:hover {
+  background: #3366cc;
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .adoptions-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header-actions {
+    justify-content: center;
+  }
 }
 </style>
