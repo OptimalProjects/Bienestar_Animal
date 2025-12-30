@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\Admin\ReporteController;
 use App\Http\Controllers\Api\V1\Admin\UsuarioController;
 use App\Http\Controllers\Api\V1\Admin\InventarioController;
 use App\Http\Controllers\Api\V1\HealthController;
+use App\Http\Controllers\Api\V1\Auth\SSOController;
 
 /*
 |--------------------------------------------------------------------------
@@ -47,6 +48,15 @@ Route::prefix('v1')->group(function () {
     // Denuncias publicas
     Route::post('/denuncias', [DenunciaController::class, 'store']);
     Route::get('/denuncias/consultar/{ticket}', [DenunciaController::class, 'consultarTicket']);
+
+    // ============================================
+    // SSO 
+    // ============================================
+
+    Route::get('/sso/callback', [SSOController::class, 'callback']);
+    
+    // Solo para desarrollo (generar tokens fake)
+    Route::post('/sso/generate-fake-token', [SSOController::class, 'generateFakeToken']);
 
     // ============================================
     // RUTAS PROTEGIDAS (Requieren autenticacion)

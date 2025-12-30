@@ -11,11 +11,18 @@ import ComplaintsView from '../views/ComplaintsView.vue';
 import AdoptionsView from '../views/AdoptionsView.vue';
 import AdminView from '../views/AdminView.vue';
 import AdoptionsCoordinatorView from '../views/AdoptionsCoordinatorView.vue';
+import SSOCallback from '../views/auth/SSOCallback.vue';
 
 // Roles
 import { getCurrentRole, ROLES } from '../composables/useRol.js';
 
 const routes = [
+  {
+    path: '/sso/callback',
+    name: 'sso-callback',
+    component: SSOCallback,
+    meta: { requiresAuth: false }
+  },
   {
     path: '/',
     name: 'home',
