@@ -26,14 +26,13 @@
 import { ref, computed } from 'vue';
 
 import AnimalForm from '../components/animals/AnimalForm.vue';
-import AnimalNeuturingForm from '../components/animals/AnimalNeuturingForm.vue';
+
 import AnimalSearch from '../components/animals/AnimalSearch.vue';
 
 const currentTab = ref('register');
 
 const tabs = [
   { id: 'register', label: 'Registrar animal', icon: '➕', component: AnimalForm },
-  { id: 'neutering', label: 'Esterilización', icon: '💉', component: AnimalNeuturingForm },
   { id: 'search', label: 'Búsqueda avanzada', icon: '🔍', component: AnimalSearch }
 ];
 
