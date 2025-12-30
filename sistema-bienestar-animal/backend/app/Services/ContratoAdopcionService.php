@@ -52,6 +52,30 @@ class ContratoAdopcionService
         $adopcion->load(['animal', 'adoptante', 'evaluador']);
         $data = $this->prepararDatosContrato($adopcion);
 
+        // Si el contrato está firmado, incluir la firma
+        if ($adopcion->contrato_firmado) {
+            // Buscar archivo de firma existente
+            $firmaPattern = 'firmas/firma_' . $adopcion->id . '_*.png';
+            $firmaFiles = Storage::disk('public')->files('firmas');
+            $firmaPath = null;
+
+            foreach ($firmaFiles as $file) {
+                if (str_contains($file, 'firma_' . $adopcion->id . '_')) {
+                    $firmaPath = $file;
+                    break;
+                }
+            }
+
+            if ($firmaPath && Storage::disk('public')->exists($firmaPath)) {
+                $firmaContent = Storage::disk('public')->get($firmaPath);
+                $firmaBase64 = base64_encode($firmaContent);
+                $data['firma_base64'] = 'data:image/png;base64,' . $firmaBase64;
+            }
+
+            $data['contrato_firmado'] = true;
+            $data['fecha_firma'] = $adopcion->fecha_entrega?->format('d/m/Y H:i');
+        }
+
         $pdf = Pdf::loadView('pdf.contrato-adopcion', $data);
         $pdf->setPaper('letter', 'portrait');
 

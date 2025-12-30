@@ -7,9 +7,16 @@
       <div class="container-fluid">
         <div class="row align-items-center">
           <div class="col-auto">
-            <a href="https://www.gov.co/" target="_blank" rel="noopener" class="govco-logo-link">
+            <a
+              role="link"
+              aria-label="Logo Gobierno de Colombia. Te llevará al inicio"
+              class="govco-logo-link"
+              href="https://www.gov.co/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               <img
-                src="https://cdn.www.gov.co/assets/images/logo.svg"
+                src="../../assets/icons/logo-govco.png"
                 alt="Logo GOV.CO"
                 class="govco-logo"
               />

@@ -381,34 +381,23 @@
             En constancia de lo anterior, las partes firman el presente contrato.
         </p>
 
-        <table class="signatures-grid">
-            <tr>
-                <td>
-                    @if(isset($firma_base64))
-                    <img src="{{ $firma_base64 }}" alt="Firma del adoptante" class="signature-image">
-                    @elseif(isset($firma_url))
-                    <img src="{{ $firma_url }}" alt="Firma del adoptante" class="signature-image">
-                    @endif
-                    <div class="signature-line">
-                        <div class="signature-name">{{ $adoptante['nombre_completo'] }}</div>
-                        <div class="signature-role">EL/LA ADOPTANTE</div>
-                        <div class="signature-doc">{{ $adoptante['tipo_documento'] }} {{ $adoptante['numero_documento'] }}</div>
-                    </div>
-                </td>
-                <td>
-                    <div class="signature-line" style="margin-top: 80px;">
-                        @if($evaluador)
-                        <div class="signature-name">Aprobado por: {{ $evaluador['nombre'] }}</div>
-                        <div class="signature-role">{{ $evaluador['cargo'] }}</div>
-                        @else
-                        <div class="signature-name">Aprobado por: LA ENTIDAD</div>
-                        <div class="signature-role">Representante Legal</div>
-                        @endif
-                        <div class="signature-doc">{{ $institucion['nombre'] }}</div>
-                    </div>
-                </td>
-            </tr>
-        </table>
+        <div style="text-align: center;">
+            @if(isset($firma_base64))
+            <img src="{{ $firma_base64 }}" alt="Firma del adoptante" class="signature-image">
+            @elseif(isset($firma_url))
+            <img src="{{ $firma_url }}" alt="Firma del adoptante" class="signature-image">
+            @endif
+            <div class="signature-line" style="max-width: 350px; margin: 0 auto;">
+                <div class="signature-name">{{ $adoptante['nombre_completo'] }}</div>
+                <div class="signature-role">EL/LA ADOPTANTE</div>
+                <div class="signature-doc">{{ $adoptante['tipo_documento'] }} {{ $adoptante['numero_documento'] }}</div>
+            </div>
+            @if($evaluador)
+            <div style="margin-top: 15px; font-size: 10pt; color: #666;">
+                Adopción aprobada por: {{ $evaluador['nombre'] }} - {{ $evaluador['cargo'] }}
+            </div>
+            @endif
+        </div>
     </div>
 
     <div class="footer">
