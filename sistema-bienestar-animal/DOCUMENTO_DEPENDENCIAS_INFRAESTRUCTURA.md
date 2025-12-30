@@ -540,6 +540,45 @@ localhost:5173
 **Configuracion:**
 ```env
 MFA_REQUIRED_ROLES=admin,director
+MFA_CODE_EXPIRATION=5
+MFA_MAX_ATTEMPTS=3
+```
+
+#### Parametros de MFA
+
+| Parametro | Valor | Descripcion |
+|-----------|-------|-------------|
+| **Tipo de codigo** | Numerico | 6 digitos |
+| **Transporte** | Email | Via SMTP |
+| **Expiracion** | 5 minutos | TTL en Redis |
+| **Intentos maximos** | 3 | Por sesion de login |
+| **Hash del codigo** | BCrypt | Almacenado hasheado en Redis |
+
+#### Uso de Redis para MFA
+
+| Funcionalidad | Key Pattern | TTL |
+|---------------|-------------|-----|
+| Codigos MFA | `mfa_code:{user_id}` | 5 minutos |
+| Intentos MFA | `mfa_attempts:{user_id}` | 15 minutos |
+| Verificacion MFA | `mfa_verified:{user_id}` | 1 hora |
+| Rate Limiting Login | `rate_limit:login:{ip}` | 1 minuto |
+
+#### Plantilla de Email MFA
+
+```
+Asunto: Codigo de Verificacion - Sistema Bienestar Animal
+
+Contenido:
+--------------------------------------------------
+Su codigo de verificacion es: {CODIGO_6_DIGITOS}
+
+Este codigo expira en 5 minutos.
+
+Si usted no solicito este codigo, ignore este mensaje.
+
+Sistema de Bienestar Animal
+Alcaldia de Santiago de Cali
+--------------------------------------------------
 ```
 
 ### 9.3 Encriptacion de Contrasenas
@@ -567,7 +606,49 @@ Todas las demas rutas requieren autenticacion mediante token Bearer en el header
 Authorization: Bearer {token}
 ```
 
-### 9.5 Auditoria de Seguridad
+### 9.5 Rate Limiting
+
+| Endpoint | Limite | Ventana | Descripcion |
+|----------|--------|---------|-------------|
+| `/auth/login` | 5 intentos | 1 minuto | Proteccion contra fuerza bruta |
+| `/auth/mfa/verify` | 3 intentos | 1 minuto | Proteccion codigo MFA |
+| `/auth/refresh` | 10 solicitudes | 1 minuto | Renovacion de tokens |
+| Otros endpoints | 60 solicitudes | 1 minuto | Rate limit general |
+
+### 9.6 Configuracion CORS
+
+**Archivo:** `config/cors.php`
+
+```php
+return [
+    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    'allowed_methods' => ['*'],
+    'allowed_origins' => [
+        'http://localhost:5173',      // Desarrollo
+        'http://127.0.0.1:5173',      // Desarrollo alt
+        'https://bienestaranimal.cali.gov.co',  // Produccion
+    ],
+    'allowed_headers' => [
+        'Content-Type',
+        'X-Requested-With',
+        'Authorization',
+        'Accept',
+        'Origin',
+        'X-Trace-ID',
+    ],
+    'supports_credentials' => true,
+];
+```
+
+### 9.7 Headers de Seguridad Adicionales (Produccion)
+
+```nginx
+# Configurar en Nginx para produccion
+add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" always;
+```
+
+### 9.8 Auditoria de Seguridad
 
 **Tabla:** `eventos_auditoria`
 **Retencion:** 5 anios (AUDIT_RETENTION_YEARS=5)
@@ -581,6 +662,100 @@ Authorization: Bearer {token}
 - Vacunas aplicadas
 - Cirugias realizadas
 - Rescates registrados
+
+### 9.9 Roles y Permisos del Sistema
+
+#### Matriz de Roles
+
+| Codigo | Nombre | MFA Obligatorio | Modulo | Nivel de Acceso |
+|--------|--------|-----------------|--------|-----------------|
+| `ADMIN` | Administrador del Sistema | Si | general | Total |
+| `DIRECTOR` | Director del Programa | Si | general | Alto |
+| `COORDINADOR` | Coordinador de Operaciones | No | general | Medio-Alto |
+| `VETERINARIO` | Medico Veterinario | No | veterinaria | Medio |
+| `AUXILIAR_VET` | Auxiliar Veterinario | No | veterinaria | Bajo |
+| `OPERADOR` | Operador de Rescate | No | denuncias | Medio |
+| `EVALUADOR` | Evaluador de Adopciones | No | adopciones | Medio |
+
+#### Permisos por Modulo - Autenticacion
+
+| Permiso | Descripcion | ADMIN | DIRECTOR | COORD | VET | AUX | OP | EVAL |
+|---------|-------------|-------|----------|-------|-----|-----|-----|------|
+| `auth.login` | Iniciar sesion | Si | Si | Si | Si | Si | Si | Si |
+| `users.manage` | Gestionar usuarios | Si | Si | No | No | No | No | No |
+| `roles.manage` | Gestionar roles | Si | No | No | No | No | No | No |
+
+#### Permisos por Modulo - Animales
+
+| Permiso | Descripcion | ADMIN | DIRECTOR | COORD | VET | AUX | OP | EVAL |
+|---------|-------------|-------|----------|-------|-----|-----|-----|------|
+| `animales.ver` | Ver animales | Si | Si | Si | Si | Si | Si | Si |
+| `animales.crear` | Registrar animales | Si | Si | Si | Si | Si | Si | No |
+| `animales.editar` | Editar animales | Si | Si | Si | Si | Si | Si | No |
+| `animales.eliminar` | Eliminar animales | Si | Si | Si | No | No | No | No |
+
+#### Permisos por Modulo - Veterinaria
+
+| Permiso | Descripcion | ADMIN | DIRECTOR | COORD | VET | AUX | OP | EVAL |
+|---------|-------------|-------|----------|-------|-----|-----|-----|------|
+| `veterinaria.ver` | Ver registros veterinarios | Si | Si | Si | Si | Si | No | No |
+| `veterinaria.crear` | Crear consultas/vacunas | Si | Si | No | Si | Si | No | No |
+| `veterinaria.editar` | Editar registros | Si | Si | No | Si | No | No | No |
+
+#### Permisos por Modulo - Adopciones
+
+| Permiso | Descripcion | ADMIN | DIRECTOR | COORD | VET | AUX | OP | EVAL |
+|---------|-------------|-------|----------|-------|-----|-----|-----|------|
+| `adopciones.ver` | Ver adopciones | Si | Si | Si | No | No | No | Si |
+| `adopciones.evaluar` | Evaluar solicitudes | Si | Si | No | No | No | No | Si |
+| `adopciones.aprobar` | Aprobar adopciones | Si | Si | No | No | No | No | No |
+
+#### Permisos por Modulo - Denuncias
+
+| Permiso | Descripcion | ADMIN | DIRECTOR | COORD | VET | AUX | OP | EVAL |
+|---------|-------------|-------|----------|-------|-----|-----|-----|------|
+| `denuncias.ver` | Ver denuncias | Si | Si | Si | No | No | Si | No |
+| `denuncias.asignar` | Asignar denuncias | Si | Si | Si | No | No | No | No |
+| `denuncias.gestionar` | Gestionar denuncias | Si | Si | Si | No | No | Si | No |
+
+#### Jerarquia de Permisos
+
+```
+ADMIN (Administrador)
+├── * (Todos los permisos)
+│
+DIRECTOR
+├── usuarios.*
+├── reportes.*
+├── animales.*
+├── denuncias.*
+├── adopciones.*
+│
+COORDINADOR
+├── animales.*
+├── denuncias.ver
+├── denuncias.asignar
+├── adopciones.ver
+│
+VETERINARIO
+├── animales.ver
+├── animales.editar
+├── veterinaria.*
+│
+AUXILIAR_VET
+├── animales.ver
+├── veterinaria.ver
+├── veterinaria.registrar
+│
+OPERADOR
+├── animales.ver
+├── animales.crear
+├── denuncias.*
+│
+EVALUADOR
+├── animales.ver
+├── adopciones.*
+```
 
 ---
 
@@ -871,6 +1046,8 @@ BCRYPT_ROUNDS=12
 # SEGURIDAD MFA
 # ============================================
 MFA_REQUIRED_ROLES=admin,director
+MFA_CODE_EXPIRATION=5
+MFA_MAX_ATTEMPTS=3
 
 # ============================================
 # SLA DENUNCIAS
@@ -1086,16 +1263,74 @@ server {
 | Correo SMTP | Direccion TIC |
 | SCI - Interoperabilidad | Ecosistema Digital |
 
-### 18.3 Solicitudes Pendientes
+### 18.3 Checklist Detallado de Solicitudes
 
-| Solicitud | Responsable | Estado | Prioridad |
-|-----------|-------------|--------|-----------|
-| Credenciales SCI (CLIENT_SECRET) | Ecosistema Digital | Pendiente | Alta |
-| Servidor de produccion | Direccion TIC | Pendiente | Critica |
-| Dominio bienestaranimal.cali.gov.co | Direccion TIC | Pendiente | Critica |
-| Certificado SSL | Direccion TIC | Pendiente | Critica |
-| Credenciales SMTP institucional | Direccion TIC | Pendiente | Alta |
-| (Opcional) Cuenta AWS para S3 | Direccion TIC | Pendiente | Media |
+#### Alta Prioridad (Requerido para Funcionamiento)
+
+| # | Solicitud | Area Responsable | Estado | Fecha Solicitud | Fecha Entrega |
+|---|-----------|------------------|--------|-----------------|---------------|
+| 1 | Servidor de produccion con Ubuntu 22.04 LTS | Direccion TIC / Infraestructura | ⬜ Pendiente | | |
+| 2 | Servidor MySQL con base de datos `bienestar_animal` | Direccion TIC / DBA | ⬜ Pendiente | | |
+| 3 | Servidor Redis para cache y sesiones MFA | Direccion TIC / Infraestructura | ⬜ Pendiente | | |
+| 4 | Dominio/subdominio bienestaranimal.cali.gov.co | Direccion TIC / Comunicaciones | ⬜ Pendiente | | |
+| 5 | Certificado SSL/TLS para dominio de produccion | Direccion TIC / Seguridad | ⬜ Pendiente | | |
+| 6 | Credenciales SMTP institucional para envio de emails y MFA | Direccion TIC / Comunicaciones | ⬜ Pendiente | | |
+| 7 | Apertura de puertos: 80, 443 (entrada), 3306, 6379, 587 (interno) | Direccion TIC / Redes/Seguridad | ⬜ Pendiente | | |
+
+#### Media Prioridad (Integracion SCI)
+
+| # | Solicitud | Area Responsable | Estado | Fecha Solicitud | Fecha Entrega |
+|---|-----------|------------------|--------|-----------------|---------------|
+| 8 | Registro de aplicacion en SCI (Client ID y Secret) | Alcaldia Digital / Ecosistema Digital | ⬜ Pendiente | | |
+| 9 | Documentacion de endpoints SCI Auth y RBAC | Alcaldia Digital / Ecosistema Digital | ⬜ Pendiente | | |
+| 10 | Inclusion de IP/Dominio en whitelist de SCI | Alcaldia Digital / Ecosistema Digital | ⬜ Pendiente | | |
+| 11 | Acceso a ambiente de staging de SCI para pruebas | Alcaldia Digital / Ecosistema Digital | ⬜ Pendiente | | |
+| 12 | Definicion de roles y permisos del sistema en SCI RBAC | Alcaldia Digital / Ecosistema Digital | ⬜ Pendiente | | |
+
+#### Baja Prioridad (Mejoras Futuras)
+
+| # | Solicitud | Area Responsable | Estado | Fecha Solicitud | Fecha Entrega |
+|---|-----------|------------------|--------|-----------------|---------------|
+| 13 | Cuenta AWS para almacenamiento S3 (opcional) | Direccion TIC | ⬜ Pendiente | | |
+| 14 | Integracion con LDAP/Active Directory institucional | Direccion TIC Corporativo | ⬜ Pendiente | | |
+| 15 | Servicio de notificaciones SMS (alternativa MFA) | Comunicaciones | ⬜ Pendiente | | |
+| 16 | Integracion con sistema de logs centralizado (ELK/Splunk) | Direccion TIC / Infraestructura | ⬜ Pendiente | | |
+
+#### Formato de Solicitud Sugerido
+
+```
+SOLICITUD DE INFRAESTRUCTURA/SERVICIO
+
+Proyecto: Sistema de Bienestar Animal
+Modulo: [Especificar modulo]
+Solicitante: [Nombre del PM/Lider Tecnico]
+Fecha: [Fecha de solicitud]
+
+DESCRIPCION DEL REQUERIMIENTO:
+[Descripcion detallada de lo que se necesita]
+
+JUSTIFICACION:
+[Por que es necesario para el funcionamiento del sistema]
+
+ESPECIFICACIONES TECNICAS:
+- [Especificacion 1]
+- [Especificacion 2]
+- [...]
+
+AMBIENTE REQUERIDO:
+☐ Desarrollo
+☐ Staging
+☐ Produccion
+
+PRIORIDAD:
+☐ Alta (Bloquea el proyecto)
+☐ Media (Necesario para integracion)
+☐ Baja (Mejora futura)
+
+FECHA ESPERADA DE ENTREGA: [Fecha]
+
+CONTACTO TECNICO: [Email/Telefono]
+```
 
 ---
 
@@ -1173,7 +1408,325 @@ server {
 
 ---
 
-## ANEXO B: ENDPOINTS API COMPLETOS
+## ANEXO B: FLUJOS DE AUTENTICACION
+
+### B.1 Diagrama de Secuencia - Login sin MFA
+
+```
+Usuario          Frontend           Backend            MySQL           Redis
+   │                │                  │                 │               │
+   │ Ingresa email  │                  │                 │               │
+   │ y password     │                  │                 │               │
+   │───────────────>│                  │                 │               │
+   │                │ POST /auth/login │                 │               │
+   │                │─────────────────>│                 │               │
+   │                │                  │ SELECT usuario  │               │
+   │                │                  │────────────────>│               │
+   │                │                  │    usuario      │               │
+   │                │                  │<────────────────│               │
+   │                │                  │                 │               │
+   │                │                  │ Verificar BCrypt│               │
+   │                │                  │ (password_hash) │               │
+   │                │                  │                 │               │
+   │                │                  │ Generar token   │               │
+   │                │                  │ Sanctum         │               │
+   │                │                  │                 │               │
+   │                │  {token, user}   │                 │               │
+   │                │<─────────────────│                 │               │
+   │                │                  │                 │               │
+   │                │ Guardar en       │                 │               │
+   │                │ localStorage     │                 │               │
+   │                │                  │                 │               │
+   │  Redirigir a   │                  │                 │               │
+   │  Dashboard     │                  │                 │               │
+   │<───────────────│                  │                 │               │
+```
+
+### B.2 Diagrama de Secuencia - Login con MFA
+
+```
+Usuario          Frontend           Backend            MySQL           Redis         Email
+   │                │                  │                 │               │              │
+   │ Ingresa email  │                  │                 │               │              │
+   │ y password     │                  │                 │               │              │
+   │───────────────>│                  │                 │               │              │
+   │                │ POST /auth/login │                 │               │              │
+   │                │─────────────────>│                 │               │              │
+   │                │                  │ SELECT usuario  │               │              │
+   │                │                  │────────────────>│               │              │
+   │                │                  │    usuario      │               │              │
+   │                │                  │<────────────────│               │              │
+   │                │                  │                 │               │              │
+   │                │                  │ Verificar BCrypt│               │              │
+   │                │                  │                 │               │              │
+   │                │                  │ ¿Rol requiere   │               │              │
+   │                │                  │  MFA? (ADMIN)   │               │              │
+   │                │                  │      SI         │               │              │
+   │                │                  │                 │               │              │
+   │                │                  │ Generar codigo  │               │              │
+   │                │                  │ 6 digitos       │               │              │
+   │                │                  │                 │               │              │
+   │                │                  │ SET mfa_code:id │               │              │
+   │                │                  │ TTL=5min        │               │              │
+   │                │                  │─────────────────────────────────>│              │
+   │                │                  │                 │               │              │
+   │                │                  │ Enviar email    │               │              │
+   │                │                  │ con codigo      │               │              │
+   │                │                  │─────────────────────────────────────────────────>│
+   │                │                  │                 │               │              │
+   │                │ {requiere_mfa:   │                 │               │              │
+   │                │  true, user_id}  │                 │               │              │
+   │                │<─────────────────│                 │               │              │
+   │                │                  │                 │               │              │
+   │ Mostrar form   │                  │                 │               │              │
+   │ MFA            │                  │                 │               │              │
+   │<───────────────│                  │                 │               │              │
+   │                │                  │                 │               │              │
+   │ Ingresa codigo │                  │                 │               │              │
+   │ 6 digitos      │                  │                 │               │              │
+   │───────────────>│                  │                 │               │              │
+   │                │POST /auth/mfa/   │                 │               │              │
+   │                │verify            │                 │               │              │
+   │                │─────────────────>│                 │               │              │
+   │                │                  │ GET mfa_code:id │               │              │
+   │                │                  │─────────────────────────────────>│              │
+   │                │                  │    codigo       │               │              │
+   │                │                  │<─────────────────────────────────│              │
+   │                │                  │                 │               │              │
+   │                │                  │ Verificar codigo│               │              │
+   │                │                  │                 │               │              │
+   │                │                  │ Generar token   │               │              │
+   │                │                  │                 │               │              │
+   │                │  {token, user}   │                 │               │              │
+   │                │<─────────────────│                 │               │              │
+   │                │                  │                 │               │              │
+   │  Redirigir a   │                  │                 │               │              │
+   │  Dashboard     │                  │                 │               │              │
+   │<───────────────│                  │                 │               │              │
+```
+
+### B.3 Flujo de Renovacion de Token
+
+```
+Frontend                    Backend                    MySQL
+    │                          │                         │
+    │ (Token proximo a expirar)│                         │
+    │                          │                         │
+    │ POST /auth/refresh       │                         │
+    │ Authorization: Bearer... │                         │
+    │─────────────────────────>│                         │
+    │                          │                         │
+    │                          │ Verificar token actual  │
+    │                          │                         │
+    │                          │ Revocar token anterior  │
+    │                          │─────────────────────────>│
+    │                          │                         │
+    │                          │ Crear nuevo token       │
+    │                          │─────────────────────────>│
+    │                          │                         │
+    │     {nuevo_token}        │                         │
+    │<─────────────────────────│                         │
+    │                          │                         │
+    │ Actualizar localStorage  │                         │
+    │                          │                         │
+```
+
+---
+
+## ANEXO C: DETALLE DE ENDPOINTS DE AUTENTICACION
+
+### C.1 POST /api/v1/auth/login
+
+**Descripcion:** Inicio de sesion de usuario
+
+**Request:**
+```json
+{
+    "email": "usuario@cali.gov.co",
+    "password": "contrasena123"
+}
+```
+
+**Response Exitoso (sin MFA):**
+```json
+{
+    "success": true,
+    "data": {
+        "token": "1|xxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "token_type": "Bearer",
+        "expires_in": 3600,
+        "user": {
+            "id": "uuid",
+            "username": "usuario",
+            "email": "usuario@cali.gov.co",
+            "nombres": "Juan",
+            "apellidos": "Perez",
+            "rol": "OPERADOR"
+        },
+        "permisos": ["animales.ver", "animales.crear", "denuncias.*"]
+    }
+}
+```
+
+**Response (requiere MFA):**
+```json
+{
+    "success": true,
+    "data": {
+        "requiere_mfa": true,
+        "usuario_id": "uuid",
+        "mensaje": "Se ha enviado un codigo de verificacion a su correo"
+    }
+}
+```
+
+### C.2 POST /api/v1/auth/mfa/verify
+
+**Descripcion:** Verificacion de codigo MFA
+
+**Request:**
+```json
+{
+    "usuario_id": "uuid",
+    "codigo": "123456"
+}
+```
+
+**Response Exitoso:**
+```json
+{
+    "success": true,
+    "data": {
+        "token": "1|xxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "token_type": "Bearer",
+        "expires_in": 3600,
+        "user": {
+            "id": "uuid",
+            "username": "admin",
+            "email": "admin@bienestaranimal.gov.co",
+            "nombres": "Administrador",
+            "apellidos": "Sistema",
+            "rol": "ADMIN"
+        },
+        "permisos": ["*"]
+    }
+}
+```
+
+### C.3 GET /api/v1/auth/me
+
+**Descripcion:** Obtener informacion del usuario autenticado
+
+**Headers:**
+```
+Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+**Response:**
+```json
+{
+    "success": true,
+    "data": {
+        "id": "uuid",
+        "username": "admin",
+        "email": "admin@bienestaranimal.gov.co",
+        "nombres": "Administrador",
+        "apellidos": "Sistema",
+        "rol": {
+            "codigo": "ADMIN",
+            "nombre": "Administrador"
+        },
+        "permisos": ["*"],
+        "ultimo_acceso": "2025-12-29T10:30:00Z"
+    }
+}
+```
+
+### C.4 POST /api/v1/auth/refresh
+
+**Descripcion:** Renovar token de acceso
+
+**Headers:**
+```
+Authorization: Bearer 1|token_actual
+```
+
+**Response:**
+```json
+{
+    "success": true,
+    "data": {
+        "token": "2|nuevo_token_xxxxxxxxx",
+        "token_type": "Bearer",
+        "expires_in": 3600
+    }
+}
+```
+
+### C.5 POST /api/v1/auth/logout
+
+**Descripcion:** Cerrar sesion (revocar token)
+
+**Headers:**
+```
+Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+**Response:**
+```json
+{
+    "success": true,
+    "message": "Sesion cerrada exitosamente"
+}
+```
+
+### C.6 Codigos de Error de Autenticacion
+
+| Codigo HTTP | Codigo Interno | Descripcion |
+|-------------|----------------|-------------|
+| 401 | `AUTH_INVALID_CREDENTIALS` | Credenciales invalidas (email/password) |
+| 401 | `AUTH_TOKEN_EXPIRED` | Token expirado |
+| 401 | `AUTH_TOKEN_INVALID` | Token invalido o mal formado |
+| 403 | `AUTH_MFA_REQUIRED` | Requiere verificacion MFA |
+| 403 | `AUTH_MFA_INVALID` | Codigo MFA invalido |
+| 403 | `AUTH_MFA_EXPIRED` | Codigo MFA expirado (>5 min) |
+| 403 | `AUTH_MFA_MAX_ATTEMPTS` | Maximo de intentos MFA alcanzado |
+| 403 | `AUTH_ROLE_DENIED` | Rol no autorizado para la operacion |
+| 403 | `AUTH_PERMISSION_DENIED` | Permiso denegado |
+| 403 | `AUTH_USER_INACTIVE` | Usuario desactivado |
+| 422 | `VALIDATION_ERROR` | Error de validacion en campos |
+| 429 | `RATE_LIMIT_EXCEEDED` | Limite de solicitudes excedido |
+
+**Ejemplo de Response de Error:**
+```json
+{
+    "success": false,
+    "error": {
+        "code": "AUTH_INVALID_CREDENTIALS",
+        "message": "Las credenciales proporcionadas son incorrectas",
+        "details": null
+    }
+}
+```
+
+**Ejemplo de Error de Validacion:**
+```json
+{
+    "success": false,
+    "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "Error de validacion",
+        "details": {
+            "email": ["El campo email es requerido"],
+            "password": ["La contrasena debe tener al menos 6 caracteres"]
+        }
+    }
+}
+```
+
+---
+
+## ANEXO D: ENDPOINTS API COMPLETOS
 
 ### Rutas Publicas (8 endpoints)
 ```
@@ -1313,23 +1866,223 @@ GET     /api/v1/reportes/exportar
 
 ---
 
-## ANEXO C: GLOSARIO DE TERMINOS
+## ANEXO E: USUARIOS DE PRUEBA
+
+### E.1 Usuarios para Ambiente de Desarrollo/Staging
+
+| Usuario | Email | Rol | MFA | Password (Desarrollo) |
+|---------|-------|-----|-----|----------------------|
+| admin | admin@bienestaranimal.gov.co | ADMIN | Si | Admin2025! |
+| director | director@bienestaranimal.gov.co | DIRECTOR | Si | Director2025! |
+| coordinador | coordinador@bienestaranimal.gov.co | COORDINADOR | No | Coord2025! |
+| vet.garcia | ana.garcia@bienestaranimal.gov.co | VETERINARIO | No | Vet2025! |
+| aux.lopez | maria.lopez@bienestaranimal.gov.co | AUXILIAR_VET | No | Aux2025! |
+| op.torres | diego.torres@bienestaranimal.gov.co | OPERADOR | No | Op2025! |
+| eval.ruiz | carlos.ruiz@bienestaranimal.gov.co | EVALUADOR | No | Eval2025! |
+
+**IMPORTANTE:** Estos usuarios son solo para desarrollo y pruebas. En produccion, crear usuarios con credenciales seguras y unicas.
+
+### E.2 Creacion de Usuario Administrador Inicial
+
+```bash
+# Ejecutar dentro del contenedor backend
+docker-compose exec backend php artisan tinker
+
+# En el REPL de Tinker:
+$user = new \App\Models\User\Usuario();
+$user->id = \Illuminate\Support\Str::uuid();
+$user->username = 'admin';
+$user->email = 'admin@bienestaranimal.gov.co';
+$user->password_hash = \Illuminate\Support\Facades\Hash::make('NUEVA_PASSWORD_SEGURA');
+$user->nombres = 'Administrador';
+$user->apellidos = 'Sistema';
+$user->activo = true;
+$user->save();
+
+# Asignar rol ADMIN
+$rol = \App\Models\User\Rol::where('codigo', 'ADMIN')->first();
+$user->roles()->attach($rol->id);
+```
+
+---
+
+## ANEXO F: ARCHIVOS DE CONFIGURACION CLAVE
+
+### F.1 Rutas de Archivos Importantes
+
+| Archivo | Ruta | Proposito |
+|---------|------|-----------|
+| **LoginController** | `backend/app/Http/Controllers/Api/V1/Auth/LoginController.php` | Logica de autenticacion |
+| **sanctum.php** | `backend/config/sanctum.php` | Configuracion de tokens Sanctum |
+| **auth.php** | `backend/config/auth.php` | Guards y providers de autenticacion |
+| **cors.php** | `backend/config/cors.php` | Politicas CORS |
+| **database.php** | `backend/config/database.php` | Conexiones a base de datos |
+| **mail.php** | `backend/config/mail.php` | Configuracion de email |
+| **queue.php** | `backend/config/queue.php` | Configuracion de colas |
+| **services.php** | `backend/config/services.php` | Servicios de terceros |
+| **api.php** | `backend/routes/api.php` | Rutas de la API |
+| **.env** | `backend/.env` | Variables de entorno backend |
+| **auth.js** | `frontend/src/stores/auth.js` | Store de autenticacion Pinia |
+| **api.js** | `frontend/src/services/api.js` | Cliente HTTP Axios |
+| **LoginView.vue** | `frontend/src/views/LoginView.vue` | Componente de login |
+| **useRol.js** | `frontend/src/composables/useRol.js` | Composable de permisos |
+| **.env** | `frontend/.env` | Variables de entorno frontend |
+| **docker-compose.yml** | `docker/docker-compose.yml` | Orquestacion de contenedores |
+| **Dockerfile** | `docker/php/Dockerfile` | Imagen PHP personalizada |
+| **default.conf** | `docker/nginx/default.conf` | Configuracion Nginx |
+
+### F.2 Modelos de Base de Datos (Backend)
+
+| Modelo | Ruta | Tabla |
+|--------|------|-------|
+| Usuario | `backend/app/Models/User/Usuario.php` | usuarios |
+| Rol | `backend/app/Models/User/Rol.php` | roles |
+| Permiso | `backend/app/Models/User/Permiso.php` | permisos |
+| EventoAuditoria | `backend/app/Models/User/EventoAuditoria.php` | eventos_auditoria |
+| Animal | `backend/app/Models/Animal/Animal.php` | animals |
+| Adopcion | `backend/app/Models/Adoption/Adopcion.php` | adopciones |
+| Denuncia | `backend/app/Models/Complaint/Denuncia.php` | denuncias |
+
+---
+
+## ANEXO G: COMANDOS UTILES
+
+### G.1 Comandos de Laravel/Artisan
+
+```bash
+# Generar clave de aplicacion
+php artisan key:generate
+
+# Ejecutar migraciones
+php artisan migrate
+
+# Revertir migraciones
+php artisan migrate:rollback
+
+# Ejecutar seeders
+php artisan db:seed
+
+# Limpiar caches
+php artisan config:clear
+php artisan cache:clear
+php artisan route:clear
+php artisan view:clear
+
+# Optimizar para produccion
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+
+# Verificar rutas de API
+php artisan route:list --path=api/v1/auth
+
+# Procesar cola de trabajos
+php artisan queue:work redis --tries=3
+
+# Ejecutar jobs programados
+php artisan schedule:run
+
+# Link de storage
+php artisan storage:link
+```
+
+### G.2 Comandos de Docker
+
+```bash
+# Iniciar todos los servicios
+docker-compose up -d
+
+# Iniciar con perfil de desarrollo (incluye phpMyAdmin y Redis Commander)
+docker-compose --profile dev up -d
+
+# Ver logs de un servicio
+docker-compose logs -f backend
+docker-compose logs -f mysql
+
+# Ejecutar comando en contenedor
+docker-compose exec backend php artisan migrate
+docker-compose exec backend composer install
+
+# Reiniciar servicio
+docker-compose restart backend
+
+# Detener servicios
+docker-compose down
+
+# Detener y eliminar volumenes (CUIDADO: borra datos)
+docker-compose down -v
+
+# Reconstruir imagenes
+docker-compose build --no-cache
+```
+
+### G.3 Comandos de Verificacion
+
+```bash
+# Probar conexion a Redis
+docker-compose exec backend php artisan tinker
+> Redis::ping()
+
+# Probar conexion a MySQL
+docker-compose exec backend php artisan tinker
+> DB::connection()->getPdo()
+
+# Verificar health check
+curl http://localhost/api/v1/health
+
+# Verificar version de PHP
+docker-compose exec backend php -v
+
+# Verificar extensiones PHP
+docker-compose exec backend php -m
+```
+
+### G.4 Comandos de Backup
+
+```bash
+# Backup de base de datos MySQL
+docker-compose exec mysql mysqldump -u bienestar_admin -p bienestar_animal > backup_$(date +%Y%m%d).sql
+
+# Restaurar backup
+docker-compose exec -T mysql mysql -u bienestar_admin -p bienestar_animal < backup.sql
+
+# Backup de Redis
+docker-compose exec redis redis-cli BGSAVE
+```
+
+---
+
+## ANEXO H: GLOSARIO DE TERMINOS
 
 | Termino | Definicion |
 |---------|------------|
 | **API** | Application Programming Interface - Interfaz de programacion |
+| **Bearer Token** | Token de acceso enviado en header Authorization |
 | **CORS** | Cross-Origin Resource Sharing - Politica de seguridad del navegador |
 | **Docker** | Plataforma de contenedores para despliegue de aplicaciones |
 | **JWT** | JSON Web Token - Token de autenticacion |
 | **MFA** | Multi-Factor Authentication - Autenticacion multifactor |
 | **Nginx** | Servidor web y reverse proxy |
+| **OAuth2** | Protocolo de autorizacion estandar |
 | **PHP-FPM** | FastCGI Process Manager para PHP |
+| **Rate Limiting** | Control de frecuencia de solicitudes |
+| **RBAC** | Role-Based Access Control - Control de acceso basado en roles |
 | **Redis** | Base de datos en memoria para cache y sesiones |
 | **Sanctum** | Sistema de autenticacion de Laravel para SPAs |
 | **SCI** | Sistema Central de Interoperabilidad de la Alcaldia de Cali |
 | **SLA** | Service Level Agreement - Acuerdo de nivel de servicio |
 | **SPA** | Single Page Application - Aplicacion de pagina unica |
 | **SSL/TLS** | Protocolos de seguridad para comunicacion HTTPS |
+| **TTL** | Time To Live - Tiempo de vida de un dato en cache |
+
+---
+
+## Control de Versiones del Documento
+
+| Version | Fecha | Autor | Cambios |
+|---------|-------|-------|---------|
+| 1.0 | 29/12/2025 | Equipo de Desarrollo | Version inicial |
+| 1.1 | 29/12/2025 | Equipo de Desarrollo | Agregado detalle de autenticacion, MFA, roles y permisos |
 
 ---
 
