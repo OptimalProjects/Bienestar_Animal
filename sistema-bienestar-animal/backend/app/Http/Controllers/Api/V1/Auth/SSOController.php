@@ -31,11 +31,22 @@ class SSOController extends BaseController
         try {
             $jwtToken = $request->input('jwt_token');
 
-            // Validar el JWT token del SSO
-            $payload = $this->validarJwtSso($jwtToken);
+            // DESARROLLO: Bypass temporal - iniciar como admin si el token es inválido
+            if (config('app.env') === 'local' || config('app.env') === 'development') {
+                $payload = $this->validarJwtSso($jwtToken);
 
-            if (!$payload) {
-                return $this->unauthorizedResponse('Token SSO invalido o expirado');
+                // Si el token es inválido, iniciar como admin por defecto
+                if (!$payload) {
+                    \Log::warning('SSO: Token inválido, iniciando como admin por defecto (modo desarrollo)');
+                    return $this->loginComoAdminPorDefecto();
+                }
+            } else {
+                // PRODUCCIÓN: Validar normalmente
+                $payload = $this->validarJwtSso($jwtToken);
+
+                if (!$payload) {
+                    return $this->unauthorizedResponse('Token SSO invalido o expirado');
+                }
             }
 
             // Buscar o crear usuario basado en el payload del SSO
@@ -54,10 +65,59 @@ class SSOController extends BaseController
 
         } catch (\Exception $e) {
             \Log::error('Error en SSO callback: ' . $e->getMessage());
+
+            // DESARROLLO: Si hay cualquier error, iniciar como admin
+            if (config('app.env') === 'local' || config('app.env') === 'development') {
+                \Log::warning('SSO: Error en callback, iniciando como admin por defecto (modo desarrollo)');
+                return $this->loginComoAdminPorDefecto();
+            }
+
             return $this->serverErrorResponse('Error en SSO callback: ' . $e->getMessage());
         }
     }
 
+    /**
+     * DESARROLLO: Login automático como admin (bypass de seguridad temporal)
+     * Solo se activa en entornos local/development
+     */
+    protected function loginComoAdminPorDefecto()
+    {
+        try {
+            // Buscar el primer usuario con rol ADMIN (no ADMINISTRADOR)
+            $admin = Usuario::whereHas('roles', function ($query) {
+                $query->where('codigo', 'ADMIN'); // ← CAMBIAR AQUÍ
+            })->where('activo', true)->first();
+
+            \Log::info('Buscando usuario ADMIN', [
+                'encontrado' => $admin ? 'si' : 'no',
+                'usuario' => $admin ? $admin->email : null
+            ]);
+
+            // Si no hay admin, buscar cualquier usuario activo
+            if (!$admin) {
+                \Log::warning('No se encontró usuario con rol ADMIN, usando primer usuario activo');
+                $admin = Usuario::where('activo', true)->first();
+            }
+
+            if (!$admin) {
+                return $this->unauthorizedResponse('No hay usuarios disponibles para login automático');
+            }
+
+            \Log::info('SSO: Iniciando sesión automática como admin', [
+                'usuario_id' => $admin->id,
+                'email' => $admin->email,
+                'username' => $admin->username,
+                'rol' => $admin->roles->first()?->codigo,
+                'modo' => 'desarrollo'
+            ]);
+
+            return $this->completarLoginSso($admin);
+
+        } catch (\Exception $e) {
+            \Log::error('Error en login automático como admin: ' . $e->getMessage());
+            return $this->serverErrorResponse('Error en login automático');
+        }
+    }
     /**
      * ALTERNATIVA: Validar token SSO (sin completar login)
      * POST /api/v1/sso/validate
@@ -114,7 +174,7 @@ class SSOController extends BaseController
         try {
             // Obtener JWT del header Authorization
             $authHeader = $request->header('Authorization');
-            
+
             if (!$authHeader || !str_starts_with($authHeader, 'Bearer ')) {
                 return $this->unauthorizedResponse('Token no proporcionado');
             }
@@ -170,7 +230,7 @@ class SSOController extends BaseController
 
         try {
             $usuario = Usuario::findOrFail($request->user_id);
-            
+
             // Generar JWT fake con la estructura esperada
             $payload = [
                 'iss' => env('SSO_ISSUER', 'bienestar-animal-sso'),
@@ -200,65 +260,65 @@ class SSOController extends BaseController
         }
     }
 
-/**
- * Validar JWT token del SSO externo
- * Soporta RS256 (producción) y HS256 (desarrollo)
- */
-protected function validarJwtSso(string $jwtToken)
-{
-    try {
-        // PRIORIDAD 1: Intentar con RS256 (producción - clave pública)
-        $publicKeyPath = storage_path('keys/jwt_public.pem');
-        
-        if (file_exists($publicKeyPath)) {
-            try {
-                $publicKey = file_get_contents($publicKeyPath);
-                \Log::info('🔐 Validando JWT SSO con RS256 (producción)');
-                
-                $decoded = JWT::decode($jwtToken, new Key($publicKey, 'RS256'));
-                
-                if (isset($decoded->email)) {
-                    \Log::info('✅ JWT SSO validado con RS256', [
-                        'email' => $decoded->email
-                    ]);
-                    return $decoded;
-                }
-            } catch (\Exception $e) {
-                \Log::warning('⚠️ Fallo RS256, intentando HS256: ' . $e->getMessage());
-            }
-        }
-        
-        // PRIORIDAD 2: Fallback a HS256 (desarrollo - clave simétrica)
-        $secretKey = env('SSO_JWT_SECRET');
-        if ($secretKey) {
-            \Log::info('🔐 Validando JWT SSO con HS256 (desarrollo)');
-            
-            $decoded = JWT::decode($jwtToken, new Key($secretKey, 'HS256'));
-            
-            if (!isset($decoded->email)) {
-                \Log::error('❌ JWT SSO sin email');
-                return null;
-            }
-            
-            \Log::info('✅ JWT SSO validado con HS256', [
-                'email' => $decoded->email
-            ]);
-            return $decoded;
-        }
-        
-        throw new \Exception('No hay método de validación JWT disponible (ni RS256 ni HS256)');
+    /**
+     * Validar JWT token del SSO externo
+     * Soporta RS256 (producción) y HS256 (desarrollo)
+     */
+    protected function validarJwtSso(string $jwtToken)
+    {
+        try {
+            // PRIORIDAD 1: Intentar con RS256 (producción - clave pública)
+            $publicKeyPath = storage_path('keys/jwt_public.pem');
 
-    } catch (\Firebase\JWT\ExpiredException $e) {
-        \Log::error('❌ JWT SSO expirado: ' . $e->getMessage());
-        return null;
-    } catch (\Firebase\JWT\SignatureInvalidException $e) {
-        \Log::error('❌ JWT SSO firma inválida: ' . $e->getMessage());
-        return null;
-    } catch (\Exception $e) {
-        \Log::error('❌ Error validando JWT SSO: ' . $e->getMessage());
-        return null;
+            if (file_exists($publicKeyPath)) {
+                try {
+                    $publicKey = file_get_contents($publicKeyPath);
+                    \Log::info('🔐 Validando JWT SSO con RS256 (producción)');
+
+                    $decoded = JWT::decode($jwtToken, new Key($publicKey, 'RS256'));
+
+                    if (isset($decoded->email)) {
+                        \Log::info('✅ JWT SSO validado con RS256', [
+                            'email' => $decoded->email
+                        ]);
+                        return $decoded;
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning('⚠️ Fallo RS256, intentando HS256: ' . $e->getMessage());
+                }
+            }
+
+            // PRIORIDAD 2: Fallback a HS256 (desarrollo - clave simétrica)
+            $secretKey = env('SSO_JWT_SECRET');
+            if ($secretKey) {
+                \Log::info('🔐 Validando JWT SSO con HS256 (desarrollo)');
+
+                $decoded = JWT::decode($jwtToken, new Key($secretKey, 'HS256'));
+
+                if (!isset($decoded->email)) {
+                    \Log::error('❌ JWT SSO sin email');
+                    return null;
+                }
+
+                \Log::info('✅ JWT SSO validado con HS256', [
+                    'email' => $decoded->email
+                ]);
+                return $decoded;
+            }
+
+            throw new \Exception('No hay método de validación JWT disponible (ni RS256 ni HS256)');
+
+        } catch (\Firebase\JWT\ExpiredException $e) {
+            \Log::error('❌ JWT SSO expirado: ' . $e->getMessage());
+            return null;
+        } catch (\Firebase\JWT\SignatureInvalidException $e) {
+            \Log::error('❌ JWT SSO firma inválida: ' . $e->getMessage());
+            return null;
+        } catch (\Exception $e) {
+            \Log::error('❌ Error validando JWT SSO: ' . $e->getMessage());
+            return null;
+        }
     }
-}
 
     /**
      * Obtener o crear usuario basado en el payload del SSO
@@ -354,11 +414,11 @@ protected function validarJwtSso(string $jwtToken)
                 return $rol;
             }
         }
-    
+
         // TODO: Ajustar cuando se conozca la estructura real del SSO
-        // Rol por defecto: ADMINISTRADOR (temporal para desarrollo)
-        return \App\Models\User\Rol::where('codigo', 'ADMINISTRADOR')->first();
-        
+        // Rol por defecto: ADMIN (temporal para desarrollo)
+        return \App\Models\User\Rol::where('codigo', 'ADMIN')->first();  // ← CAMBIAR A 'ADMIN'
+
         // PRODUCCIÓN: Descomentar cuando el SSO esté listo
         // return \App\Models\User\Rol::where('codigo', 'CIUDADANO')->first();
     }
