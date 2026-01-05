@@ -55,30 +55,13 @@ services:
   # ============================================
   backend:
     build:
-      context: ./php
-      dockerfile: Dockerfile
+      context: ../backend
+      dockerfile: ../docker/php/Dockerfile
     container_name: bienestar_backend
     restart: unless-stopped
     working_dir: /var/www/html
     volumes:
-      - ../backend:/var/www/html
-      - ./php/local.ini:/usr/local/etc/php/conf.d/local.ini:ro
-    environment:
-      - APP_ENV=${APP_ENV:-local}
-      - APP_DEBUG=${APP_DEBUG:-true}
-      - APP_TIMEZONE=America/Bogota
-      - TZ=America/Bogota
-      - DB_CONNECTION=mysql
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_DATABASE=${MYSQL_DATABASE:-bienestar_animal}
-      - DB_USERNAME=${MYSQL_USER:-bienestar_admin}
-      - DB_PASSWORD=${MYSQL_PASSWORD:-Ba_2025_Secure!}
-      - CACHE_DRIVER=redis
-      - SESSION_DRIVER=redis
-      - QUEUE_CONNECTION=redis
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+    - ./php/local.ini:/usr/local/etc/php/conf.d/local.ini:ro
     depends_on:
       mysql:
         condition: service_healthy

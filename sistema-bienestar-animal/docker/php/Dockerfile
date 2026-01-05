@@ -56,12 +56,19 @@ RUN groupadd -g ${GROUP_ID} laravel && \
 # Configurar directorio de trabajo
 WORKDIR /var/www/html
 
-# Copiar configuracion de PHP (opcional - comentar si no existen)
-# COPY local.ini /usr/local/etc/php/conf.d/local.ini
-# COPY opcache.ini /usr/local/etc/php/conf.d/opcache.ini
+# Copiar archivos de dependencias
+COPY --chown=laravel:laravel composer.json composer.lock* ./
 
-# Cambiar a usuario no-root
 USER laravel
+
+# Instalar dependencias como usuario laravel
+RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
+
+# Copiar todo el código
+COPY --chown=laravel:laravel . .
+
+# Generar autoloader optimizado
+RUN composer dump-autoload --optimize
 
 # Exponer puerto PHP-FPM
 EXPOSE 9000
