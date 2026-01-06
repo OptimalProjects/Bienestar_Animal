@@ -9,32 +9,26 @@
     <!-- Filtros -->
     <div class="filters-section">
       <div class="filters-grid">
-        <div class="input-like-govco">
-          <label for="status-filter" class="label-desplegable-govco">Estado</label>
-          <div class="desplegable-govco" data-type="basic">
-            <select id="status-filter" v-model="filters.status">
-              <option value="">Todos</option>
-              <option value="pending">Pendiente</option>
-              <option value="in_evaluation">En evaluación</option>
-              <option value="approved">Aprobada</option>
-              <option value="rejected">Rechazada</option>
-            </select>
-          </div>
-        </div>
+        <DesplegableGovco
+          id="status-filter"
+          label="Estado"
+          v-model="filters.status"
+          :options="statusOptions"
+          placeholder="Todos los estados"
+        />
 
-        <div class="entradas-de-texto-govco">
-          <label for="search">Buscar por nombre</label>
-          <input
-            type="text"
-            id="search"
-            v-model="filters.search"
-            placeholder="Nombre del solicitante o animal"
-          />
-        </div>
+        <InputGovCo
+          id="search"
+          label="Buscar por nombre"
+          v-model="filters.search"
+          placeholder="Nombre del solicitante o animal"
+        />
 
-        <button @click="applyFilters" class="govco-btn govco-bg-marine">
-          Filtrar
-        </button>
+        <div class="filter-button-container">
+          <button @click="applyFilters" class="govco-btn govco-bg-marine">
+            Filtrar
+          </button>
+        </div>
       </div>
     </div>
 
@@ -452,6 +446,20 @@
 <script setup>
 import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue';
 import adoptionService from '@/services/adoptionService';
+import DesplegableGovco from '@/components/common/DesplegableGovco.vue';
+import InputGovCo from '@/components/common/InputGovCo.vue';
+
+// Opciones para el filtro de estado
+const statusOptions = [
+  { value: '', text: 'Todos los estados' },
+  { value: 'pending', text: 'Pendiente' },
+  { value: 'in_evaluation', text: 'En evaluación' },
+  { value: 'approved', text: 'Aprobada' },
+  { value: 'rejected', text: 'Rechazada' },
+  { value: 'completed', text: 'Completada' },
+  { value: 'revoked', text: 'Revocada' },
+  { value: 'returned', text: 'Devuelta' },
+];
 
 const filters = ref({
   status: '',
@@ -514,15 +522,19 @@ const statusMap = {
   'en_evaluacion': 'in_evaluation',
   'aprobada': 'approved',
   'rechazada': 'rejected',
-  'completada': 'approved',
-  'revocada': 'rejected'
+  'completada': 'completed',
+  'revocada': 'revoked',
+  'devuelta': 'returned'
 };
 
 const reverseStatusMap = {
   'pending': 'solicitada',
   'in_evaluation': 'en_evaluacion',
   'approved': 'aprobada',
-  'rejected': 'rechazada'
+  'rejected': 'rechazada',
+  'completed': 'completada',
+  'revoked': 'revocada',
+  'returned': 'devuelta'
 };
 
 // Helper para obtener etiqueta de tipo de vivienda
@@ -1048,7 +1060,10 @@ function getStatusLabel(status) {
     'pending': 'Pendiente',
     'in_evaluation': 'En evaluación',
     'approved': 'Aprobada',
-    'rejected': 'Rechazada'
+    'rejected': 'Rechazada',
+    'completed': 'Completada',
+    'revoked': 'Revocada',
+    'returned': 'Devuelta'
   };
   return labels[status] || status;
 }
@@ -1117,9 +1132,20 @@ onMounted(loadRequests);
 
 .filters-grid {
   display: grid;
-  grid-template-columns: 1fr 2fr auto;
-  gap: 1rem;
-  align-items: end;
+  grid-template-columns: 220px 1fr auto;
+  gap: 1.5rem;
+  align-items: flex-end;
+}
+
+.filter-button-container {
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 2px;
+}
+
+.filter-button-container .govco-btn {
+  height: 40px;
+  padding: 0 1.5rem;
 }
 
 .requests-table-container {
@@ -1187,6 +1213,19 @@ onMounted(loadRequests);
 
 .status-rejected {
   background: #A80521;
+}
+
+.status-completed {
+  background: #068460;
+}
+
+.status-revoked {
+  background: #A80521;
+}
+
+.status-returned {
+  background: #FFAB00;
+  color: #4B4B4B;
 }
 
 .action-btn-small {
@@ -2042,7 +2081,12 @@ onMounted(loadRequests);
 
 @media (max-width: 992px) {
   .filters-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .filter-button-container {
+    grid-column: 1 / 3;
+    justify-content: flex-end;
   }
 
   .visit-form-grid {
@@ -2080,6 +2124,21 @@ onMounted(loadRequests);
   }
 
   .contract-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 576px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-button-container {
+    grid-column: 1;
+    justify-content: stretch;
+  }
+
+  .filter-button-container .govco-btn {
     width: 100%;
   }
 }

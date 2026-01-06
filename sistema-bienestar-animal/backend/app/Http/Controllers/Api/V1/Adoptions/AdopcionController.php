@@ -217,8 +217,10 @@ class AdopcionController extends BaseController
         try {
             $adopcion = Adopcion::with(['animal', 'adoptante', 'evaluador'])->findOrFail($id);
 
-            if (!in_array($adopcion->estado, ['aprobada', 'completada'])) {
-                return $this->errorResponse('Solo se puede descargar contrato para adopciones aprobadas', null, 400);
+            // Permitir descarga si tiene contrato generado o si está en estado que permite contrato
+            $estadosConContrato = ['aprobada', 'completada', 'devuelta', 'revocada'];
+            if (!$adopcion->contrato_url && !in_array($adopcion->estado, $estadosConContrato)) {
+                return $this->errorResponse('Esta adopción no tiene contrato generado', null, 400);
             }
 
             $pdf = $this->contratoService->obtenerContratoPdf($adopcion);
@@ -501,6 +503,89 @@ class AdopcionController extends BaseController
         } catch (\Exception $e) {
             return $this->serverErrorResponse('Error al firmar contrato: ' . $e->getMessage());
         }
+    }
+
+    // ============================================
+    // CONTRATOS
+    // ============================================
+
+    /**
+     * Listar adopciones con contrato generado.
+     * GET /api/v1/adopciones/contratos
+     */
+    public function listarContratos(Request $request)
+    {
+        try {
+            $query = Adopcion::with(['adoptante', 'animal'])
+                ->whereNotNull('contrato_url')
+                ->orderBy('fecha_aprobacion', 'desc');
+
+            // Filtrar por estado del contrato
+            if ($request->has('firmado')) {
+                $firmado = filter_var($request->firmado, FILTER_VALIDATE_BOOLEAN);
+                $query->where('contrato_firmado', $firmado);
+            }
+
+            // Búsqueda
+            if ($request->has('busqueda') && !empty($request->busqueda)) {
+                $busqueda = $request->busqueda;
+                $query->where(function ($q) use ($busqueda) {
+                    $q->whereHas('adoptante', function ($sub) use ($busqueda) {
+                        $sub->where('nombres', 'like', "%{$busqueda}%")
+                            ->orWhere('apellidos', 'like', "%{$busqueda}%")
+                            ->orWhere('numero_documento', 'like', "%{$busqueda}%");
+                    })
+                    ->orWhereHas('animal', function ($sub) use ($busqueda) {
+                        $sub->where('nombre', 'like', "%{$busqueda}%")
+                            ->orWhere('codigo_unico', 'like', "%{$busqueda}%");
+                    });
+                });
+            }
+
+            $contratos = $query->paginate($request->get('per_page', 20));
+
+            // Transformar los datos
+            $contratos->getCollection()->transform(function ($adopcion) {
+                return [
+                    'id' => $adopcion->id,
+                    'numero_contrato' => $this->generarNumeroContrato($adopcion),
+                    'estado_adopcion' => $adopcion->estado,
+                    'contrato_firmado' => $adopcion->contrato_firmado ?? false,
+                    'fecha_generacion' => $adopcion->fecha_aprobacion?->toISOString(),
+                    'fecha_firma' => $adopcion->fecha_entrega?->toISOString(),
+                    'adoptante' => [
+                        'id' => $adopcion->adoptante?->id,
+                        'nombre_completo' => $adopcion->adoptante?->nombre_completo ??
+                            trim(($adopcion->adoptante?->nombres ?? '') . ' ' . ($adopcion->adoptante?->apellidos ?? '')),
+                        'numero_documento' => $adopcion->adoptante?->numero_documento,
+                        'tipo_documento' => $adopcion->adoptante?->tipo_documento,
+                        'telefono' => $adopcion->adoptante?->telefono,
+                        'email' => $adopcion->adoptante?->email,
+                    ],
+                    'animal' => [
+                        'id' => $adopcion->animal?->id,
+                        'codigo_unico' => $adopcion->animal?->codigo_unico,
+                        'nombre' => $adopcion->animal?->nombre,
+                        'especie' => $adopcion->animal?->especie,
+                        'raza' => $adopcion->animal?->raza,
+                    ],
+                ];
+            });
+
+            return $this->successResponse($contratos);
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Error al listar contratos: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Generar número de contrato basado en la adopción.
+     */
+    private function generarNumeroContrato(Adopcion $adopcion): string
+    {
+        $year = $adopcion->fecha_aprobacion?->year ?? now()->year;
+        $id = strtoupper(substr($adopcion->id, 0, 8));
+        return "CONT-{$year}-{$id}";
     }
 
     // ============================================
