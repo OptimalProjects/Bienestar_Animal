@@ -32,22 +32,22 @@ class SSOController extends BaseController
             $jwtToken = $request->input('jwt_token');
 
             // DESARROLLO: Bypass temporal - iniciar como admin si el token es inválido
-            if (config('app.env') === 'local' || config('app.env') === 'development') {
+            // if (config('app.env') === 'local' || config('app.env') === 'development') {
                 $payload = $this->validarJwtSso($jwtToken);
 
                 // Si el token es inválido, iniciar como admin por defecto
                 if (!$payload) {
-                    \Log::warning('SSO: Token inválido, iniciando como admin por defecto (modo desarrollo)');
+                    // \Log::warning('SSO: Token inválido, iniciando como admin por defecto (modo desarrollo)');
                     return $this->loginComoAdminPorDefecto();
                 }
-            } else {
-                // PRODUCCIÓN: Validar normalmente
-                $payload = $this->validarJwtSso($jwtToken);
+            // } else {
+            //     // PRODUCCIÓN: Validar normalmente
+            //     $payload = $this->validarJwtSso($jwtToken);
 
-                if (!$payload) {
-                    return $this->unauthorizedResponse('Token SSO invalido o expirado');
-                }
-            }
+            //     if (!$payload) {
+            //         return $this->unauthorizedResponse('Token SSO invalido o expirado');
+            //     }
+            // }
 
             // Buscar o crear usuario basado en el payload del SSO
             $usuario = $this->obtenerOCrearUsuario($payload);
@@ -67,10 +67,10 @@ class SSOController extends BaseController
             \Log::error('Error en SSO callback: ' . $e->getMessage());
 
             // DESARROLLO: Si hay cualquier error, iniciar como admin
-            if (config('app.env') === 'local' || config('app.env') === 'development') {
-                \Log::warning('SSO: Error en callback, iniciando como admin por defecto (modo desarrollo)');
+            // if (config('app.env') === 'local' || config('app.env') === 'development') {
+                // \Log::warning('SSO: Error en callback, iniciando como admin por defecto (modo desarrollo)');
                 return $this->loginComoAdminPorDefecto();
-            }
+            // }
 
             return $this->serverErrorResponse('Error en SSO callback: ' . $e->getMessage());
         }
