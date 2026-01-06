@@ -125,6 +125,7 @@ Route::prefix('v1')->group(function () {
         Route::prefix('adopciones')->group(function () {
             Route::get('/estadisticas', [AdopcionController::class, 'estadisticas']);
             Route::get('/pendientes', [AdopcionController::class, 'pendientes']);
+            Route::get('/contratos', [AdopcionController::class, 'listarContratos']);
 
             // Devoluciones
             Route::get('/devoluciones', [AdopcionController::class, 'listarDevoluciones']);

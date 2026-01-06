@@ -2,127 +2,200 @@
 <template>
   <section class="contracts-container">
     <div class="form-header">
-      <h2 class="h2-tipografia-govco">Contratos de adopción</h2>
+      <h2 class="h2-tipografia-govco">Contratos de Adopción</h2>
       <p class="text2-tipografia-govco">
-        Gestiona los contratos digitales de adopción ya aprobados.
+        Gestiona los contratos digitales de adopción generados automáticamente tras visita satisfactoria.
       </p>
     </div>
 
-    <div v-if="loading" class="govco-card">
-      Cargando solicitudes aprobadas...
+    <!-- Filtros -->
+    <div class="filters-section">
+      <div class="filters-grid">
+        <DesplegableGovco
+          id="contract-status-filter"
+          label="Estado del contrato"
+          v-model="filters.contractStatus"
+          :options="contractStatusOptions"
+          placeholder="Todos"
+        />
+
+        <InputGovCo
+          id="contract-search"
+          label="Buscar"
+          v-model="filters.search"
+          placeholder="Nombre del adoptante o animal"
+        />
+
+        <div class="filter-button-container">
+          <button @click="loadContracts" class="govco-btn govco-bg-marine">
+            Filtrar
+          </button>
+        </div>
+      </div>
     </div>
 
-    <div v-else-if="error" class="govco-card error-card">
+    <!-- Loading -->
+    <div v-if="loading" class="loading-container">
+      <div class="loading-spinner"></div>
+      <p>Cargando contratos...</p>
+    </div>
+
+    <!-- Error -->
+    <div v-else-if="error" class="error-card">
+      <span class="error-icon">⚠</span>
       {{ error }}
     </div>
 
-    <div v-else-if="!requests.length" class="govco-card">
-      No hay solicitudes aprobadas pendientes de contrato.
+    <!-- Sin contratos -->
+    <div v-else-if="!filteredContracts.length" class="empty-state">
+      <div class="empty-icon">📋</div>
+      <h3>No hay contratos</h3>
+      <p>No se encontraron contratos con los filtros seleccionados.</p>
     </div>
 
-    <table v-else class="govco-table">
-      <thead>
-        <tr>
-          <th>Adoptante</th>
-          <th>Animal</th>
-          <th>Fecha Aprobación</th>
-          <th>Estado Contrato</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="req in requests" :key="req.id">
-          <td>
-            <strong>{{ req.applicant.name }}</strong><br />
-            <span class="small">{{ req.applicant.idNumber }}</span>
-          </td>
-          <td>
-            {{ req.animal.name }}<br />
-            <span class="small">{{ req.animal.species }}</span>
-          </td>
-          <td>
-            {{ formatDate(req.approvedAt) }}
-          </td>
-          <td>
-            <span v-if="req.contractSigned" class="badge badge-success">
-              Firmado
-            </span>
-            <span v-else-if="req.contractData" class="badge badge-warning">
-              Generado pendiente de firma
-            </span>
-            <span v-else class="badge badge-secondary">
-              Sin contrato
-            </span>
-          </td>
-          <td class="actions-col">
-            <button
-              v-if="!req.contractData"
-              type="button"
-              class="govco-btn govco-btn-small govco-btn-primary"
-              :disabled="generatingContract === req.id"
-              @click="onGenerate(req)"
-            >
-              {{ generatingContract === req.id ? 'Generando...' : 'Generar contrato' }}
-            </button>
+    <!-- Tabla de contratos -->
+    <div v-else class="contracts-table-container">
+      <table class="contracts-table">
+        <thead>
+          <tr>
+            <th>No. Contrato</th>
+            <th>Adoptante</th>
+            <th>Animal</th>
+            <th>Fecha Generación</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="contract in filteredContracts" :key="contract.id">
+            <td>
+              <span class="contract-number">{{ contract.numeroContrato || 'Sin número' }}</span>
+            </td>
+            <td>
+              <div class="person-cell">
+                <strong>{{ contract.adoptante.nombre }}</strong>
+                <small>{{ contract.adoptante.documento }}</small>
+              </div>
+            </td>
+            <td>
+              <div class="animal-cell">
+                <span class="animal-code">{{ contract.animal.codigo }}</span>
+                <strong>{{ contract.animal.nombre }}</strong>
+                <small>{{ contract.animal.especie }}</small>
+              </div>
+            </td>
+            <td>{{ formatDate(contract.fechaGeneracion) }}</td>
+            <td>
+              <span class="status-badge" :class="getStatusClass(contract)">
+                {{ getStatusLabel(contract) }}
+              </span>
+              <small v-if="contract.fechaFirma" class="firma-date">
+                Firmado: {{ formatDate(contract.fechaFirma) }}
+              </small>
+            </td>
+            <td class="actions-col">
+              <button
+                @click="downloadContract(contract)"
+                class="action-btn govco-bg-marine"
+                title="Descargar PDF"
+              >
+                <span class="btn-icon">📄</span> Descargar
+              </button>
+              <button
+                v-if="!contract.firmado"
+                @click="viewContractDetails(contract)"
+                class="action-btn govco-bg-elf-green"
+                title="Ver detalles"
+              >
+                <span class="btn-icon">👁</span> Ver
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-            <button
-              v-if="req.contractData"
-              type="button"
-              class="govco-btn govco-btn-small govco-btn-secondary"
-              @click="onViewContract(req)"
-            >
-              Ver contrato
-            </button>
-
-            <button
-              v-if="req.contractData && !req.contractSigned"
-              type="button"
-              class="govco-btn govco-btn-small govco-btn-success"
-              @click="onSign(req)"
-            >
-              Registrar firma
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-
-    <!-- Modal para ver contrato -->
-    <div v-if="showContractModal" class="modal-overlay" @click.self="closeModal">
+    <!-- Modal de detalles del contrato -->
+    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal-content">
-        <div class="modal-header">
-          <h3>Contrato de Adopción</h3>
-          <button type="button" class="close-btn" @click="closeModal">&times;</button>
+        <div class="modal-header govco-bg-blue-light">
+          <h3 class="h4-tipografia-govco govcolor-blue-dark">Detalles del Contrato</h3>
+          <button @click="closeModal" class="modal-close">&times;</button>
         </div>
+
         <div v-if="selectedContract" class="modal-body">
-          <div class="contract-info">
-            <p><strong>Número de contrato:</strong> {{ selectedContract.numero_contrato }}</p>
-            <p><strong>Fecha de generación:</strong> {{ selectedContract.fecha_generacion }}</p>
+          <!-- Info del contrato -->
+          <div class="contract-info-card">
+            <div class="info-row">
+              <span class="info-label">No. Contrato:</span>
+              <span class="info-value">{{ selectedContract.numeroContrato }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Fecha generación:</span>
+              <span class="info-value">{{ formatDate(selectedContract.fechaGeneracion) }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Estado:</span>
+              <span class="status-badge" :class="getStatusClass(selectedContract)">
+                {{ getStatusLabel(selectedContract) }}
+              </span>
+            </div>
           </div>
-          <div class="contract-section">
-            <h4>Datos del Adoptante</h4>
-            <p><strong>Nombre:</strong> {{ selectedContract.adoptante?.nombre_completo }}</p>
-            <p><strong>Documento:</strong> {{ selectedContract.adoptante?.tipo_documento }} {{ selectedContract.adoptante?.documento_identidad }}</p>
-            <p><strong>Dirección:</strong> {{ selectedContract.adoptante?.direccion }}</p>
-            <p><strong>Teléfono:</strong> {{ selectedContract.adoptante?.telefono }}</p>
+
+          <!-- Datos del adoptante -->
+          <div class="detail-section">
+            <h4 class="section-title">Datos del Adoptante</h4>
+            <dl class="detail-list">
+              <dt>Nombre:</dt>
+              <dd>{{ selectedContract.adoptante.nombre }}</dd>
+              <dt>Documento:</dt>
+              <dd>{{ selectedContract.adoptante.documento }}</dd>
+              <dt>Teléfono:</dt>
+              <dd>{{ selectedContract.adoptante.telefono || 'No registrado' }}</dd>
+              <dt>Email:</dt>
+              <dd>{{ selectedContract.adoptante.email || 'No registrado' }}</dd>
+              <dt>Dirección:</dt>
+              <dd>{{ selectedContract.adoptante.direccion || 'No registrada' }}</dd>
+            </dl>
           </div>
-          <div class="contract-section">
-            <h4>Datos del Animal</h4>
-            <p><strong>Nombre:</strong> {{ selectedContract.animal?.nombre }}</p>
-            <p><strong>Especie:</strong> {{ selectedContract.animal?.especie }}</p>
-            <p><strong>Raza:</strong> {{ selectedContract.animal?.raza || 'No especificada' }}</p>
+
+          <!-- Datos del animal -->
+          <div class="detail-section">
+            <h4 class="section-title">Datos del Animal</h4>
+            <dl class="detail-list">
+              <dt>Código:</dt>
+              <dd><span class="animal-code">{{ selectedContract.animal.codigo }}</span></dd>
+              <dt>Nombre:</dt>
+              <dd>{{ selectedContract.animal.nombre }}</dd>
+              <dt>Especie:</dt>
+              <dd>{{ selectedContract.animal.especie }}</dd>
+              <dt>Raza:</dt>
+              <dd>{{ selectedContract.animal.raza || 'Mestizo' }}</dd>
+            </dl>
           </div>
-          <div v-if="selectedContract.compromisos?.length" class="contract-section">
-            <h4>Compromisos del Adoptante</h4>
-            <ul>
-              <li v-for="(compromiso, idx) in selectedContract.compromisos" :key="idx">
-                {{ compromiso }}
-              </li>
-            </ul>
+
+          <!-- Estado de firma -->
+          <div v-if="selectedContract.firmado" class="firma-info success">
+            <span class="firma-icon">✓</span>
+            <div>
+              <strong>Contrato firmado</strong>
+              <p>Firmado el {{ formatDate(selectedContract.fechaFirma) }}</p>
+            </div>
+          </div>
+          <div v-else class="firma-info pending">
+            <span class="firma-icon">⏳</span>
+            <div>
+              <strong>Pendiente de firma</strong>
+              <p>El adoptante debe firmar el contrato desde el portal ciudadano.</p>
+            </div>
           </div>
         </div>
+
         <div class="modal-footer">
-          <button type="button" class="govco-btn govco-btn-secondary" @click="closeModal">
+          <button @click="downloadContract(selectedContract)" class="govco-btn govco-bg-marine">
+            Descargar PDF
+          </button>
+          <button @click="closeModal" class="govco-btn govco-bg-concrete">
             Cerrar
           </button>
         </div>
@@ -132,35 +205,122 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import adoptionService from '@/services/adoptionService';
+import DesplegableGovco from '@/components/common/DesplegableGovco.vue';
+import InputGovCo from '@/components/common/InputGovCo.vue';
 
-const requests = ref([]);
+// Estado
+const contracts = ref([]);
 const loading = ref(false);
 const error = ref(null);
-const generatingContract = ref(null);
-const showContractModal = ref(false);
+const showModal = ref(false);
 const selectedContract = ref(null);
 
+// Filtros
+const filters = ref({
+  contractStatus: '',
+  search: '',
+});
+
+const contractStatusOptions = [
+  { value: '', text: 'Todos los estados' },
+  { value: 'pending', text: 'Pendiente de firma' },
+  { value: 'signed', text: 'Firmado' },
+];
+
+// Contratos filtrados
+const filteredContracts = computed(() => {
+  let result = contracts.value;
+
+  // Filtrar por estado del contrato
+  if (filters.value.contractStatus === 'pending') {
+    result = result.filter(c => !c.firmado);
+  } else if (filters.value.contractStatus === 'signed') {
+    result = result.filter(c => c.firmado);
+  }
+
+  // Filtrar por búsqueda
+  if (filters.value.search) {
+    const term = filters.value.search.toLowerCase();
+    result = result.filter(c =>
+      c.adoptante.nombre.toLowerCase().includes(term) ||
+      c.animal.nombre.toLowerCase().includes(term) ||
+      c.animal.codigo.toLowerCase().includes(term) ||
+      (c.numeroContrato && c.numeroContrato.toLowerCase().includes(term))
+    );
+  }
+
+  return result;
+});
+
 /**
- * Transformar adopción del backend al formato del componente
+ * Transformar contrato del backend al formato del componente
  */
-function transformAdoption(adopcion) {
+function transformAdoption(contrato) {
+  const adoptante = contrato.adoptante || {};
+  const animal = contrato.animal || {};
+
   return {
-    id: adopcion.id,
-    applicant: {
-      name: adopcion.adoptante?.nombre_completo || 'Sin nombre',
-      idNumber: adopcion.adoptante?.documento_identidad || '',
+    id: contrato.id,
+    numeroContrato: contrato.numero_contrato || generateContractNumber(contrato),
+    fechaGeneracion: contrato.fecha_generacion || contrato.fecha_aprobacion,
+    fechaFirma: contrato.fecha_firma,
+    firmado: contrato.contrato_firmado || false,
+    estadoAdopcion: contrato.estado_adopcion || contrato.estado,
+    adoptante: {
+      id: adoptante.id,
+      nombre: adoptante.nombre_completo || `${adoptante.nombres || ''} ${adoptante.apellidos || ''}`.trim() || 'Sin nombre',
+      documento: `${adoptante.tipo_documento || ''} ${adoptante.numero_documento || ''}`.trim(),
+      telefono: adoptante.telefono,
+      email: adoptante.email,
+      direccion: adoptante.direccion,
     },
     animal: {
-      name: adopcion.animal?.nombre || 'Sin nombre',
-      species: adopcion.animal?.especie || '',
+      id: animal.id,
+      codigo: animal.codigo_unico || 'Sin código',
+      nombre: animal.nombre || 'Sin nombre',
+      especie: animal.especie || '',
+      raza: animal.raza,
     },
-    approvedAt: adopcion.fecha_aprobacion || adopcion.updated_at,
-    contractData: adopcion.contrato || null,
-    contractSigned: adopcion.contrato_firmado || false,
-    rawData: adopcion,
   };
+}
+
+/**
+ * Generar número de contrato si no existe
+ */
+function generateContractNumber(contrato) {
+  const fecha = contrato.fecha_generacion || contrato.fecha_aprobacion || contrato.created_at;
+  const year = fecha ? new Date(fecha).getFullYear() : new Date().getFullYear();
+  const id = (contrato.id || '').substring(0, 8).toUpperCase();
+  return `CONT-${year}-${id}`;
+}
+
+/**
+ * Cargar contratos desde el endpoint dedicado
+ */
+async function loadContracts() {
+  loading.value = true;
+  error.value = null;
+  contracts.value = [];
+
+  try {
+    // Usar el endpoint dedicado que busca adopciones con contrato_url NOT NULL
+    const response = await adoptionService.fetchContracts({
+      per_page: 100,
+    });
+
+    const contratosData = response.data?.data || response.data || response || [];
+
+    // Transformar al formato del componente
+    contracts.value = contratosData.map(transformAdoption);
+
+  } catch (err) {
+    console.error('Error al cargar contratos:', err);
+    error.value = 'Error al cargar los contratos. Por favor, intente nuevamente.';
+  } finally {
+    loading.value = false;
+  }
 }
 
 /**
@@ -177,229 +337,526 @@ function formatDate(dateString) {
 }
 
 /**
- * Cargar adopciones aprobadas
+ * Obtener clase CSS para el estado
  */
-async function loadData() {
-  loading.value = true;
-  error.value = null;
+function getStatusClass(contract) {
+  if (contract.firmado) return 'status-signed';
+  return 'status-pending';
+}
+
+/**
+ * Obtener etiqueta del estado
+ */
+function getStatusLabel(contract) {
+  if (contract.firmado) return 'Firmado';
+  return 'Pendiente de firma';
+}
+
+/**
+ * Ver detalles del contrato
+ */
+function viewContractDetails(contract) {
+  selectedContract.value = contract;
+  showModal.value = true;
+}
+
+/**
+ * Descargar contrato PDF
+ */
+async function downloadContract(contract) {
   try {
-    const response = await adoptionService.fetchAdoptionRequests({ estado: 'aprobada' });
-    const data = response.data || response || [];
-    const rawAdoptions = Array.isArray(data) ? data : (data.data || []);
-    requests.value = rawAdoptions.map(transformAdoption);
+    const blob = await adoptionService.downloadAdoptionContract(contract.id);
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `contrato-${contract.numeroContrato || contract.id}.pdf`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+
+    if (window.$toast) {
+      window.$toast.success('Contrato descargado correctamente');
+    }
   } catch (err) {
-    console.error('Error al cargar adopciones aprobadas:', err);
-    error.value = 'Error al cargar las solicitudes aprobadas. Por favor, intente nuevamente.';
-  } finally {
-    loading.value = false;
+    console.error('Error al descargar contrato:', err);
+    const message = err.response?.data?.message || 'Error al descargar el contrato';
+    if (window.$toast) {
+      window.$toast.error('Error', message);
+    } else {
+      alert(message);
+    }
   }
-}
-
-/**
- * Generar contrato para una adopción
- */
-async function onGenerate(req) {
-  generatingContract.value = req.id;
-  try {
-    const response = await adoptionService.fetchAdoptionContract(req.id);
-    const contractData = response.data || response;
-
-    // Actualizar el request con los datos del contrato
-    req.contractData = contractData;
-
-    // Mostrar el contrato generado
-    selectedContract.value = contractData;
-    showContractModal.value = true;
-  } catch (err) {
-    console.error('Error al generar contrato:', err);
-    const message = err.response?.data?.message || 'Error al generar el contrato';
-    error.value = message;
-  } finally {
-    generatingContract.value = null;
-  }
-}
-
-/**
- * Ver contrato existente
- */
-function onViewContract(req) {
-  selectedContract.value = req.contractData;
-  showContractModal.value = true;
-}
-
-/**
- * Registrar firma del contrato
- * TODO: Implementar endpoint en backend para registrar firma
- */
-async function onSign(req) {
-  // Por ahora solo marcamos localmente ya que el backend no tiene este endpoint
-  req.contractSigned = true;
-  console.log('Firma registrada para adopción:', req.id);
-  // TODO: Llamar al endpoint cuando esté disponible
-  // await adoptionService.registerContractSignature(req.id);
 }
 
 /**
  * Cerrar modal
  */
 function closeModal() {
-  showContractModal.value = false;
+  showModal.value = false;
   selectedContract.value = null;
 }
 
-onMounted(loadData);
+onMounted(loadContracts);
 </script>
-
 
 <style scoped>
 .contracts-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
   background: #f5f7fb;
-  padding: 16px 20px;
-  border-radius: 8px;
 }
 
-.govco-card {
-  background: #ffffff;
-  padding: 16px;
-  border-radius: 8px;
+.form-header {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 3px solid #3366CC;
 }
 
+/* Filtros */
+.filters-section {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: 220px 1fr auto;
+  gap: 1.5rem;
+  align-items: flex-end;
+}
+
+.filter-button-container {
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 2px;
+}
+
+.filter-button-container .govco-btn {
+  height: 40px;
+  padding: 0 1.5rem;
+}
+
+/* Loading */
+.loading-container {
+  background: white;
+  border-radius: 8px;
+  padding: 3rem;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #E0E0E0;
+  border-top-color: #3366CC;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error */
 .error-card {
-  background: #f8d7da;
-  color: #842029;
-  border: 1px solid #f5c2c7;
+  background: #FFEBEE;
+  border: 1px solid #FFCDD2;
+  color: #C62828;
+  padding: 1.5rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
-.small {
-  font-size: 0.8rem;
-  color: #555;
+.error-icon {
+  font-size: 1.5rem;
 }
 
-.badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.75rem;
+/* Empty state */
+.empty-state {
+  background: white;
+  border-radius: 8px;
+  padding: 3rem;
+  text-align: center;
 }
 
-.badge-success {
-  background: #198754;
-  color: #fff;
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
 }
 
-.badge-warning {
-  background: #ffc107;
-  color: #000;
+.empty-state h3 {
+  color: #4B4B4B;
+  margin: 0 0 0.5rem;
 }
 
-.badge-secondary {
-  background: #6c757d;
-  color: #fff;
+.empty-state p {
+  color: #737373;
+  margin: 0;
 }
 
-.actions-col {
+/* Tabla */
+.contracts-table-container {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.contracts-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.contracts-table thead {
+  background: #E8F0FE;
+}
+
+.contracts-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #3366CC;
+  border-bottom: 2px solid #3366CC;
+}
+
+.contracts-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #E0E0E0;
+  vertical-align: middle;
+}
+
+.contracts-table tbody tr:hover {
+  background: #F6F8F9;
+}
+
+.contract-number {
+  font-family: monospace;
+  font-weight: 600;
+  color: #004884;
+  background: #E8F0FE;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.person-cell,
+.animal-cell {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
-/* Modal styles */
+.animal-code {
+  display: inline-block;
+  font-family: monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #E8F0FE;
+  color: #3366CC;
+  padding: 2px 6px;
+  border-radius: 4px;
+  width: fit-content;
+}
+
+.person-cell small,
+.animal-cell small {
+  color: #737373;
+  font-size: 0.8rem;
+}
+
+/* Status badges */
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.status-signed {
+  background: #E8F5E9;
+  color: #2E7D32;
+}
+
+.status-pending {
+  background: #FFF3E0;
+  color: #E65100;
+}
+
+.firma-date {
+  display: block;
+  font-size: 0.75rem;
+  color: #737373;
+  margin-top: 4px;
+}
+
+/* Acciones */
+.actions-col {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn-icon {
+  font-size: 1rem;
+}
+
+/* Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0,0,0,0.5);
   display: flex;
-  justify-content: center;
   align-items: center;
-  z-index: 1000;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
 }
 
 .modal-content {
-  background: #fff;
+  background: white;
   border-radius: 8px;
+  width: 100%;
   max-width: 600px;
-  width: 90%;
-  max-height: 80vh;
+  max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #dee2e6;
+  padding: 1.5rem;
+  border-bottom: 2px solid #3366CC;
 }
 
 .modal-header h3 {
   margin: 0;
-  color: #3772ff;
 }
 
-.close-btn {
+.modal-close {
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: 2rem;
   cursor: pointer;
-  color: #666;
+  color: #737373;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  transition: all 0.2s;
 }
 
-.close-btn:hover {
-  color: #000;
+.modal-close:hover {
+  background: rgba(0,0,0,0.1);
 }
 
 .modal-body {
-  padding: 20px;
+  padding: 1.5rem;
 }
 
-.contract-info {
-  background: #e7f1ff;
-  padding: 12px 16px;
-  border-radius: 6px;
-  margin-bottom: 16px;
+.contract-info-card {
+  background: #E8F0FE;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
 }
 
-.contract-info p {
-  margin: 4px 0;
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
 }
 
-.contract-section {
-  margin-bottom: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #eee;
+.info-row:not(:last-child) {
+  border-bottom: 1px solid rgba(51, 102, 204, 0.2);
 }
 
-.contract-section:last-child {
-  border-bottom: none;
+.info-label {
+  font-weight: 600;
+  color: #004884;
 }
 
-.contract-section h4 {
-  color: #3772ff;
-  margin: 0 0 8px 0;
+.info-value {
+  color: #4B4B4B;
+}
+
+.detail-section {
+  margin-bottom: 1.5rem;
+}
+
+.section-title {
   font-size: 1rem;
+  color: #3366CC;
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #E8F0FE;
 }
 
-.contract-section p {
-  margin: 4px 0;
+.detail-list {
+  margin: 0;
 }
 
-.contract-section ul {
-  margin: 8px 0;
-  padding-left: 20px;
+.detail-list dt {
+  font-weight: 600;
+  color: #4B4B4B;
+  margin-top: 0.5rem;
 }
 
-.contract-section li {
-  margin: 4px 0;
+.detail-list dd {
+  margin: 0.25rem 0 0 0;
+  color: #737373;
+}
+
+/* Firma info */
+.firma-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.firma-info.success {
+  background: #E8F5E9;
+  border: 1px solid #A5D6A7;
+}
+
+.firma-info.pending {
+  background: #FFF3E0;
+  border: 1px solid #FFE0B2;
+}
+
+.firma-icon {
+  font-size: 1.5rem;
+}
+
+.firma-info strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.firma-info p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #737373;
 }
 
 .modal-footer {
-  padding: 16px 20px;
-  border-top: 1px solid #dee2e6;
   display: flex;
   justify-content: flex-end;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-top: 2px solid #E0E0E0;
+}
+
+/* GOV.CO buttons */
+.govco-btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  color: white;
+  transition: all 0.3s;
+}
+
+.govco-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  opacity: 0.9;
+}
+
+.govco-bg-marine {
+  background-color: #3366CC;
+}
+
+.govco-bg-elf-green {
+  background-color: #068460;
+}
+
+.govco-bg-concrete {
+  background-color: #737373;
+}
+
+.govco-bg-blue-light {
+  background-color: #E8F0FE;
+}
+
+.govcolor-blue-dark {
+  color: #004884;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+  .filters-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .filter-button-container {
+    grid-column: 1 / 3;
+    justify-content: flex-end;
+  }
+
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+
+  .actions-col {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 576px) {
+  .contracts-container {
+    padding: 1rem;
+  }
+
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-button-container {
+    grid-column: 1;
+  }
+
+  .filter-button-container .govco-btn {
+    width: 100%;
+  }
+
+  .contracts-table-container {
+    overflow-x: auto;
+  }
+
+  .contracts-table {
+    min-width: 700px;
+  }
 }
 </style>

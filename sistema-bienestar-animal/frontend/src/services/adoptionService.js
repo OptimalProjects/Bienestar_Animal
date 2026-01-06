@@ -174,6 +174,16 @@ export async function rejectAdoptionRequest(requestId, observaciones = '') {
 }
 
 /**
+ * Obtener lista de contratos generados
+ * GET /api/v1/adopciones/contratos
+ * @param {object} filters - Filtros opcionales { firmado, busqueda, per_page }
+ */
+export async function fetchContracts(filters = {}) {
+  const response = await api.get('/adopciones/contratos', { params: filters });
+  return response.data;
+}
+
+/**
  * Obtener contrato de adopción
  * GET /api/v1/adopciones/{id}/contrato
  */
@@ -550,6 +560,7 @@ export default {
   rejectAdoptionRequest,
 
   // Contract functions
+  fetchContracts,
   fetchAdoptionContract,
   downloadAdoptionContract,
   signAdoptionContract,
