@@ -171,8 +171,10 @@ export const useAnimalsStore = defineStore('animals', () => {
   async function fetchStatistics() {
     try {
       const response = await animalService.getStatistics();
-      statistics.value = response.data;
-      return response.data;
+      // El servicio ya devuelve response.data, así que accedemos a .data del wrapper de la API
+      statistics.value = response.data || response;
+      console.log('✅ animalsStore.statistics:', statistics.value);
+      return statistics.value;
     } catch (err) {
       console.error('Error al cargar estadisticas:', err);
     }

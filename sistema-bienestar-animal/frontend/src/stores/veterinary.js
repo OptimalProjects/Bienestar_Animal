@@ -242,10 +242,12 @@ export const useVeterinaryStore = defineStore('veterinary', () => {
   async function fetchEstadisticas() {
     try {
       const response = await veterinaryService.getConsultasEstadisticas();
-      estadisticas.value = response.data;
-      return response.data;
+      // La API devuelve { success: true, data: {...} }
+      estadisticas.value = response.data?.data || response.data;
+      console.log('✅ veterinaryStore.estadisticas:', estadisticas.value);
+      return estadisticas.value;
     } catch (err) {
-      console.error('Error al cargar estadisticas:', err);
+      console.error('Error al cargar estadisticas de veterinaria:', err);
     }
   }
 

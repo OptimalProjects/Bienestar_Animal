@@ -54,11 +54,12 @@ class DenunciaRepository extends BaseRepository implements DenunciaRepositoryInt
 
     /**
      * Obtener denuncias urgentes sin asignar.
+     * Solo incluye denuncias en estados iniciales (recibida, en_revision)
      */
     public function getUrgentesSinAsignar(): Collection
     {
         return $this->model
-            ->urgentes()
+            ->criticas()
             ->sinAsignar()
             ->with('denunciante')
             ->orderBy('created_at', 'asc')
@@ -103,7 +104,7 @@ class DenunciaRepository extends BaseRepository implements DenunciaRepositoryInt
 
         return [
             'total_pendientes' => $this->model->whereIn('estado', ['recibida', 'en_proceso'])->count(),
-            'urgentes_sin_asignar' => $this->model->urgentes()->sinAsignar()->count(),
+            'urgentes_sin_asignar' => $this->model->criticas()->sinAsignar()->count(),
             'recibidas_mes' => $this->model
                 ->whereBetween('created_at', [$inicioMes, $finMes])
                 ->count(),

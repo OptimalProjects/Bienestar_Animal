@@ -193,10 +193,12 @@ export const useComplaintsStore = defineStore('complaints', () => {
   async function fetchEstadisticas() {
     try {
       const response = await complaintService.getEstadisticas();
-      estadisticas.value = response.data;
-      return response.data;
+      // La API devuelve { success: true, data: {...} }
+      estadisticas.value = response.data?.data || response.data;
+      console.log('✅ complaintsStore.estadisticas:', estadisticas.value);
+      return estadisticas.value;
     } catch (err) {
-      console.error('Error al cargar estadisticas:', err);
+      console.error('Error al cargar estadisticas de denuncias:', err);
     }
   }
 

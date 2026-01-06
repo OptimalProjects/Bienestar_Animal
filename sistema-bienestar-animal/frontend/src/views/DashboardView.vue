@@ -33,13 +33,6 @@
               <span class="kpi-value">{{ kpis.totalAnimals }}</span>
               <span class="kpi-label">Animales Registrados</span>
             </div>
-            <div class="kpi-trend kpi-trend-up">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-                <polyline points="17 6 23 6 23 12"></polyline>
-              </svg>
-              +12% este mes
-            </div>
           </div>
 
           <div class="kpi-card kpi-success">
@@ -52,13 +45,6 @@
             <div class="kpi-content">
               <span class="kpi-value">{{ kpis.adoptions }}</span>
               <span class="kpi-label">Adopciones del Mes</span>
-            </div>
-            <div class="kpi-trend kpi-trend-up">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-                <polyline points="17 6 23 6 23 12"></polyline>
-              </svg>
-              +8% vs mes anterior
             </div>
           </div>
 
@@ -74,13 +60,6 @@
               <span class="kpi-value">{{ kpis.pendingComplaints }}</span>
               <span class="kpi-label">Denuncias Pendientes</span>
             </div>
-            <div class="kpi-trend kpi-trend-down">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline>
-                <polyline points="17 18 23 18 23 12"></polyline>
-              </svg>
-              -5% vs semana anterior
-            </div>
           </div>
 
           <div class="kpi-card kpi-info">
@@ -92,13 +71,6 @@
             <div class="kpi-content">
               <span class="kpi-value">{{ kpis.sterilizations }}</span>
               <span class="kpi-label">Esterilizaciones</span>
-            </div>
-            <div class="kpi-trend kpi-trend-up">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-                <polyline points="17 6 23 6 23 12"></polyline>
-              </svg>
-              +15% este mes
             </div>
           </div>
         </div>
@@ -190,39 +162,50 @@
           </div>
           <div class="card-govco-body">
             <div class="alerts-list">
-              <div class="alert-govco alert-govco-warning">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="8" x2="12" y2="12"></line>
-                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                </svg>
-                <div class="alert-content">
-                  <strong>5 vacunas próximas a vencer</strong>
-                  <span>Revisar inventario de medicamentos</span>
-                </div>
-              </div>
-
-              <div class="alert-govco alert-govco-danger">
+              <div v-if="alertas.urgentes > 0" class="alert-govco alert-govco-danger">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
                   <line x1="12" y1="9" x2="12" y2="13"></line>
                   <line x1="12" y1="17" x2="12.01" y2="17"></line>
                 </svg>
                 <div class="alert-content">
-                  <strong>3 denuncias urgentes sin asignar</strong>
+                  <strong>{{ alertas.urgentes }} denuncias urgentes sin asignar</strong>
                   <span>Requieren atención inmediata</span>
                 </div>
               </div>
 
-              <div class="alert-govco alert-govco-info">
+              <div v-if="alertas.pendientes > 0" class="alert-govco alert-govco-warning">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <div class="alert-content">
+                  <strong>{{ alertas.pendientes }} denuncias pendientes de atención</strong>
+                  <span>Revisar y dar seguimiento</span>
+                </div>
+              </div>
+
+              <div v-if="alertas.adopcionesPendientes > 0" class="alert-govco alert-govco-info">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="12" cy="12" r="10"></circle>
                   <line x1="12" y1="16" x2="12" y2="12"></line>
                   <line x1="12" y1="8" x2="12.01" y2="8"></line>
                 </svg>
                 <div class="alert-content">
-                  <strong>Nuevo reporte disponible</strong>
-                  <span>Estadísticas mensuales listas para revisión</span>
+                  <strong>{{ alertas.adopcionesPendientes }} solicitudes de adopción pendientes</strong>
+                  <span>Por evaluar y aprobar</span>
+                </div>
+              </div>
+
+              <div v-if="alertas.urgentes === 0 && alertas.pendientes === 0 && alertas.adopcionesPendientes === 0" class="alert-govco alert-govco-success">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                <div class="alert-content">
+                  <strong>Sistema al día</strong>
+                  <span>No hay alertas pendientes</span>
                 </div>
               </div>
             </div>
@@ -257,9 +240,16 @@ const userName = computed(() => authStore.userName || 'Usuario');
 // KPIs - Datos reales de los stores
 const kpis = computed(() => ({
   totalAnimals: animalsStore.statistics?.total || animalsStore.totalAnimales || 0,
-  adoptions: adoptionsStore.estadisticas?.adoptados_mes || 0,
-  pendingComplaints: complaintsStore.totalPendientes || 0,
-  sterilizations: veterinaryStore.estadisticas?.esterilizaciones_mes || 0
+  adoptions: adoptionsStore.estadisticas?.aprobadas_mes || 0,
+  pendingComplaints: complaintsStore.estadisticas?.total_pendientes || complaintsStore.totalPendientes || 0,
+  sterilizations: veterinaryStore.estadisticas?.consultas_mes || 0
+}));
+
+// Alertas del sistema - Datos reales
+const alertas = computed(() => ({
+  urgentes: complaintsStore.estadisticas?.urgentes_sin_asignar || 0,
+  pendientes: complaintsStore.estadisticas?.total_pendientes || 0,
+  adopcionesPendientes: adoptionsStore.estadisticas?.pendientes || 0
 }));
 
 // Última actualización
@@ -274,9 +264,9 @@ const lastUpdate = computed(() => {
 const recentComplaints = computed(() => {
   return complaintsStore.denuncias.slice(0, 4).map(d => ({
     id: d.id,
-    caseNumber: d.ticket || `DEN-${d.id?.substring(0, 8)}`,
+    caseNumber: d.numero_ticket || `DEN-${d.id?.substring(0, 8)}`,
     type: d.tipo_denuncia || 'Sin clasificar',
-    date: formatDate(d.fecha_recepcion),
+    date: formatDate(d.fecha_denuncia || d.created_at),
     status: getStatusLabel(d.estado),
     urgency: getPriorityLevel(d.prioridad)
   }));
@@ -646,6 +636,54 @@ function getBadgeClass(status) {
 .alert-content span {
   font-size: 0.85rem;
   opacity: 0.85;
+}
+
+.alert-govco-success {
+  background: #E8F5E9;
+  border: 1px solid #A5D6A7;
+  padding: 12px 16px;
+  border-radius: 8px;
+  color: #2E7D32;
+}
+
+.alert-govco-success svg {
+  color: #2E7D32;
+}
+
+.alert-govco-danger {
+  background: #FFEBEE;
+  border: 1px solid #FFCDD2;
+  padding: 12px 16px;
+  border-radius: 8px;
+  color: #C62828;
+}
+
+.alert-govco-danger svg {
+  color: #C62828;
+}
+
+.alert-govco-warning {
+  background: #FFF8E1;
+  border: 1px solid #FFE082;
+  padding: 12px 16px;
+  border-radius: 8px;
+  color: #F57C00;
+}
+
+.alert-govco-warning svg {
+  color: #F57C00;
+}
+
+.alert-govco-info {
+  background: #E3F2FD;
+  border: 1px solid #90CAF9;
+  padding: 12px 16px;
+  border-radius: 8px;
+  color: #1565C0;
+}
+
+.alert-govco-info svg {
+  color: #1565C0;
 }
 
 /* Responsive */

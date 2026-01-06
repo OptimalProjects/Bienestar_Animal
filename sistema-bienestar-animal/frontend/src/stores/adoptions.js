@@ -157,10 +157,12 @@ export const useAdoptionsStore = defineStore('adoptions', () => {
   async function fetchEstadisticas() {
     try {
       const response = await api.get('/adopciones/estadisticas');
-      estadisticas.value = response.data.data;
-      return response.data.data;
+      // La API devuelve { success: true, data: {...} }
+      estadisticas.value = response.data?.data || response.data;
+      console.log('✅ adoptionsStore.estadisticas:', estadisticas.value);
+      return estadisticas.value;
     } catch (err) {
-      console.error('Error al cargar estadisticas:', err);
+      console.error('Error al cargar estadisticas de adopciones:', err);
     }
   }
 
