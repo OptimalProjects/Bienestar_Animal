@@ -4,10 +4,18 @@
  */
 
 import axios from 'axios';
-
+const rawBase = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+export const baseURL = rawBase.endsWith('/api/v1')
+  ? rawBase
+  : rawBase.replace(/\/+$/, '') + '/api/v1'
+// ✅ DESPUÉS
+console.log('🔧 API Configuration:');
+console.log('  VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL);
+console.log('  rawBase:', rawBase);
+console.log('  baseURL:', baseURL);
 // Crear instancia de axios con configuracion base
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
+  baseURL: baseURL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
