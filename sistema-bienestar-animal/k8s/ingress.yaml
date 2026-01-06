@@ -1,0 +1,74 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bienestar-animal-ingress
+  annotations:
+    # CORS - similar a tu nginx
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://dev-bienestar-animal.enigmadev.co"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Trace-ID"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    
+    # Tamaño máximo de archivo (como en tu nginx línea 7)
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    
+    # SSL/TLS
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - dev-bienestar-animal.enigmadev.co
+    secretName: bienestar-animal-tls
+  rules:
+  - host: dev-bienestar-animal.enigmadev.co
+    http:
+      paths:
+      # ========================================
+      # IMPORTANTE: /api DEBE ir PRIMERO
+      # Rutas de API van al backend Laravel
+      # ========================================
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: svc-bienestar-animal-backend-dev
+            port:
+              number: 8080
+      
+      # ========================================
+      # /sanctum también al backend
+      # Para autenticación con Sanctum
+      # ========================================
+      - path: /sanctum
+        pathType: Prefix
+        backend:
+          service:
+            name: svc-bienestar-animal-backend-dev
+            port:
+              number: 8080
+      
+      # ========================================
+      # /storage al backend
+      # Para archivos subidos
+      # ========================================
+      - path: /storage
+        pathType: Prefix
+        backend:
+          service:
+            name: svc-bienestar-animal-backend-dev
+            port:
+              number: 8080
+      
+      # ========================================
+      # Todo lo demás al frontend
+      # NOTA: Esto debe ir AL FINAL
+      # ========================================
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: svc-bienestar-animal-frontend-dev
+            port:
+              number: 8081

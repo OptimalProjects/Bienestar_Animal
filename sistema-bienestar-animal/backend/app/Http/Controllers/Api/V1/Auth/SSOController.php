@@ -83,7 +83,7 @@ class SSOController extends BaseController
     protected function loginComoAdminPorDefecto()
     {
         try {
-            // Buscar el primer usuario con rol ADMIN (no ADMINISTRADOR)
+            // Buscar el primer usuario con rol ADMIN
             $admin = Usuario::whereHas('roles', function ($query) {
                 $query->where('codigo', 'ADMIN'); // ← CAMBIAR AQUÍ
             })->where('activo', true)->first();
@@ -95,7 +95,7 @@ class SSOController extends BaseController
 
             // Si no hay admin, buscar cualquier usuario activo
             if (!$admin) {
-                \Log::warning('No se encontró usuario con rol ADMIN, usando primer usuario activo');
+                \Log::warning('No se encontró usuario con rol ADMIN');
                 $admin = Usuario::where('activo', true)->first();
             }
 
