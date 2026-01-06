@@ -23,14 +23,6 @@
           >
             Consultar mi solicitud
           </RouterLink>
-
-          <!-- Botón temporal para ver gestión -->
-          <RouterLink
-            to="/adopciones/coordinador"
-            class="btn-govco btn-govco-secondary"
-          >
-            Ver gestión de adopciones
-          </RouterLink>
         </div>
       </header>
 

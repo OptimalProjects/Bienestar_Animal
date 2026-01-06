@@ -139,10 +139,10 @@ class Animal extends Model
     /**
      * Accessor: URL completa de foto principal.
      */
-    public function getFotoUrlAttribute(): string
+    public function getFotoUrlAttribute(): ?string
     {
         if (!$this->foto_principal) {
-            return url('images/placeholder-animal.jpg');
+            return null;
         }
 
         return url('storage/' . $this->foto_principal);

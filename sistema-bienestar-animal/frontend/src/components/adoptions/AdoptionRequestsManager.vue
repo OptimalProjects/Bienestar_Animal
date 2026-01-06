@@ -156,7 +156,7 @@
             <div class="animal-detail-card">
               <div class="animal-photo-container">
                 <img
-                  :src="selectedRequest.animal.photoUrl || '/images/placeholder-animal.jpg'"
+                  :src="selectedRequest.animal.photoUrl || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiB2aWV3Qm94PSIwIDAgNDAwIDMwMCI+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSIzMDAiIGZpbGw9IiNlOWVjZWYiLz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyMDAsMTUwKSI+PHBhdGggZD0iTTAgLTUwYzE1IDAgMjUgMTUgMjUgMzBzLTEwIDMwLTI1IDMwcy0yNS0xNS0yNS0zMHMxMC0zMCAyNS0zMHoiIGZpbGw9IiNhZGI1YmQiLz48Y2lyY2xlIGN4PSItNDAiIGN5PSItNTAiIHI9IjE1IiBmaWxsPSIjYWRiNWJkIi8+PGNpcmNsZSBjeD0iNDAiIGN5PSItNTAiIHI9IjE1IiBmaWxsPSIjYWRiNWJkIi8+PGNpcmNsZSBjeD0iLTU1IiBjeT0iLTIwIiByPSIxMiIgZmlsbD0iI2FkYjViZCIvPjxjaXJjbGUgY3g9IjU1IiBjeT0iLTIwIiByPSIxMiIgZmlsbD0iI2FkYjViZCIvPjwvZz48L3N2Zz4='"
                   :alt="selectedRequest.animal.name"
                   class="animal-photo-large"
                   @error="handleImageError"
@@ -1100,7 +1100,7 @@ function getResultLabel(resultado) {
 }
 
 function handleImageError(event) {
-  event.target.src = '/images/placeholder-animal.jpg';
+  event.target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiB2aWV3Qm94PSIwIDAgNDAwIDMwMCI+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSIzMDAiIGZpbGw9IiNlOWVjZWYiLz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyMDAsMTUwKSI+PGVsbGlwc2UgY3g9IjAiIGN5PSIyNSIgcng9IjM1IiByeT0iMzAiIGZpbGw9IiNhZGI1YmQiLz48ZWxsaXBzZSBjeD0iLTQ1IiBjeT0iLTEwIiByeD0iMTgiIHJ5PSIyMiIgZmlsbD0iI2FkYjViZCIvPjxlbGxpcHNlIGN4PSI0NSIgY3k9Ii0xMCIgcng9IjE4IiByeT0iMjIiIGZpbGw9IiNhZGI1YmQiLz48ZWxsaXBzZSBjeD0iLTI1IiBjeT0iLTQ1IiByeD0iMTUiIHJ5PSIxOCIgZmlsbD0iI2FkYjViZCIvPjxlbGxpcHNlIGN4PSIyNSIgY3k9Ii00NSIgcng9IjE1IiByeT0iMTgiIGZpbGw9IiNhZGI1YmQiLz48L2c+PC9zdmc+';
 }
 
 onMounted(loadRequests);
