@@ -19,104 +19,85 @@
 
         <div class="form-grid">
           <!-- Animal -->
-          <div class="input-like-govco">
-            <label for="animal">
-              Animal<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco" data-type="basic">
-              <select
-                id="animal"
-                v-model="form.animalId"
-                class="browser-default"
-              >
-                <option value="" disabled>Seleccione un animal</option>
-                <option
-                  v-for="animal in animals"
-                  :key="animal.id"
-                  :value="animal.id"
-                >
-                  {{ animal.name }} ({{ animal.microchip }})
-                </option>
-              </select>
-            </div>
-          </div>
+          <DesplegableGovco
+            id="animal-select"
+            v-model="form.animalId"
+            label="Animal"
+            placeholder="Seleccione un animal"
+            :options="animalOptions"
+            :required="true"
+            :error="!!errors.animalId"
+            :alert-text="errors.animalId"
+          />
 
           <!-- Tipo certificado -->
-          <div class="input-like-govco">
-            <label for="type">
-              Tipo de certificado<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco" data-type="basic">
-              <select
-                id="type"
-                v-model="form.type"
-                class="browser-default"
-              >
-                <option value="" disabled>Seleccione tipo</option>
-                <option value="vaccination">Vacunación</option>
-                <option value="sterilization">Esterilización</option>
-                <option value="health">Salud general</option>
-              </select>
-            </div>
-          </div>
+          <DesplegableGovco
+            id="type-select"
+            v-model="form.type"
+            label="Tipo de certificado"
+            placeholder="Seleccione tipo"
+            :options="certificateTypes"
+            :required="true"
+            :error="!!errors.type"
+            :alert-text="errors.type"
+          />
 
           <!-- Veterinario -->
-          <div class="input-like-govco">
-            <label for="veterinarian">
-              Veterinario responsable<span aria-required="true">*</span>
-            </label>
-            <div class="desplegable-govco" data-type="basic">
-              <select
-                id="veterinarian"
-                v-model="form.veterinarianId"
-                class="browser-default"
-              >
-                <option value="" disabled>Seleccione veterinario</option>
-                <option
-                  v-for="vet in veterinarians"
-                  :key="vet.id"
-                  :value="vet.id"
-                >
-                  {{ vet.name }} ({{ vet.license }})
-                </option>
-              </select>
-            </div>
-          </div>
+          <DesplegableGovco
+            id="veterinarian-select"
+            v-model="form.veterinarianId"
+            label="Veterinario responsable"
+            placeholder="Seleccione veterinario"
+            :options="veterinarianOptions"
+            :required="true"
+            :error="!!errors.veterinarianId"
+            :alert-text="errors.veterinarianId"
+          />
 
           <!-- Observaciones -->
-          <div class="entradas-de-texto-govco full-width">
-            <label for="notes">Observaciones adicionales</label>
-            <textarea
-              id="notes"
+          <div class="full-width">
+            <InputGovCo
+              id="notes-input"
               v-model="form.notes"
-              rows="3"
+              label="Observaciones adicionales"
               placeholder="Información adicional que desea incluir en el certificado."
+              width="100%"
+              help-text="Opcional: agregue detalles relevantes para el certificado"
             />
           </div>
         </div>
       </div>
 
       <div class="form-actions">
-        <button
+        <ButtonGovCo
           type="button"
-          class="govco-btn govco-bg-concrete"
+          variant="secondary"
           @click="resetForm"
         >
           Limpiar
-        </button>
-        <button type="submit" class="govco-btn govco-bg-elf-green">
+        </ButtonGovCo>
+        
+        <ButtonGovCo
+          type="submit"
+          variant="primary"
+          :loading="loading"
+          :disabled="loading"
+        >
           Generar certificado PDF
-        </button>
+        </ButtonGovCo>
       </div>
     </form>
   </section>
 </template>
 
 <script setup>
-import { reactive, ref, onMounted, nextTick, watch } from 'vue';
+import { reactive, ref, onMounted, computed } from 'vue';
 import { useVeterinaryStore } from '@/stores/veterinary';
 import { useAnimalsStore } from '@/stores/animals';
 import animalService from '@/services/animalService';
+import DesplegableGovco from '../common/DesplegableGovco.vue';
+import InputGovCo from '../common/InputGovCo.vue';
+import ButtonGovCo from '../common/ButtonGovCo.vue';
 
 const veterinaryStore = useVeterinaryStore();
 const animalsStore = useAnimalsStore();
@@ -133,37 +114,37 @@ const form = reactive({
   notes: ''
 });
 
-// Función para reinicializar componentes GOV.CO
-function initGovCoComponents() {
-  console.log('🔄 CertificateGenerator: Inicializando componentes GOV.CO...');
+const errors = reactive({
+  animalId: '',
+  type: '',
+  veterinarianId: ''
+});
 
-  nextTick(() => {
-    if (window.GOVCo?.init) {
-      const dropdowns = document.querySelectorAll('.certificate-generator .desplegable-govco');
-      console.log(`📦 Encontrados ${dropdowns.length} dropdowns`);
-      dropdowns.forEach((dd, index) => {
-        try {
-          window.GOVCo.init(dd.parentElement || dd);
-          console.log(`✅ Dropdown ${index + 1} inicializado`);
-        } catch (e) {
-          console.warn(`⚠️ Error en dropdown ${index + 1}:`, e);
-        }
-      });
-    }
+// Opciones para los desplegables
+const certificateTypes = [
+  { value: 'vaccination', text: 'Vacunación' },
+  { value: 'sterilization', text: 'Esterilización' },
+  { value: 'health', text: 'Salud general' }
+];
 
-    if (window.reinitGovCo) {
-      setTimeout(() => {
-        window.reinitGovCo();
-        console.log('✅ reinitGovCo ejecutado');
-      }, 100);
-    }
-  });
-}
+const animalOptions = computed(() => {
+  return animals.value.map(animal => ({
+    value: animal.id,
+    text: `${animal.name} (${animal.microchip})`
+  }));
+});
+
+const veterinarianOptions = computed(() => {
+  return veterinarians.value.map(vet => ({
+    value: vet.id,
+    text: `${vet.nombre_completo ?? `${vet.nombres} ${vet.apellidos}`} - Tarjeta Prof. ${vet.numero_tarjeta_profesional ?? 'N/A'}`
+  }));
+});
 
 // Cargar datos iniciales
 async function loadData() {
   loadingData.value = true;
-  console.log('🔄 CertificateGenerator: Cargando datos iniciales...');
+  console.log('📄 CertificateGenerator: Cargando datos iniciales...');
 
   try {
     // Cargar animales
@@ -192,22 +173,18 @@ async function loadData() {
     console.log('📦 Cargando veterinarios...');
     try {
       const vetsData = await veterinaryStore.fetchVeterinarios();
-      const vets = vetsData || veterinaryStore.veterinarios || [];
-      veterinarians.value = vets.map(vet => ({
-        id: vet.id,
-        name: `${vet.usuario?.nombres || ''} ${vet.usuario?.apellidos || ''}`.trim() || 'Veterinario',
-        license: vet.tarjeta_profesional || 'N/A'
-      }));
+      veterinarians.value = Array.isArray(vetsData) ? vetsData : [];
+
+      if (veterinarians.value.length === 0) {
+        console.warn('⚠️ No hay veterinarios registrados en BD');
+        alert('No hay veterinarios registrados. Debes crear al menos uno para generar certificados.');
+      }
+
       console.log('✅ Veterinarios cargados:', veterinarians.value.length);
     } catch (vetsError) {
       console.error('❌ Error cargando veterinarios:', vetsError);
+      veterinarians.value = [];
     }
-
-    // Reinicializar GOV.CO después de cargar datos
-    await nextTick();
-    setTimeout(() => {
-      initGovCoComponents();
-    }, 200);
 
   } catch (error) {
     console.error('❌ Error cargando datos:', error);
@@ -218,16 +195,29 @@ async function loadData() {
   }
 }
 
-// Watch para reinicializar GOV.CO cuando cargan los datos
-watch(() => animals.value.length, async (newLength) => {
-  if (newLength > 0) {
-    console.log('📦 Animales actualizados, reinicializando GOV.CO...');
-    await nextTick();
-    setTimeout(() => {
-      initGovCoComponents();
-    }, 100);
+function validateForm() {
+  // Limpiar errores previos
+  Object.keys(errors).forEach(key => errors[key] = '');
+  
+  let isValid = true;
+
+  if (!form.animalId) {
+    errors.animalId = 'Debe seleccionar un animal';
+    isValid = false;
   }
-});
+
+  if (!form.type) {
+    errors.type = 'Debe seleccionar un tipo de certificado';
+    isValid = false;
+  }
+
+  if (!form.veterinarianId) {
+    errors.veterinarianId = 'Debe seleccionar un veterinario';
+    isValid = false;
+  }
+
+  return isValid;
+}
 
 function resetForm() {
   Object.assign(form, {
@@ -236,11 +226,13 @@ function resetForm() {
     veterinarianId: '',
     notes: ''
   });
+  
+  // Limpiar errores
+  Object.keys(errors).forEach(key => errors[key] = '');
 }
 
 async function generateCertificate() {
-  if (!form.animalId || !form.type || !form.veterinarianId) {
-    alert('Debe completar los campos obligatorios');
+  if (!validateForm()) {
     return;
   }
 
@@ -266,6 +258,7 @@ async function generateCertificate() {
 
     if (success) {
       alert('Certificado generado y descargado exitosamente');
+      resetForm();
     }
   } catch (e) {
     console.error('Error generando certificado:', e);
@@ -288,11 +281,26 @@ onMounted(async () => {
   padding: 2rem;
   background: #f5f7fb;
 }
+
 .form-header {
   margin-bottom: 2rem;
   padding-bottom: 1rem;
   border-bottom: 3px solid #3366cc;
 }
+
+.h2-tipografia-govco {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #004884;
+  margin: 0 0 0.5rem 0;
+}
+
+.text2-tipografia-govco {
+  font-size: 1rem;
+  color: #4B4B4B;
+  margin: 0;
+}
+
 .loading-overlay {
   display: flex;
   flex-direction: column;
@@ -304,6 +312,7 @@ onMounted(async () => {
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
+
 .spinner {
   border: 4px solid #f3f3f3;
   border-top: 4px solid #3366cc;
@@ -313,10 +322,12 @@ onMounted(async () => {
   animation: spin 1s linear infinite;
   margin-bottom: 1rem;
 }
+
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
 .form-section {
   background: #fff;
   border-radius: 8px;
@@ -324,13 +335,16 @@ onMounted(async () => {
   overflow: visible;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
+
 .section-title {
   margin: 0;
   padding: 1rem 1.5rem;
   background: #e8f0fe;
   color: #3366cc;
   font-weight: 600;
+  font-size: 1.1rem;
 }
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -338,44 +352,37 @@ onMounted(async () => {
   row-gap: 1.5rem;
   padding: 1.5rem;
 }
+
 .full-width {
   grid-column: 1 / 3;
 }
-.entradas-de-texto-govco input,
-.entradas-de-texto-govco textarea,
-.desplegable-govco select {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #d0d0d0;
-  border-radius: 4px;
-  font-size: 1rem;
-}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
   margin-top: 1.5rem;
 }
-.govco-btn {
-  padding: 0.75rem 2rem;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  color: #fff;
-}
-.govco-bg-concrete {
-  background-color: #737373;
-}
-.govco-bg-elf-green {
-  background-color: #069169;
-}
+
 @media (max-width: 768px) {
+  .certificate-generator {
+    padding: 1rem;
+  }
+
   .form-grid {
     grid-template-columns: 1fr;
   }
+
   .full-width {
     grid-column: 1 / 2;
+  }
+
+  .form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .form-actions button {
+    width: 100%;
   }
 }
 </style>
