@@ -1126,12 +1126,13 @@ onBeforeUnmount(() => {
 .gauge-container {
   position: relative;
   width: 150px;
-  height: 75px;
-  overflow: hidden;
+  height: 90px;
 }
 
 .gauge-bg {
   position: absolute;
+  top: 0;
+  left: 0;
   width: 150px;
   height: 150px;
   border-radius: 50%;
@@ -1141,23 +1142,32 @@ onBeforeUnmount(() => {
 
 .gauge-fill {
   position: absolute;
+  top: 0;
+  left: 0;
   width: 150px;
   height: 150px;
   border-radius: 50%;
+  /* Gradiente que empieza desde la izquierda (270deg) hacia la derecha (90deg) */
+  /* var(--fill) es 0-100, semicirculo es 50% del circulo, entonces fill*0.5 = porcentaje del circulo */
   background: conic-gradient(
+    from 270deg,
     #068460 0%,
     #068460 calc(var(--fill) * 0.5%),
-    transparent calc(var(--fill) * 0.5%)
+    transparent calc(var(--fill) * 0.5%),
+    transparent 100%
   );
   clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%);
 }
 
 .gauge-center {
   position: absolute;
-  bottom: 0;
+  top: 25px;
   left: 50%;
   transform: translateX(-50%);
   text-align: center;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
 }
 
 .gauge-value {
@@ -1168,8 +1178,11 @@ onBeforeUnmount(() => {
 }
 
 .gauge-label {
-  font-size: 0.8rem;
-  color: #666;
+  display: block;
+  font-size: 0.75rem;
+  color: #333;
+  font-weight: 500;
+  margin-top: 2px;
 }
 
 .gauge-info {
