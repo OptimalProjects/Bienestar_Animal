@@ -8,9 +8,16 @@ import api from './api';
 export const reportService = {
   /**
    * Obtener datos del dashboard principal
+   * @param {Object} params - Parámetros opcionales
+   * @param {string} params.fechaInicio - Fecha de inicio (YYYY-MM-DD)
+   * @param {string} params.fechaFin - Fecha de fin (YYYY-MM-DD)
    */
-  async getDashboard() {
-    const response = await api.get('/reportes/dashboard');
+  async getDashboard(params = {}) {
+    const queryParams = {};
+    if (params.fechaInicio) queryParams.fecha_inicio = params.fechaInicio;
+    if (params.fechaFin) queryParams.fecha_fin = params.fechaFin;
+
+    const response = await api.get('/reportes/dashboard', { params: queryParams });
     return response.data;
   },
 

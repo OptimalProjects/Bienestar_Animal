@@ -98,18 +98,18 @@
         :key="animal.id"
         class="animal-card card-govco"
       >
-        <!-- Carrusel de imágenes -->
+        <!-- Carrusel de imagenes -->
         <div class="image-carousel">
           <div class="carousel-container" :style="{ transform: `translateX(-${(animal._currentSlide || 0) * 100}%)` }">
             <!-- Foto principal -->
             <div class="carousel-slide">
               <img
-                :src="getPhotoUrl(animal.foto_url || animal.photoUrl)"
+                :src="getPhotoUrl(animal)"
                 :alt="animal.name || animal.nombre"
-                @error="handleImageError"
+                @error="(e) => onImageError(e, animal)"
               />
             </div>
-            <!-- Fotos de galería -->
+            <!-- Fotos de galeria -->
             <div
               v-for="(foto, idx) in getGalleryPhotos(animal)"
               :key="idx"
@@ -118,7 +118,7 @@
               <img
                 :src="foto"
                 :alt="`${animal.name || animal.nombre} - Foto ${idx + 2}`"
-                @error="handleImageError"
+                @error="(e) => onImageError(e, animal)"
               />
             </div>
           </div>
@@ -176,6 +176,7 @@
 
 <script setup>
 import { reactive, watch } from 'vue';
+import { resolveAnimalImageUrl, handleImageError as handleImgError, getSpeciesPlaceholder } from '@/utils/animalImages';
 
 const props = defineProps({
   animals: {
@@ -223,28 +224,42 @@ function capitalize(value) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-// Imagen placeholder en base64 (SVG de huella de mascota gris)
-const PLACEHOLDER_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiB2aWV3Qm94PSIwIDAgNDAwIDMwMCI+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSIzMDAiIGZpbGw9IiNlOWVjZWYiLz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyMDAsMTUwKSI+PGVsbGlwc2UgY3g9IjAiIGN5PSIyNSIgcng9IjM1IiByeT0iMzAiIGZpbGw9IiNhZGI1YmQiLz48ZWxsaXBzZSBjeD0iLTQ1IiBjeT0iLTEwIiByeD0iMTgiIHJ5PSIyMiIgZmlsbD0iI2FkYjViZCIvPjxlbGxpcHNlIGN4PSI0NSIgY3k9Ii0xMCIgcng9IjE4IiByeT0iMjIiIGZpbGw9IiNhZGI1YmQiLz48ZWxsaXBzZSBjeD0iLTI1IiBjeT0iLTQ1IiByeD0iMTUiIHJ5PSIxOCIgZmlsbD0iI2FkYjViZCIvPjxlbGxpcHNlIGN4PSIyNSIgY3k9Ii00NSIgcng9IjE1IiByeT0iMTgiIGZpbGw9IiNhZGI1YmQiLz48L2c+PC9zdmc+';
+// Obtener especie del animal
+function getAnimalEspecie(animal) {
+  return (animal?.especie || animal?.species || 'otro').toString().toLowerCase();
+}
 
-// Funciones para el carrusel de imágenes
-function getPhotoUrl(url) {
-  if (!url) return PLACEHOLDER_IMAGE;
-  // Si ya es una URL absoluta, devolverla
-  if (url.startsWith('http') || url.startsWith('data:') || url.startsWith('blob:')) {
-    return url;
+// Obtener semilla para placeholder consistente
+function getAnimalSeed(animal) {
+  return animal?.id || animal?.codigo_unico || 0;
+}
+
+// Funciones para el carrusel de imagenes
+function getPhotoUrl(animal) {
+  const url = animal?.foto_url || animal?.photoUrl || animal?.url_foto_principal;
+  return resolveAnimalImageUrl(url, getAnimalEspecie(animal), getAnimalSeed(animal));
+}
+
+// Resolver URL de galeria
+function resolveGalleryUrl(url, animal) {
+  if (!url) return getSpeciesPlaceholder(getAnimalEspecie(animal), getAnimalSeed(animal));
+  const s = String(url);
+  if (/^(https?:)?\/\//i.test(s) || s.startsWith('data:') || s.startsWith('blob:')) return s;
+  if (s.includes('/storage/')) {
+    return s.startsWith('http') ? s : `${window.location.origin}${s.startsWith('/') ? '' : '/'}${s}`;
   }
-  // Si incluye /storage/, construir URL completa
-  if (url.includes('/storage/')) {
-    return url.startsWith('/') ? url : `/${url}`;
-  }
-  // Si es un path relativo, agregar /storage/
-  return `/storage/${url.replace(/^\/+/, '')}`;
+  return `${window.location.origin}/storage/${s.replace(/^\/+/, '')}`;
 }
 
 function getGalleryPhotos(animal) {
   const galeria = animal.galeria_urls || animal.galeria_fotos || [];
   if (!Array.isArray(galeria)) return [];
-  return galeria.map(foto => getPhotoUrl(foto));
+  return galeria.map(foto => resolveGalleryUrl(foto, animal));
+}
+
+// Manejador de error de imagen
+function onImageError(event, animal) {
+  handleImgError(event, getAnimalEspecie(animal), getAnimalSeed(animal));
 }
 
 function getTotalPhotos(animal) {
@@ -266,10 +281,6 @@ function prevSlide(animal) {
   const total = getTotalPhotos(animal);
   const current = animal._currentSlide || 0;
   animal._currentSlide = current === 0 ? total - 1 : current - 1;
-}
-
-function handleImageError(event) {
-  event.target.src = PLACEHOLDER_IMAGE;
 }
 
 // Formateadores

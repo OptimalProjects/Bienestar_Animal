@@ -17,10 +17,22 @@ class ReporteController extends BaseController
      * Obtener dashboard principal.
      * GET /api/v1/reportes/dashboard
      */
-    public function dashboard()
+    public function dashboard(Request $request)
     {
+        $validator = Validator::make($request->all(), [
+            'fecha_inicio' => 'nullable|date',
+            'fecha_fin' => 'nullable|date|after_or_equal:fecha_inicio',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->validationErrorResponse($validator->errors());
+        }
+
         try {
-            $data = $this->reporteService->getDashboard();
+            $data = $this->reporteService->getDashboard(
+                $request->fecha_inicio,
+                $request->fecha_fin
+            );
             return $this->successResponse($data);
         } catch (\Exception $e) {
             return $this->serverErrorResponse('Error al obtener dashboard: ' . $e->getMessage());

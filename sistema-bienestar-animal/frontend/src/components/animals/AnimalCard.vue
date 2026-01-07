@@ -2,7 +2,11 @@
 <template>
   <div class="animal-card" @click="$emit('click')">
     <div class="card-image">
-      <img :src="photoUrl" :alt="`Foto de ${displayId}`" />
+      <img
+        :src="photoUrl"
+        :alt="`Foto de ${displayId}`"
+        @error="onImageError"
+      />
       <span class="status-badge" :class="`status-${animalStatus}`">
         {{ getStatusLabel(animalStatus) }}
       </span>
@@ -28,6 +32,7 @@
 
 <script setup>
 import { computed } from 'vue';
+import { resolveAnimalImageUrl, handleImageError } from '@/utils/animalImages';
 
 const props = defineProps({
   animal: Object
@@ -35,33 +40,26 @@ const props = defineProps({
 
 defineEmits(['click']);
 
-// Imagen placeholder en base64 (SVG de huella de mascota gris)
-const PLACEHOLDER_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiB2aWV3Qm94PSIwIDAgNDAwIDMwMCI+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSIzMDAiIGZpbGw9IiNlOWVjZWYiLz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyMDAsMTUwKSI+PGVsbGlwc2UgY3g9IjAiIGN5PSIyNSIgcng9IjM1IiByeT0iMzAiIGZpbGw9IiNhZGI1YmQiLz48ZWxsaXBzZSBjeD0iLTQ1IiBjeT0iLTEwIiByeD0iMTgiIHJ5PSIyMiIgZmlsbD0iI2FkYjViZCIvPjxlbGxpcHNlIGN4PSI0NSIgY3k9Ii0xMCIgcng9IjE4IiByeT0iMjIiIGZpbGw9IiNhZGI1YmQiLz48ZWxsaXBzZSBjeD0iLTI1IiBjeT0iLTQ1IiByeD0iMTUiIHJ5PSIxOCIgZmlsbD0iI2FkYjViZCIvPjxlbGxpcHNlIGN4PSIyNSIgY3k9Ii00NSIgcng9IjE1IiByeT0iMTgiIGZpbGw9IiNhZGI1YmQiLz48L2c+PC9zdmc+';
+// Obtener la especie normalizada para el placeholder
+const animalEspecie = computed(() =>
+  (props.animal?.especie || props.animal?.species || 'otro').toString().toLowerCase()
+);
 
-// ---- Helpers
-function resolveMediaUrl(input) {
-  if (!input) return PLACEHOLDER_IMAGE;
+// Semilla para placeholder consistente (usa el ID del animal)
+const animalSeed = computed(() =>
+  props.animal?.id || props.animal?.codigo_unico || 0
+);
 
-  const s = String(input);
-  // Absolute URLs / data URLs / blob
-  if (/^(https?:)?\/\//i.test(s) || s.startsWith('data:') || s.startsWith('blob:')) return s;
-
-  // If backend already returns a public URL
-  if (s.includes('/storage/')) {
-    // Ensure it's absolute for <img>
-    return s.startsWith('http') ? s : `${window.location.origin}${s.startsWith('/') ? '' : '/'}${s}`;
-  }
-
-  // Typical Laravel public disk path: 'animales/fotos/xxx.jpg'
-  const clean = s.replace(/^\/+/, '');
-  return `${window.location.origin}/storage/${clean}`;
-}
-
-// Mapeo de campos - soporta tanto nombres en español (backend) como inglés
+// Mapeo de campos - soporta tanto nombres en español (backend) como ingles
 const photoUrl = computed(() => {
   const raw = props.animal?.foto_url || props.animal?.url_foto_principal || props.animal?.foto_principal || props.animal?.photoUrl;
-  return resolveMediaUrl(raw);
+  return resolveAnimalImageUrl(raw, animalEspecie.value, animalSeed.value);
 });
+
+// Manejador de error de imagen - usa placeholder por especie
+function onImageError(event) {
+  handleImageError(event, animalEspecie.value, animalSeed.value);
+}
 
 const displayId = computed(() =>
   props.animal?.codigo_unico || props.animal?.numero_chip || props.animal?.microchip || 'Sin ID'
@@ -99,7 +97,7 @@ const displaySexo = computed(() => {
 });
 
 const displayEdad = computed(() => {
-  // Usar edad_formato si está disponible (viene del backend como accessor)
+  // Usar edad_formato si esta disponible (viene del backend como accessor)
   if (props.animal?.edad_formato) {
     return props.animal.edad_formato;
   }
@@ -137,7 +135,7 @@ function getStatusLabel(status) {
     en_calle: 'En calle',
     en_refugio: 'En refugio',
     refugio: 'En refugio',
-    en_adopcion: 'En adopción',
+    en_adopcion: 'En adopcion',
     adoptado: 'Adoptado',
     fallecido: 'Fallecido',
     en_tratamiento: 'En tratamiento'
@@ -210,7 +208,7 @@ function getStatusLabel(status) {
 }
 
 .status-adoptado {
-  background-color: #068460; /* govco-bg-elf-green - Verde para éxito */
+  background-color: #068460; /* govco-bg-elf-green - Verde para exito */
 }
 
 .status-fallecido {

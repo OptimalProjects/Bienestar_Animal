@@ -448,6 +448,7 @@ import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue';
 import adoptionService from '@/services/adoptionService';
 import DesplegableGovco from '@/components/common/DesplegableGovco.vue';
 import InputGovCo from '@/components/common/InputGovCo.vue';
+import { handleImageError as handleImgError } from '@/utils/animalImages';
 
 // Opciones para el filtro de estado
 const statusOptions = [
@@ -1100,7 +1101,10 @@ function getResultLabel(resultado) {
 }
 
 function handleImageError(event) {
-  event.target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiB2aWV3Qm94PSIwIDAgNDAwIDMwMCI+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSIzMDAiIGZpbGw9IiNlOWVjZWYiLz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyMDAsMTUwKSI+PGVsbGlwc2UgY3g9IjAiIGN5PSIyNSIgcng9IjM1IiByeT0iMzAiIGZpbGw9IiNhZGI1YmQiLz48ZWxsaXBzZSBjeD0iLTQ1IiBjeT0iLTEwIiByeD0iMTgiIHJ5PSIyMiIgZmlsbD0iI2FkYjViZCIvPjxlbGxpcHNlIGN4PSI0NSIgY3k9Ii0xMCIgcng9IjE4IiByeT0iMjIiIGZpbGw9IiNhZGI1YmQiLz48ZWxsaXBzZSBjeD0iLTI1IiBjeT0iLTQ1IiByeD0iMTUiIHJ5PSIxOCIgZmlsbD0iI2FkYjViZCIvPjxlbGxpcHNlIGN4PSIyNSIgY3k9Ii00NSIgcng9IjE1IiByeT0iMTgiIGZpbGw9IiNhZGI1YmQiLz48L2c+PC9zdmc+';
+  // Obtener especie del animal seleccionado para mostrar placeholder apropiado
+  const especie = selectedRequest.value?.animal?.species || 'otro';
+  const seed = selectedRequest.value?.animal?.code || selectedRequest.value?.id || 0;
+  handleImgError(event, especie.toLowerCase(), seed);
 }
 
 onMounted(loadRequests);
