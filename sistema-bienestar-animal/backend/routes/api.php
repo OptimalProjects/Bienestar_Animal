@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\Admin\UsuarioController;
 use App\Http\Controllers\Api\V1\Admin\InventarioController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\Auth\SSOController;
+use App\Http\Controllers\Api\V1\Veterinary\CertificadoController;
 
 /*
 |--------------------------------------------------------------------------
@@ -100,6 +101,10 @@ Route::prefix('v1')->group(function () {
         // ============================================
         Route::get('/veterinarios', [VeterinarioController::class, 'index']);
         
+        Route::prefix('veterinarios')->group(function () {
+        Route::get('/', [VeterinarioController::class, 'index']);
+        });
+
         Route::prefix('consultas')->group(function () {
             Route::get('/estadisticas', [ConsultaController::class, 'estadisticas']);
             Route::get('/hoy', [ConsultaController::class, 'consultasHoy']);
@@ -127,7 +132,19 @@ Route::prefix('v1')->group(function () {
             Route::post('/', [CirugiaController::class, 'store']);
             Route::get('/{id}', [CirugiaController::class, 'show']);
             Route::put('/{id}', [CirugiaController::class, 'update']);
+            Route::get('/hoy', [CirugiaController::class, 'hoy']);
+            Route::get('/pendientes', [CirugiaController::class, 'pendientes']);
         });
+        // ============================================
+    // RUTAS DE CERTIFICADOS
+    // ============================================
+    Route::prefix('certificados')->group(function () {
+        // Certificados en PDF (descarga)
+        Route::get('/vacunacion/{animalId}', [CertificadoController::class, 'vacunacion']);
+        Route::get('/esterilizacion/{animalId}', [CertificadoController::class, 'esterilizacion']);
+        Route::get('/salud/{animalId}', [CertificadoController::class, 'salud']);
+        Route::get('/carnet/{animalId}', [CertificadoController::class, 'carnet']);
+    });
 
         // ============================================
         // MODULO: ADOPCIONES
