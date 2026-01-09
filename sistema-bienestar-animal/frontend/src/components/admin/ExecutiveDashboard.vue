@@ -53,9 +53,7 @@
         <div class="kpi-content">
           <span class="kpi-value">{{ kpis.totalAnimals.toLocaleString() }}</span>
           <span class="kpi-label">Animales Registrados</span>
-          <span class="kpi-trend" :class="getTrendClass(kpis.animalsTrend)">
-            {{ formatTrend(kpis.animalsTrend) }} vs mes anterior
-          </span>
+          <span class="kpi-subtitle">{{ kpis.rescuesMonth }} ingresos en el periodo</span>
         </div>
       </div>
 
@@ -63,10 +61,8 @@
         <div class="kpi-icon">🏠</div>
         <div class="kpi-content">
           <span class="kpi-value">{{ kpis.adoptionsMonth }}</span>
-          <span class="kpi-label">Adopciones del Mes</span>
-          <span class="kpi-trend" :class="getTrendClass(kpis.adoptionsTrend)">
-            {{ formatTrend(kpis.adoptionsTrend) }} vs mes anterior
-          </span>
+          <span class="kpi-label">Adopciones {{ periodLabel }}</span>
+          <span class="kpi-subtitle">{{ kpis.pendingAdoptions }} pendientes</span>
         </div>
       </div>
 
@@ -74,8 +70,8 @@
         <div class="kpi-icon">⚠️</div>
         <div class="kpi-content">
           <span class="kpi-value">{{ kpis.activeComplaints }}</span>
-          <span class="kpi-label">Denuncias Activas</span>
-          <span class="kpi-subtitle">{{ kpis.criticalComplaints }} criticas</span>
+          <span class="kpi-label">Denuncias {{ periodLabel }}</span>
+          <span class="kpi-subtitle">{{ kpis.criticalComplaints }} urgentes</span>
         </div>
       </div>
 
@@ -83,8 +79,8 @@
         <div class="kpi-icon">💉</div>
         <div class="kpi-content">
           <span class="kpi-value">{{ kpis.vaccinationRate }}%</span>
-          <span class="kpi-label">Cobertura Vacunación</span>
-          <span class="kpi-subtitle">{{ kpis.vaccinationsMonth }} este mes</span>
+          <span class="kpi-label">Cobertura Vacunacion</span>
+          <span class="kpi-subtitle">{{ kpis.vaccinationsMonth }} en el periodo</span>
         </div>
       </div>
     </div>
@@ -93,7 +89,7 @@
     <div class="secondary-kpis">
       <div class="secondary-kpi">
         <span class="secondary-value">{{ kpis.rescuesMonth }}</span>
-        <span class="secondary-label">Rescates del mes</span>
+        <span class="secondary-label">Ingresos {{ periodLabel }}</span>
       </div>
       <div class="secondary-kpi">
         <span class="secondary-value">{{ kpis.sterilizations }}</span>
@@ -123,7 +119,8 @@
           <div class="mock-chart line-chart">
             <div class="chart-bars">
               <div v-for="(value, index) in adoptionsData" :key="index" class="chart-bar-container">
-                <div class="chart-bar" :style="{ height: `${value}%` }"></div>
+                <span class="chart-bar-value">{{ adoptionsRawData[index] }}</span>
+                <div class="chart-bar" :style="{ height: `${Math.max(value * 1.4, 8)}px` }"></div>
                 <span class="chart-label">{{ months[index] }}</span>
               </div>
             </div>
@@ -144,17 +141,33 @@
         </div>
         <div class="chart-container" ref="complaintsChart">
           <div class="mock-chart pie-chart">
-            <div class="pie-container">
-              <div class="pie-slice" style="--percentage: 35; --color: #A80521; --offset: 0"></div>
-              <div class="pie-slice" style="--percentage: 25; --color: #FFAB00; --offset: 35"></div>
-              <div class="pie-slice" style="--percentage: 20; --color: #3366CC; --offset: 60"></div>
-              <div class="pie-slice" style="--percentage: 20; --color: #068460; --offset: 80"></div>
+            <!-- SVG Pie Chart para compatibilidad con exportación -->
+            <svg viewBox="0 0 42 42" class="pie-svg" v-if="complaintsData.length > 0">
+              <circle cx="21" cy="21" r="15.91549430918954" fill="#fff" />
+              <circle
+                v-for="(slice, index) in pieSlices"
+                :key="index"
+                cx="21"
+                cy="21"
+                r="15.91549430918954"
+                fill="transparent"
+                :stroke="slice.color"
+                stroke-width="10"
+                :stroke-dasharray="slice.dashArray"
+                :stroke-dashoffset="slice.dashOffset"
+              />
+            </svg>
+            <div v-else class="pie-empty">
+              <div class="pie-empty-circle"></div>
             </div>
             <div class="pie-legend">
-              <div class="legend-row"><span class="dot" style="background:#A80521"></span> Maltrato (35%)</div>
-              <div class="legend-row"><span class="dot" style="background:#FFAB00"></span> Abandono (25%)</div>
-              <div class="legend-row"><span class="dot" style="background:#3366CC"></span> Negligencia (20%)</div>
-              <div class="legend-row"><span class="dot" style="background:#068460"></span> Otros (20%)</div>
+              <div v-for="item in complaintsData" :key="item.label" class="legend-row">
+                <span class="dot" :style="{ background: item.color }"></span>
+                {{ item.label }} ({{ item.porcentaje }}%)
+              </div>
+              <div v-if="complaintsData.length === 0" class="no-data-small">
+                Sin datos de denuncias
+              </div>
             </div>
           </div>
         </div>
@@ -179,20 +192,15 @@
               </div>
             </div>
             <div class="gauge-info">
-              <div class="info-row">
-                <span>Rabia:</span>
-                <div class="progress-bar"><div class="progress-fill" style="width: 92%"></div></div>
-                <span>92%</span>
+              <div v-for="vacuna in vaccinationCoverageData" :key="vacuna.nombre" class="info-row">
+                <span>{{ vacuna.nombre }}:</span>
+                <div class="progress-bar">
+                  <div class="progress-fill" :style="{ width: vacuna.porcentaje + '%' }"></div>
+                </div>
+                <span>{{ vacuna.porcentaje }}%</span>
               </div>
-              <div class="info-row">
-                <span>Triple:</span>
-                <div class="progress-bar"><div class="progress-fill" style="width: 78%"></div></div>
-                <span>78%</span>
-              </div>
-              <div class="info-row">
-                <span>Parvovirus:</span>
-                <div class="progress-bar"><div class="progress-fill" style="width: 85%"></div></div>
-                <span>85%</span>
+              <div v-if="vaccinationCoverageData.length === 0" class="no-data-small">
+                Sin datos de vacunación
               </div>
             </div>
           </div>
@@ -270,8 +278,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import reportService from '@/services/reportService';
+import html2canvas from 'html2canvas';
 
 const dateRange = ref('month');
 const customStart = ref('');
@@ -279,6 +288,25 @@ const customEnd = ref('');
 const lastUpdate = ref('');
 const loading = ref(true);
 const error = ref(null);
+
+// Etiqueta del periodo seleccionado
+const periodLabel = computed(() => {
+  const labels = {
+    today: 'Hoy',
+    week: 'Semana',
+    month: 'del Mes',
+    quarter: 'del Trimestre',
+    year: 'del Año',
+    custom: 'Periodo'
+  };
+  return labels[dateRange.value] || 'del Mes';
+});
+
+// Referencias a los contenedores de gráficos para exportación
+const adoptionsChart = ref(null);
+const complaintsChart = ref(null);
+const vaccinationChart = ref(null);
+const speciesChart = ref(null);
 
 // Auto-refresh cada 60 segundos
 let refreshInterval = null;
@@ -294,9 +322,7 @@ const kpis = computed(() => {
   if (!dashboardData.value) {
     return {
       totalAnimals: 0,
-      animalsTrend: 0,
       adoptionsMonth: 0,
-      adoptionsTrend: 0,
       activeComplaints: 0,
       criticalComplaints: 0,
       vaccinationRate: 0,
@@ -310,23 +336,23 @@ const kpis = computed(() => {
 
   const { animales, adopciones, denuncias, veterinaria } = dashboardData.value;
 
-  // Calcular tasa de vacunación (vacunas del mes / animales en refugio * 100)
-  const vaccinationRate = animales.en_refugio > 0
-    ? Math.round((veterinaria.vacunas_mes / animales.en_refugio) * 100)
-    : 0;
+  // Usar cobertura de vacunación del backend si está disponible
+  const coberturaVacunacion = dashboardData.value.cobertura_vacunacion;
+  const vaccinationRate = coberturaVacunacion?.porcentaje || 0;
+
+  // Usar total de adopciones en el periodo (filtrado por created_at)
+  const adopcionesPeriodo = adopciones.total_periodo || 0;
 
   return {
-    totalAnimals: animales.total || 0,
-    animalsTrend: animales.ingresos_mes > 0 ? ((animales.ingresos_mes / animales.total) * 100).toFixed(1) : 0,
-    adoptionsMonth: adopciones.aprobadas_mes || 0,
-    adoptionsTrend: adopciones.tasa_aprobacion || 0,
+    totalAnimals: animales.ingresos_periodo || 0,
+    adoptionsMonth: adopcionesPeriodo,
     activeComplaints: denuncias.pendientes || 0,
     criticalComplaints: denuncias.urgentes || 0,
     vaccinationRate: Math.min(vaccinationRate, 100),
-    vaccinationsMonth: veterinaria.vacunas_mes || 0,
-    rescuesMonth: animales.ingresos_mes || 0,
-    sterilizations: veterinaria.esterilizaciones_mes || 0,
-    pendingAdoptions: adopciones.pendientes || 0,
+    vaccinationsMonth: veterinaria.vacunas_periodo || 0,
+    rescuesMonth: animales.ingresos_periodo || 0,
+    sterilizations: veterinaria.esterilizaciones_periodo || 0,
+    pendingAdoptions: adopciones.pendientes_total || 0,
     avgResponseTime: 4.2 // TODO: Calcular desde backend
   };
 });
@@ -339,16 +365,22 @@ const months = computed(() => {
   return dashboardData.value.tendencias.adopciones.map(t => t.mes.split(' ')[0]);
 });
 
-const adoptionsData = computed(() => {
+// Valores absolutos de adopciones por mes
+const adoptionsRawData = computed(() => {
   if (!dashboardData.value?.tendencias?.adopciones) {
     return [0, 0, 0, 0, 0, 0];
   }
-  const data = dashboardData.value.tendencias.adopciones.map(t => t.cantidad);
-  const max = Math.max(...data, 1);
-  return data.map(v => (v / max) * 100); // Normalizar a porcentaje para altura de barras
+  return dashboardData.value.tendencias.adopciones.map(t => t.cantidad);
 });
 
-// Datos para gráfico de especies
+// Valores normalizados para altura de barras (porcentaje)
+const adoptionsData = computed(() => {
+  const data = adoptionsRawData.value;
+  const max = Math.max(...data, 1);
+  return data.map(v => (v / max) * 100);
+});
+
+// Datos para gráfico de especies (solo datos del periodo seleccionado)
 const speciesData = computed(() => {
   if (!dashboardData.value?.animales?.por_especie) {
     return [];
@@ -371,7 +403,7 @@ const speciesData = computed(() => {
   })).sort((a, b) => b.cantidad - a.cantidad);
 });
 
-// Datos para gráfico de denuncias
+// Datos para gráfico de denuncias (solo datos del periodo seleccionado)
 const complaintsData = computed(() => {
   if (!dashboardData.value?.denuncias?.por_tipo) {
     return [];
@@ -383,15 +415,49 @@ const complaintsData = computed(() => {
     maltrato: '#A80521',
     abandono: '#FFAB00',
     negligencia: '#3366CC',
-    otros: '#068460'
+    animal_herido: '#068460',
+    animal_peligroso: '#9C27B0',
+    otro: '#737373'
   };
 
   return Object.entries(tipos).map(([tipo, cantidad]) => ({
-    label: tipo.charAt(0).toUpperCase() + tipo.slice(1),
+    label: formatTipoDenuncia(tipo),
     cantidad,
     porcentaje: total > 0 ? Math.round((cantidad / total) * 100) : 0,
     color: colors[tipo] || '#737373'
-  }));
+  })).sort((a, b) => b.cantidad - a.cantidad);
+});
+
+// Datos para cobertura de vacunación por tipo
+const vaccinationCoverageData = computed(() => {
+  if (!dashboardData.value?.cobertura_vacunacion?.por_tipo_vacuna) {
+    return [];
+  }
+  return dashboardData.value.cobertura_vacunacion.por_tipo_vacuna;
+});
+
+// Calcular slices del pie chart SVG
+// Usamos r=15.91549430918954 que da una circunferencia de exactamente 100
+const pieSlices = computed(() => {
+  if (!complaintsData.value || complaintsData.value.length === 0) {
+    return [];
+  }
+
+  const circumference = 100; // 2 * PI * 15.91549430918954 ≈ 100
+  let accumulatedOffset = 25; // Empezar desde arriba (25% = 90 grados)
+
+  return complaintsData.value.map((item) => {
+    const sliceLength = item.porcentaje;
+    const dashArray = `${sliceLength} ${circumference - sliceLength}`;
+    const dashOffset = accumulatedOffset;
+    accumulatedOffset -= sliceLength;
+
+    return {
+      color: item.color,
+      dashArray,
+      dashOffset
+    };
+  });
 });
 
 // Alertas dinámicas basadas en datos
@@ -492,15 +558,6 @@ const alerts = computed(() => {
 });
 
 // Helpers
-function getTrendClass(trend) {
-  return trend >= 0 ? 'trend-up' : 'trend-down';
-}
-
-function formatTrend(trend) {
-  const sign = trend >= 0 ? '+' : '';
-  return `${sign}${trend}%`;
-}
-
 function getAlertIcon(type) {
   const icons = {
     critical: '🚨',
@@ -576,18 +633,91 @@ function updateLastUpdate() {
   });
 }
 
-function exportChart(chartName) {
-  console.log(`Exportando gráfico "${chartName}" como PNG...`);
-  // TODO: Implementar exportación real con html2canvas
+async function exportChart(chartName) {
+  const chartRefs = {
+    adoptions: adoptionsChart.value,
+    complaints: complaintsChart.value,
+    vaccination: vaccinationChart.value,
+    species: speciesChart.value
+  };
+
+  const chartElement = chartRefs[chartName];
+  if (!chartElement) {
+    console.error(`Gráfico "${chartName}" no encontrado`);
+    return;
+  }
+
+  try {
+    const canvas = await html2canvas(chartElement, {
+      backgroundColor: '#ffffff',
+      scale: 2, // Mayor resolución
+      logging: false,
+      useCORS: true
+    });
+
+    // Crear enlace de descarga
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().slice(0, 10);
+    link.download = `grafico-${chartName}-${timestamp}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } catch (err) {
+    console.error('Error al exportar gráfico:', err);
+    error.value = 'Error al exportar el gráfico';
+    setTimeout(() => { error.value = null; }, 3000);
+  }
+}
+
+// Calcular fechas según el período seleccionado
+function getDateRange() {
+  const today = new Date();
+  let fechaInicio, fechaFin;
+
+  switch (dateRange.value) {
+    case 'today':
+      fechaInicio = today.toISOString().slice(0, 10);
+      fechaFin = today.toISOString().slice(0, 10);
+      break;
+    case 'week':
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay());
+      fechaInicio = startOfWeek.toISOString().slice(0, 10);
+      fechaFin = today.toISOString().slice(0, 10);
+      break;
+    case 'month':
+      fechaInicio = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
+      fechaFin = today.toISOString().slice(0, 10);
+      break;
+    case 'quarter':
+      const quarterMonth = Math.floor(today.getMonth() / 3) * 3;
+      fechaInicio = new Date(today.getFullYear(), quarterMonth, 1).toISOString().slice(0, 10);
+      fechaFin = today.toISOString().slice(0, 10);
+      break;
+    case 'year':
+      fechaInicio = new Date(today.getFullYear(), 0, 1).toISOString().slice(0, 10);
+      fechaFin = today.toISOString().slice(0, 10);
+      break;
+    case 'custom':
+      fechaInicio = customStart.value || null;
+      fechaFin = customEnd.value || null;
+      break;
+    default:
+      fechaInicio = null;
+      fechaFin = null;
+  }
+
+  return { fechaInicio, fechaFin };
 }
 
 async function loadDashboard() {
   loading.value = true;
   error.value = null;
   try {
+    const { fechaInicio, fechaFin } = getDateRange();
+
     // Cargar datos del dashboard y denuncias recientes en paralelo
     const [dashboardResponse, denunciasResponse] = await Promise.allSettled([
-      reportService.getDashboard(),
+      reportService.getDashboard({ fechaInicio, fechaFin }),
       reportService.getDenunciasRecientes(5)
     ]);
 
@@ -637,6 +767,17 @@ async function loadDashboard() {
 async function refreshData() {
   await loadDashboard();
 }
+
+// Observar cambios en los filtros de fecha
+watch(dateRange, () => {
+  loadDashboard();
+});
+
+watch([customStart, customEnd], () => {
+  if (dateRange.value === 'custom' && customStart.value && customEnd.value) {
+    loadDashboard();
+  }
+});
 
 onMounted(async () => {
   await loadDashboard();
@@ -873,7 +1014,7 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-around;
   align-items: flex-end;
-  height: 180px;
+  height: 200px;
   padding-bottom: 1rem;
   border-bottom: 1px solid #E0E0E0;
 }
@@ -882,14 +1023,24 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: flex-end;
+  height: 100%;
+  gap: 0.25rem;
+}
+
+.chart-bar-value {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #068460;
 }
 
 .chart-bar {
   width: 40px;
   background: linear-gradient(to top, #068460, #0AA67A);
   border-radius: 4px 4px 0 0;
-  transition: height 0.3s;
+  transition: height 0.3s ease;
+  min-height: 8px;
+  max-height: 140px;
 }
 
 .chart-label {
@@ -925,17 +1076,24 @@ onBeforeUnmount(() => {
   justify-content: space-around;
 }
 
-.pie-container {
+.pie-svg {
+  width: 150px;
+  height: 150px;
+}
+
+.pie-empty {
+  width: 150px;
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pie-empty-circle {
   width: 150px;
   height: 150px;
   border-radius: 50%;
-  background: conic-gradient(
-    #A80521 0% 35%,
-    #FFAB00 35% 60%,
-    #3366CC 60% 80%,
-    #068460 80% 100%
-  );
-  position: relative;
+  background: #E0E0E0;
 }
 
 .pie-legend {
@@ -968,12 +1126,13 @@ onBeforeUnmount(() => {
 .gauge-container {
   position: relative;
   width: 150px;
-  height: 75px;
-  overflow: hidden;
+  height: 90px;
 }
 
 .gauge-bg {
   position: absolute;
+  top: 0;
+  left: 0;
   width: 150px;
   height: 150px;
   border-radius: 50%;
@@ -983,23 +1142,32 @@ onBeforeUnmount(() => {
 
 .gauge-fill {
   position: absolute;
+  top: 0;
+  left: 0;
   width: 150px;
   height: 150px;
   border-radius: 50%;
+  /* Gradiente que empieza desde la izquierda (270deg) hacia la derecha (90deg) */
+  /* var(--fill) es 0-100, semicirculo es 50% del circulo, entonces fill*0.5 = porcentaje del circulo */
   background: conic-gradient(
+    from 270deg,
     #068460 0%,
     #068460 calc(var(--fill) * 0.5%),
-    transparent calc(var(--fill) * 0.5%)
+    transparent calc(var(--fill) * 0.5%),
+    transparent 100%
   );
   clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%);
 }
 
 .gauge-center {
   position: absolute;
-  bottom: 0;
+  top: 25px;
   left: 50%;
   transform: translateX(-50%);
   text-align: center;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
 }
 
 .gauge-value {
@@ -1010,8 +1178,11 @@ onBeforeUnmount(() => {
 }
 
 .gauge-label {
-  font-size: 0.8rem;
-  color: #666;
+  display: block;
+  font-size: 0.75rem;
+  color: #333;
+  font-weight: 500;
+  margin-top: 2px;
 }
 
 .gauge-info {
@@ -1347,6 +1518,14 @@ onBeforeUnmount(() => {
   text-align: center;
   color: #666;
   padding: 2rem;
+  font-style: italic;
+}
+
+.no-data-small {
+  text-align: center;
+  color: #999;
+  padding: 1rem;
+  font-size: 0.85rem;
   font-style: italic;
 }
 </style>

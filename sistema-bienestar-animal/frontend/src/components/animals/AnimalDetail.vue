@@ -13,7 +13,7 @@
       <div v-if="!isEditing" class="modal-body">
         <div class="animal-details-grid">
           <div class="detail-image">
-            <img :src="displayPhoto" :alt="`Foto de ${displayId}`" />
+            <img :src="displayPhoto" :alt="`Foto de ${displayId}`" @error="onImageError" />
           </div>
 
           <div class="detail-section govco-bg-hawkes-blue">
@@ -80,7 +80,7 @@
                 class="gallery-item"
                 @click="openGalleryImage(foto)"
               >
-                <img :src="foto" :alt="`Foto ${index + 1} de ${displayId}`" />
+                <img :src="foto" :alt="`Foto ${index + 1} de ${displayId}`" @error="onImageError" />
               </div>
             </div>
           </div>
@@ -212,6 +212,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { useAnimalsStore } from '@/stores/animals';
+import { resolveAnimalImageUrl, handleImageError } from '@/utils/animalImages';
 
 const props = defineProps({
   animal: Object
@@ -225,25 +226,23 @@ const isSaving = ref(false);
 const editError = ref('');
 const editForm = ref({});
 
-// Imagen placeholder en base64 (SVG de huella de mascota gris)
-const PLACEHOLDER_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiB2aWV3Qm94PSIwIDAgNDAwIDMwMCI+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSIzMDAiIGZpbGw9IiNlOWVjZWYiLz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyMDAsMTUwKSI+PGVsbGlwc2UgY3g9IjAiIGN5PSIyNSIgcng9IjM1IiByeT0iMzAiIGZpbGw9IiNhZGI1YmQiLz48ZWxsaXBzZSBjeD0iLTQ1IiBjeT0iLTEwIiByeD0iMTgiIHJ5PSIyMiIgZmlsbD0iI2FkYjViZCIvPjxlbGxpcHNlIGN4PSI0NSIgY3k9Ii0xMCIgcng9IjE4IiByeT0iMjIiIGZpbGw9IiNhZGI1YmQiLz48ZWxsaXBzZSBjeD0iLTI1IiBjeT0iLTQ1IiByeD0iMTUiIHJ5PSIxOCIgZmlsbD0iI2FkYjViZCIvPjxlbGxpcHNlIGN4PSIyNSIgY3k9Ii00NSIgcng9IjE1IiByeT0iMTgiIGZpbGw9IiNhZGI1YmQiLz48L2c+PC9zdmc+';
+// Obtener especie y semilla para placeholders
+const animalEspecie = computed(() =>
+  (props.animal?.especie || props.animal?.species || 'otro').toString().toLowerCase()
+);
+const animalSeed = computed(() =>
+  props.animal?.id || props.animal?.codigo_unico || 0
+);
 
-// ---- Helpers
-function resolveMediaUrl(input) {
-  if (!input) return PLACEHOLDER_IMAGE;
-  const s = String(input);
-  if (/^(https?:)?\/\//i.test(s) || s.startsWith('data:') || s.startsWith('blob:')) return s;
-  if (s.includes('/storage/')) {
-    return s.startsWith('http') ? s : `${window.location.origin}${s.startsWith('/') ? '' : '/'}${s}`;
-  }
-  const clean = s.replace(/^\/+/, '');
-  return `${window.location.origin}/storage/${clean}`;
+// Manejador de error de imagen
+function onImageError(event) {
+  handleImageError(event, animalEspecie.value, animalSeed.value);
 }
 
-// Computed para mostrar datos con fallbacks español/inglés
+// Computed para mostrar datos con fallbacks espanol/ingles
 const displayPhoto = computed(() => {
   const raw = props.animal?.foto_url || props.animal?.url_foto_principal || props.animal?.foto_principal || props.animal?.photoUrl;
-  return resolveMediaUrl(raw);
+  return resolveAnimalImageUrl(raw, animalEspecie.value, animalSeed.value);
 });
 
 const displayId = computed(() =>
@@ -306,12 +305,20 @@ const displayFechaRescate = computed(() => {
   }
 });
 
-// Galería de fotos adicionales
+// Galeria de fotos adicionales
 const galeriaFotos = computed(() => {
   // Intentar obtener desde galeria_urls (accessor del backend) o galeria_fotos
   const galeria = props.animal?.galeria_urls || props.animal?.galeria_fotos || [];
   if (!Array.isArray(galeria) || galeria.length === 0) return [];
-  return galeria.map(foto => resolveMediaUrl(foto));
+  return galeria.map(foto => {
+    if (!foto) return resolveAnimalImageUrl(null, animalEspecie.value, animalSeed.value);
+    const s = String(foto);
+    if (/^(https?:)?\/\//i.test(s) || s.startsWith('data:') || s.startsWith('blob:')) return s;
+    if (s.includes('/storage/')) {
+      return s.startsWith('http') ? s : `${window.location.origin}${s.startsWith('/') ? '' : '/'}${s}`;
+    }
+    return `${window.location.origin}/storage/${s.replace(/^\/+/, '')}`;
+  });
 });
 
 function openGalleryImage(url) {

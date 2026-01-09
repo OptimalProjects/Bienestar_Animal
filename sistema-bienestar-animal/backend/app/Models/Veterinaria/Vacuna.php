@@ -2,12 +2,14 @@
 
 namespace App\Models\Veterinaria;
 
+use App\Models\Animal\Animal;
 use App\Models\Animal\HistorialClinico;
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
 class Vacuna extends Model
 {
@@ -46,9 +48,24 @@ class Vacuna extends Model
     /**
      * Relacion: Historial clinico.
      */
-    public function historialClinico()
+    public function historialClinico(): BelongsTo
     {
         return $this->belongsTo(HistorialClinico::class, 'historial_clinico_id');
+    }
+
+    /**
+     * Relacion: Animal a través del historial clínico.
+     */
+    public function animal(): HasOneThrough
+    {
+        return $this->hasOneThrough(
+            Animal::class,
+            HistorialClinico::class,
+            'id',                   // PK local en historiales_clinicos
+            'id',                   // PK local en animals
+            'historial_clinico_id', // FK en vacunas
+            'animal_id'             // FK en historiales_clinicos
+        );
     }
 
     /**

@@ -244,7 +244,9 @@ Route::prefix('v1')->group(function () {
             Route::get('/indicadores', [ReporteController::class, 'indicadores']);
             Route::post('/indicadores/{indicadorId}/punto', [ReporteController::class, 'registrarIndicador']);
             Route::get('/periodo', [ReporteController::class, 'reportePeriodo']);
-            Route::get('/exportar', [ReporteController::class, 'exportar']);
+            Route::get('/tipos', [ReporteController::class, 'tiposReporte']);
+            Route::get('/preview/{tipo}', [ReporteController::class, 'preview']);
+            Route::get('/exportar/{tipo}', [ReporteController::class, 'exportar']);
         });
 
     }); // Fin middleware auth:sanctum

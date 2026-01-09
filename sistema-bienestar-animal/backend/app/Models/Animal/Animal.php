@@ -12,7 +12,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Builder;
+use App\Models\Veterinaria\Vacuna;
 
 
 class Animal extends Model
@@ -203,11 +205,36 @@ class Animal extends Model
     }
 
     /**
+     * Relación: Vacunas a través del historial clínico.
+     */
+    public function vacunas(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            Vacuna::class,
+            HistorialClinico::class,
+            'animal_id',           // FK en historiales_clinicos
+            'historial_clinico_id', // FK en vacunas
+            'id',                   // PK local en animals
+            'id'                    // PK local en historiales_clinicos
+        );
+    }
+
+    /**
      * Scopes
      */
     public function scopeDisponiblesAdopcion($query)
     {
         return $query->where('estado', 'en_adopcion');
+    }
+
+    public function scopeEnRefugio($query)
+    {
+        return $query->where('estado', 'en_refugio');
+    }
+
+    public function scopeAdoptados($query)
+    {
+        return $query->where('estado', 'adoptado');
     }
 
     public function scopePorEspecie($query, string $especie)

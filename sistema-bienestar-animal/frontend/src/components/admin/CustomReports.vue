@@ -25,14 +25,14 @@
             <option value="adoptions">Adopciones</option>
             <option value="complaints">Denuncias</option>
             <option value="vaccinations">Vacunaciones</option>
+            <option value="surgeries">Cirugias</option>
             <option value="rescues">Operativos de Rescate</option>
-            <option value="users">Usuarios del Sistema</option>
           </select>
         </div>
 
         <!-- Rango de Fechas -->
         <div class="form-group">
-          <label class="form-label">Rango de Fechas *</label>
+          <label class="form-label">Rango de Fechas (opcional)</label>
           <div class="date-range">
             <input
               type="date"
@@ -127,6 +127,30 @@
           </div>
         </div>
 
+        <div v-if="reportConfig.type === 'surgeries'" class="dynamic-filters">
+          <div class="form-group">
+            <label class="form-label">Tipo de Cirugia</label>
+            <select v-model="reportConfig.filters.surgeryType" class="form-select">
+              <option value="">Todas</option>
+              <option value="esterilizacion">Esterilizacion</option>
+              <option value="castracion">Castracion</option>
+              <option value="emergencia">Emergencia</option>
+              <option value="ortopedica">Ortopedica</option>
+              <option value="otra">Otra</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Estado</label>
+            <select v-model="reportConfig.filters.surgeryStatus" class="form-select">
+              <option value="">Todos</option>
+              <option value="programada">Programada</option>
+              <option value="en_curso">En curso</option>
+              <option value="completada">Completada</option>
+              <option value="cancelada">Cancelada</option>
+            </select>
+          </div>
+        </div>
+
         <!-- Columnas a incluir -->
         <div class="form-group">
           <label class="form-label">Columnas a Incluir</label>
@@ -181,8 +205,13 @@
 
       <!-- Panel de Vista Previa y Resultados -->
       <div class="preview-panel">
+        <!-- Mensaje de error -->
+        <div v-if="errorMessage" class="error-message">
+          {{ errorMessage }}
+        </div>
+
         <!-- Estado vacio -->
-        <div v-if="!showPreview && !loading" class="empty-state">
+        <div v-if="!showPreview && !loading && !errorMessage" class="empty-state">
           <div class="empty-icon">📊</div>
           <h4>Configure su reporte</h4>
           <p>Seleccione el tipo de reporte y los filtros deseados, luego presione "Vista Previa"</p>
@@ -200,17 +229,14 @@
             <div class="preview-info">
               <h4>{{ getReportTitle() }}</h4>
               <p>Periodo: {{ formatDate(reportConfig.startDate) }} - {{ formatDate(reportConfig.endDate) }}</p>
-              <p class="record-count">{{ previewData.length }} registros encontrados</p>
+              <p class="record-count">{{ totalRecords }} registros encontrados</p>
             </div>
             <div class="export-buttons">
-              <button type="button" class="export-btn pdf" @click="exportReport('pdf')">
-                📄 PDF
+              <button type="button" class="export-btn excel" @click="exportReport('xlsx')" :disabled="exporting">
+                {{ exporting ? '...' : '📗' }} Excel
               </button>
-              <button type="button" class="export-btn excel" @click="exportReport('xlsx')">
-                📗 Excel
-              </button>
-              <button type="button" class="export-btn csv" @click="exportReport('csv')">
-                📋 CSV
+              <button type="button" class="export-btn csv" @click="exportReport('csv')" :disabled="exporting">
+                {{ exporting ? '...' : '📋' }} CSV
               </button>
             </div>
           </div>
@@ -261,7 +287,7 @@
             <h5>Resumen Estadistico</h5>
             <div class="stats-grid">
               <div class="stat-item">
-                <span class="stat-value">{{ previewData.length }}</span>
+                <span class="stat-value">{{ totalRecords }}</span>
                 <span class="stat-label">Total Registros</span>
               </div>
               <div v-if="reportConfig.type === 'complaints'" class="stat-item">
@@ -310,12 +336,27 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue';
+import api from '@/services/api';
 
 const loading = ref(false);
+const exporting = ref(false);
 const showPreview = ref(false);
 const currentPage = ref(1);
 const pageSize = 10;
 const showStats = ref(true);
+const totalRecords = ref(0);
+const errorMessage = ref('');
+
+// Mapeo de tipos frontend a backend
+const typeMapping = {
+  animals: 'animales',
+  adoptions: 'adopciones',
+  complaints: 'denuncias',
+  vaccinations: 'vacunas',
+  rescues: 'rescates',
+  users: 'usuarios',
+  surgeries: 'cirugias'
+};
 
 // Configuracion del reporte
 const reportConfig = ref({
@@ -328,7 +369,9 @@ const reportConfig = ref({
     complaintType: '',
     priority: '',
     adoptionStatus: '',
-    vaccineType: ''
+    vaccineType: '',
+    surgeryType: '',
+    surgeryStatus: ''
   },
   columns: [],
   groupBy: ''
@@ -380,13 +423,13 @@ const columnsByType = {
     { id: 'estado', label: 'Estado' },
     { id: 'responsable', label: 'Responsable' }
   ],
-  users: [
+  surgeries: [
     { id: 'id', label: 'ID' },
-    { id: 'nombre', label: 'Nombre' },
-    { id: 'email', label: 'Email' },
-    { id: 'rol', label: 'Rol' },
-    { id: 'estado', label: 'Estado' },
-    { id: 'ultimo_acceso', label: 'Ultimo Acceso' }
+    { id: 'animal', label: 'Animal' },
+    { id: 'tipo', label: 'Tipo Cirugia' },
+    { id: 'fecha', label: 'Fecha' },
+    { id: 'veterinario', label: 'Veterinario' },
+    { id: 'estado', label: 'Estado' }
   ]
 };
 
@@ -423,9 +466,8 @@ const selectedColumnLabels = computed(() => {
 });
 
 const isConfigValid = computed(() => {
+  // Solo el tipo y columnas son requeridos, fechas son opcionales
   return reportConfig.value.type &&
-         reportConfig.value.startDate &&
-         reportConfig.value.endDate &&
          reportConfig.value.columns.length > 0;
 });
 
@@ -452,9 +494,12 @@ watch(() => reportConfig.value.type, (newType) => {
     complaintType: '',
     priority: '',
     adoptionStatus: '',
-    vaccineType: ''
+    vaccineType: '',
+    surgeryType: '',
+    surgeryStatus: ''
   };
   showPreview.value = false;
+  errorMessage.value = '';
 });
 
 // Methods
@@ -464,8 +509,8 @@ function getReportTitle() {
     adoptions: 'Reporte de Adopciones',
     complaints: 'Reporte de Denuncias',
     vaccinations: 'Reporte de Vacunaciones',
-    rescues: 'Reporte de Operativos de Rescate',
-    users: 'Reporte de Usuarios'
+    surgeries: 'Reporte de Cirugias',
+    rescues: 'Reporte de Operativos de Rescate'
   };
   return titles[reportConfig.value.type] || 'Reporte';
 }
@@ -476,17 +521,68 @@ function formatDate(dateStr) {
   return date.toLocaleDateString('es-CO');
 }
 
-function generatePreview() {
+async function generatePreview() {
   loading.value = true;
   showPreview.value = false;
+  errorMessage.value = '';
 
-  // Simular carga
-  setTimeout(() => {
-    previewData.value = generateMockData();
-    loading.value = false;
+  try {
+    const backendType = typeMapping[reportConfig.value.type];
+    if (!backendType) {
+      throw new Error('Tipo de reporte no soportado');
+    }
+
+    const params = {
+      per_page: 50 // Maximo permitido por el backend
+    };
+
+    // Solo agregar fechas si estan definidas
+    if (reportConfig.value.startDate) {
+      params.fecha_inicio = reportConfig.value.startDate;
+    }
+    if (reportConfig.value.endDate) {
+      params.fecha_fin = reportConfig.value.endDate;
+    }
+
+    // Agregar filtros segun el tipo
+    if (reportConfig.value.type === 'animals') {
+      if (reportConfig.value.filters.species) params.especie = reportConfig.value.filters.species;
+      if (reportConfig.value.filters.status) params.estado = reportConfig.value.filters.status;
+    } else if (reportConfig.value.type === 'complaints') {
+      if (reportConfig.value.filters.complaintType) params.tipo = reportConfig.value.filters.complaintType;
+      if (reportConfig.value.filters.status) params.estado = reportConfig.value.filters.status;
+      if (reportConfig.value.filters.priority) params.prioridad = reportConfig.value.filters.priority;
+    } else if (reportConfig.value.type === 'adoptions') {
+      if (reportConfig.value.filters.adoptionStatus) params.estado = reportConfig.value.filters.adoptionStatus;
+    } else if (reportConfig.value.type === 'vaccinations') {
+      if (reportConfig.value.filters.vaccineType) params.tipo_vacuna = reportConfig.value.filters.vaccineType;
+    } else if (reportConfig.value.type === 'surgeries') {
+      if (reportConfig.value.filters.surgeryType) params.tipo_cirugia = reportConfig.value.filters.surgeryType;
+      if (reportConfig.value.filters.surgeryStatus) params.estado = reportConfig.value.filters.surgeryStatus;
+    }
+
+    const response = await api.get(`/reportes/preview/${backendType}`, { params });
+
+    // La respuesta tiene estructura: { success, message, data: { data: [...], total, per_page, ... } }
+    const apiData = response.data.data; // Esto es el objeto paginado del API
+    const records = apiData?.data || apiData || []; // Los registros estan en data.data.data
+
+    // Mapear datos del backend a columnas del frontend
+    previewData.value = mapBackendData(records, reportConfig.value.type);
+    totalRecords.value = apiData?.total || previewData.value.length;
+
     showPreview.value = true;
     currentPage.value = 1;
-  }, 1500);
+  } catch (error) {
+    console.error('Error generando preview:', error);
+    errorMessage.value = error.response?.data?.message || 'Error al generar la vista previa';
+    // Fallback a datos mock si falla
+    previewData.value = generateMockData();
+    showPreview.value = true;
+    currentPage.value = 1;
+  } finally {
+    loading.value = false;
+  }
 }
 
 function generateMockData() {
@@ -551,22 +647,153 @@ function generateMockData() {
 
 function getStatValue(stat) {
   if (stat === 'criticas') {
-    return previewData.value.filter(r => r.prioridad === 'Critica').length;
+    return previewData.value.filter(r => r.prioridad === 'Critica' || r.prioridad === 'critica').length;
   }
   if (stat === 'completadas') {
-    return previewData.value.filter(r => r.estado === 'Completada').length;
+    return previewData.value.filter(r => r.estado === 'Completada' || r.estado === 'completada' || r.estado === 'aprobada').length;
   }
   return 0;
 }
 
-function exportReport(format) {
-  // Simular exportacion
-  const formatNames = {
-    pdf: 'PDF',
-    xlsx: 'Excel',
-    csv: 'CSV'
-  };
-  alert(`Exportando reporte en formato ${formatNames[format]}...\nArchivo: ${getReportTitle().replace(/ /g, '_')}.${format}`);
+// Mapear datos del backend al formato del frontend
+function mapBackendData(data, type) {
+  if (!Array.isArray(data)) return [];
+
+  return data.map(item => {
+    switch (type) {
+      case 'animals':
+        return {
+          id: item.codigo || item.id,
+          nombre: item.nombre || '-',
+          especie: item.especie || '-',
+          raza: item.raza || '-',
+          edad: item.edad_aproximada ? `${item.edad_aproximada} años` : (item.edad || '-'),
+          estado: item.estado || '-',
+          fecha_registro: formatDateValue(item.fecha_ingreso || item.created_at),
+          ubicacion: item.ubicacion || '-'
+        };
+      case 'adoptions':
+        return {
+          id: item.id,
+          animal: item.animal?.nombre || item.animal_nombre || '-',
+          adoptante: item.nombre_adoptante || item.adoptante?.nombre || '-',
+          fecha_solicitud: formatDateValue(item.fecha_solicitud || item.created_at),
+          fecha_adopcion: formatDateValue(item.fecha_entrega || item.fecha_aprobacion),
+          estado: item.estado || '-',
+          seguimiento: item.visitas_count > 0 ? 'Realizado' : 'Pendiente'
+        };
+      case 'complaints':
+        return {
+          id: item.ticket || item.id,
+          tipo: item.tipo_maltrato || item.tipo || '-',
+          fecha: formatDateValue(item.fecha_incidente || item.created_at),
+          ubicacion: item.direccion || item.ubicacion || '-',
+          estado: item.estado || '-',
+          prioridad: item.prioridad || '-',
+          asignado: item.asignado?.nombre || item.asignado_a || 'Sin asignar'
+        };
+      case 'vaccinations':
+        return {
+          id: item.id,
+          animal: item.animal?.nombre || item.animal_nombre || '-',
+          vacuna: item.tipo_vacuna || item.vacuna || '-',
+          fecha: formatDateValue(item.fecha_aplicacion || item.created_at),
+          veterinario: item.veterinario?.nombre || item.veterinario_nombre || '-',
+          proxima: formatDateValue(item.proxima_aplicacion)
+        };
+      case 'surgeries':
+        return {
+          id: item.id,
+          animal: item.animal?.nombre || '-',
+          tipo: item.tipo_cirugia || '-',
+          fecha: formatDateValue(item.fecha_realizacion || item.created_at),
+          veterinario: item.veterinario?.nombre || '-',
+          estado: item.estado || '-'
+        };
+      default:
+        return item;
+    }
+  });
+}
+
+function formatDateValue(dateStr) {
+  if (!dateStr) return '-';
+  try {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('es-CO');
+  } catch {
+    return dateStr;
+  }
+}
+
+async function exportReport(format) {
+  if (exporting.value) return;
+
+  exporting.value = true;
+  errorMessage.value = '';
+
+  try {
+    const backendType = typeMapping[reportConfig.value.type];
+    if (!backendType) {
+      throw new Error('Tipo de reporte no soportado');
+    }
+
+    const params = {
+      fecha_inicio: reportConfig.value.startDate,
+      fecha_fin: reportConfig.value.endDate,
+      formato: format
+    };
+
+    // Agregar filtros segun el tipo
+    if (reportConfig.value.type === 'animals') {
+      if (reportConfig.value.filters.species) params.especie = reportConfig.value.filters.species;
+      if (reportConfig.value.filters.status) params.estado = reportConfig.value.filters.status;
+    } else if (reportConfig.value.type === 'complaints') {
+      if (reportConfig.value.filters.complaintType) params.tipo = reportConfig.value.filters.complaintType;
+      if (reportConfig.value.filters.status) params.estado = reportConfig.value.filters.status;
+      if (reportConfig.value.filters.priority) params.prioridad = reportConfig.value.filters.priority;
+    } else if (reportConfig.value.type === 'adoptions') {
+      if (reportConfig.value.filters.adoptionStatus) params.estado = reportConfig.value.filters.adoptionStatus;
+    } else if (reportConfig.value.type === 'vaccinations') {
+      if (reportConfig.value.filters.vaccineType) params.tipo_vacuna = reportConfig.value.filters.vaccineType;
+    } else if (reportConfig.value.type === 'surgeries') {
+      if (reportConfig.value.filters.surgeryType) params.tipo_cirugia = reportConfig.value.filters.surgeryType;
+      if (reportConfig.value.filters.surgeryStatus) params.estado = reportConfig.value.filters.surgeryStatus;
+    }
+
+    const response = await api.get(`/reportes/exportar/${backendType}`, {
+      params,
+      responseType: 'blob'
+    });
+
+    // Crear blob y descargar
+    const blob = new Blob([response.data], {
+      type: format === 'xlsx'
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : format === 'csv'
+          ? 'text/csv'
+          : 'application/pdf'
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+
+    const fileName = `${getReportTitle().replace(/ /g, '_')}_${reportConfig.value.startDate}_${reportConfig.value.endDate}.${format}`;
+    link.setAttribute('download', fileName);
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+  } catch (error) {
+    console.error('Error exportando reporte:', error);
+    errorMessage.value = error.response?.data?.message || 'Error al exportar el reporte';
+    alert('Error al exportar: ' + errorMessage.value);
+  } finally {
+    exporting.value = false;
+  }
 }
 
 function resetConfig() {
@@ -580,13 +807,16 @@ function resetConfig() {
       complaintType: '',
       priority: '',
       adoptionStatus: '',
-      vaccineType: ''
+      vaccineType: '',
+      surgeryType: '',
+      surgeryStatus: ''
     },
     columns: [],
     groupBy: ''
   };
   showPreview.value = false;
   previewData.value = [];
+  errorMessage.value = '';
 }
 
 function loadSavedReport(saved) {
@@ -770,6 +1000,15 @@ function deleteSavedReport(id) {
   min-height: 400px;
 }
 
+.error-message {
+  background: #FFEBEE;
+  color: #A80521;
+  padding: 1rem;
+  border-radius: 8px;
+  margin: 1rem;
+  border-left: 4px solid #A80521;
+}
+
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -889,6 +1128,11 @@ function deleteSavedReport(id) {
 .export-btn.csv:hover {
   background: #3366CC;
   color: white;
+}
+
+.export-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Table */
