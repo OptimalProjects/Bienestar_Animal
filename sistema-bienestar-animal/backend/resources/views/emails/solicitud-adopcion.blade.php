@@ -235,6 +235,60 @@
                         Nuestro equipo revisará tu solicitud y realizará una evaluación. Este proceso puede tomar algunos días hábiles. Te mantendremos informado(a) sobre el estado de tu solicitud.
                     </p>
                 </div>
+            @elseif($tipo === 'aprobada')
+                <div style="background-color: #d4edda; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #28a745;">
+                    <p style="margin: 0 0 15px 0; color: #155724;">
+                        <strong>¡Felicidades! Tu solicitud ha sido aprobada.</strong>
+                    </p>
+                    <p style="margin: 0 0 15px 0; color: #155724;">
+                        Para completar el proceso de adopción, debes firmar el contrato de adopción. Sigue estos pasos:
+                    </p>
+                    <ol style="margin: 0; padding-left: 20px; color: #155724;">
+                        <li style="margin-bottom: 8px;">Ingresa al Sistema de Bienestar Animal</li>
+                        <li style="margin-bottom: 8px;">Ve a la sección <strong>"Consultar Adopción"</strong></li>
+                        <li style="margin-bottom: 8px;">Ingresa tu número de documento: <strong>{{ $adoptante->numero_documento ?? '' }}</strong></li>
+                        <li style="margin-bottom: 8px;">Revisa el contrato y fírmalo digitalmente</li>
+                    </ol>
+                </div>
+                <div style="text-align: center; margin: 20px 0;">
+                    <a href="{{ config('app.frontend_url', config('app.url')) }}/adopciones/consultar"
+                       style="display: inline-block; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
+                        Consultar y Firmar Contrato
+                    </a>
+                </div>
+                <p style="text-align: center; font-size: 14px; color: #666;">
+                    O copia este enlace en tu navegador:<br>
+                    <span style="color: #3366CC;">{{ config('app.frontend_url', config('app.url')) }}/adopciones/consultar</span>
+                </p>
+            @elseif($tipo === 'rechazada')
+                <div style="background-color: #f8d7da; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #dc3545;">
+                    <p style="margin: 0 0 10px 0; color: #721c24;">
+                        <strong>Información importante:</strong>
+                    </p>
+                    <p style="margin: 0; color: #721c24;">
+                        Tu solicitud no ha sido aprobada en esta ocasión. Esto puede deberse a diversos factores relacionados con los requisitos del programa de adopción. Te invitamos a:
+                    </p>
+                    <ul style="margin: 10px 0 0 0; padding-left: 20px; color: #721c24;">
+                        <li>Revisar los requisitos del programa de adopción</li>
+                        <li>Conocer otros animales disponibles que puedan ser más compatibles</li>
+                        <li>Intentar nuevamente en el futuro</li>
+                    </ul>
+                </div>
+            @elseif($tipo === 'completada')
+                <div style="background-color: #e8f4fd; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #17a2b8;">
+                    <p style="margin: 0 0 10px 0; color: #0c5460;">
+                        <strong>Recomendaciones para el cuidado de tu nueva mascota:</strong>
+                    </p>
+                    <ul style="margin: 0; padding-left: 20px; color: #0c5460;">
+                        <li style="margin-bottom: 5px;">Dale tiempo para adaptarse a su nuevo hogar</li>
+                        <li style="margin-bottom: 5px;">Mantén al día sus vacunas y desparasitaciones</li>
+                        <li style="margin-bottom: 5px;">Proporciona una alimentación balanceada</li>
+                        <li style="margin-bottom: 5px;">Bríndale mucho amor y paciencia</li>
+                    </ul>
+                </div>
+                <p style="text-align: center; color: #666; font-size: 14px;">
+                    Recuerda que nuestro equipo realizará visitas de seguimiento para verificar el bienestar del animal.
+                </p>
             @endif
 
             <div class="divider"></div>
