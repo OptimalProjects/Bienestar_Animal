@@ -397,12 +397,10 @@ class AdopcionService
             $destinatarios[] = $adminEmail;
         }
 
-        // Para aprobación/rechazo/completada, también notificar al adoptante
-        if (in_array($tipo, ['aprobada', 'rechazada', 'completada'])) {
-            $emailAdoptante = $adopcion->adoptante->email ?? null;
-            if ($emailAdoptante && filter_var($emailAdoptante, FILTER_VALIDATE_EMAIL)) {
-                $destinatarios[] = $emailAdoptante;
-            }
+        // Notificar al adoptante en todos los casos (nueva, aprobada, rechazada, completada)
+        $emailAdoptante = $adopcion->adoptante->email ?? null;
+        if ($emailAdoptante && filter_var($emailAdoptante, FILTER_VALIDATE_EMAIL)) {
+            $destinatarios[] = $emailAdoptante;
         }
 
         // Si hay evaluador asignado, notificarle de nuevas solicitudes

@@ -151,21 +151,22 @@
 
         <div class="content">
             @if($tipo === 'nueva')
-                <span class="badge badge-nueva">Nueva Solicitud</span>
-                <h2>Se ha recibido una nueva solicitud de adopción</h2>
-                <p>Un ciudadano ha mostrado interés en adoptar a uno de nuestros animales. A continuación los detalles:</p>
+                <span class="badge badge-nueva">Solicitud en Revisión</span>
+                <h2>¡Hemos recibido tu solicitud de adopción!</h2>
+                <p>Gracias por tu interés en darle un hogar a uno de nuestros animales. Tu solicitud ha sido registrada exitosamente y se encuentra <strong>en proceso de revisión</strong> por nuestro equipo.</p>
+                <p style="margin-top: 15px;">Te notificaremos por este medio cuando tengamos una respuesta. A continuación encontrarás el resumen de tu solicitud:</p>
             @elseif($tipo === 'aprobada')
                 <span class="badge badge-aprobada">Solicitud Aprobada</span>
                 <h2>¡Buenas noticias!</h2>
-                <p>La solicitud de adopción ha sido aprobada. El siguiente paso es la firma del contrato de adopción.</p>
+                <p>Tu solicitud de adopción ha sido <strong>aprobada</strong>. El siguiente paso es la firma del contrato de adopción. Nos pondremos en contacto contigo para coordinar los detalles.</p>
             @elseif($tipo === 'rechazada')
-                <span class="badge badge-rechazada">Solicitud Rechazada</span>
-                <h2>Solicitud no aprobada</h2>
-                <p>Lamentamos informar que la solicitud de adopción no ha sido aprobada en esta ocasión.</p>
+                <span class="badge badge-rechazada">Solicitud No Aprobada</span>
+                <h2>Información sobre tu solicitud</h2>
+                <p>Lamentamos informarte que tu solicitud de adopción no ha sido aprobada en esta ocasión. Te invitamos a conocer otros animales disponibles o a intentarlo nuevamente más adelante.</p>
             @elseif($tipo === 'completada')
                 <span class="badge badge-completada">Adopción Completada</span>
-                <h2>¡Felicidades!</h2>
-                <p>La adopción se ha completado exitosamente. Un nuevo animal ha encontrado un hogar.</p>
+                <h2>¡Felicidades por tu nuevo compañero!</h2>
+                <p>La adopción se ha completado exitosamente. Gracias por abrir tu corazón y tu hogar. Recuerda que estaremos disponibles para cualquier consulta sobre el cuidado de tu nueva mascota.</p>
             @endif
 
             <div class="animal-card">
@@ -228,16 +229,19 @@
             </div>
 
             @if($tipo === 'nueva')
-                <p style="text-align: center;">
-                    <strong>Por favor, revise esta solicitud a la brevedad posible.</strong>
-                </p>
+                <div style="background-color: #fff3cd; border-radius: 8px; padding: 15px; margin: 20px 0; border-left: 4px solid #ffc107;">
+                    <p style="margin: 0; color: #856404;">
+                        <strong>¿Qué sigue?</strong><br>
+                        Nuestro equipo revisará tu solicitud y realizará una evaluación. Este proceso puede tomar algunos días hábiles. Te mantendremos informado(a) sobre el estado de tu solicitud.
+                    </p>
+                </div>
             @endif
 
             <div class="divider"></div>
 
             <p style="font-size: 14px; color: #666; text-align: center;">
-                Este es un correo automático generado por el Sistema de Bienestar Animal.
-                Por favor no responda a este mensaje.
+                Este es un correo automático generado por el Sistema de Bienestar Animal.<br>
+                Si tienes alguna duda, puedes comunicarte con nosotros a través de los canales oficiales de la Alcaldía de Santiago de Cali.
             </p>
         </div>
 
