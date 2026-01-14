@@ -45,6 +45,9 @@ Route::prefix('v1')->group(function () {
     // Catalogo de adopcion (publico) - Solo animales en estado 'en_adopcion' y saludables
     Route::get('/animals/catalogo-adopcion', [AnimalController::class, 'catalogoAdopcion']);
 
+    // Animal publico (para compartir en redes sociales)
+    Route::get('/animals/public/{idOrCode}', [AnimalController::class, 'showPublic']);
+
     // Denuncias publicas
     Route::post('/denuncias', [DenunciaController::class, 'store']);
     Route::get('/denuncias/consultar/{ticket}', [DenunciaController::class, 'consultarTicket']);

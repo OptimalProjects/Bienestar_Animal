@@ -51,6 +51,15 @@ export const animalService = {
   },
 
   /**
+   * Obtener animal publico por ID o codigo (para compartir en redes sociales)
+   * Este endpoint es publico y no requiere autenticacion
+   */
+  async getAnimalPublic(idOrCode) {
+    const response = await api.get(`/animals/public/${idOrCode}`);
+    return response.data;
+  },
+
+  /**
    * Crear nuevo animal
    */
   async createAnimal(data) {
