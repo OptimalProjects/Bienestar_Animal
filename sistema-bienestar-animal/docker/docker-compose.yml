@@ -150,6 +150,21 @@ services:
     profiles:
       - dev
 
+  # ============================================
+  # Mailhog - Servidor SMTP para desarrollo
+  # ============================================
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: bienestar_mailhog
+    restart: unless-stopped
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"   # Puerto SMTP
+      - "${MAILHOG_WEB_PORT:-8025}:8025"    # Interfaz web
+    networks:
+      - bienestar_network
+    logging:
+      driver: "none"
+
 # ============================================
 # Volumenes persistentes
 # ============================================

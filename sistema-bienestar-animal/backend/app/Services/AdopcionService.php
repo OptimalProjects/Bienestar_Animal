@@ -9,11 +9,13 @@ use App\Models\Adopcion\VisitaDomiciliaria;
 use App\Models\Animal\Animal;
 use App\Models\User\Usuario;
 use App\Models\User\Rol;
+use App\Mail\SolicitudAdopcionMail;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class AdopcionService
 {
@@ -85,7 +87,12 @@ class AdopcionService
                 'observaciones' => !empty($observaciones) ? implode("\n", $observaciones) : null,
             ]);
 
-            return $adopcion->fresh(['animal', 'adoptante', 'evaluador']);
+            $adopcion = $adopcion->fresh(['animal', 'adoptante', 'evaluador']);
+
+            // Enviar notificación por correo
+            $this->enviarNotificacionAdopcion($adopcion, 'nueva');
+
+            return $adopcion;
         });
     }
 
@@ -124,7 +131,13 @@ class AdopcionService
                 }
             }
 
-            return $adopcion->fresh(['animal', 'adoptante', 'evaluador']);
+            $adopcion = $adopcion->fresh(['animal', 'adoptante', 'evaluador']);
+
+            // Enviar notificación por correo
+            $tipoNotificacion = $data['aprobada'] ? 'aprobada' : 'rechazada';
+            $this->enviarNotificacionAdopcion($adopcion, $tipoNotificacion);
+
+            return $adopcion;
         });
     }
 
@@ -336,5 +349,70 @@ class AdopcionService
         })->sortBy('carga')->first();
 
         return $coordinadorConMenosCarga['id'];
+    }
+
+    /**
+     * Enviar notificación de adopción por correo electrónico.
+     *
+     * @param Adopcion $adopcion
+     * @param string $tipo 'nueva', 'aprobada', 'rechazada', 'completada'
+     */
+    protected function enviarNotificacionAdopcion(Adopcion $adopcion, string $tipo): void
+    {
+        try {
+            $destinatarios = $this->obtenerDestinatariosNotificacion($adopcion, $tipo);
+
+            foreach ($destinatarios as $email) {
+                Mail::to($email)->send(new SolicitudAdopcionMail($adopcion, $tipo));
+            }
+
+            Log::info("Notificación de adopción [{$tipo}] enviada", [
+                'adopcion_id' => $adopcion->id,
+                'animal' => $adopcion->animal->nombre ?? $adopcion->animal->codigo_unico,
+                'destinatarios' => $destinatarios,
+            ]);
+        } catch (\Exception $e) {
+            // No interrumpir el flujo si falla el envío de correo
+            Log::error("Error enviando notificación de adopción [{$tipo}]", [
+                'adopcion_id' => $adopcion->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Obtener destinatarios para la notificación según el tipo.
+     *
+     * @param Adopcion $adopcion
+     * @param string $tipo
+     * @return array
+     */
+    protected function obtenerDestinatariosNotificacion(Adopcion $adopcion, string $tipo): array
+    {
+        $destinatarios = [];
+
+        // Email del administrador/coordinador (siempre se notifica)
+        $adminEmail = config('mail.admin_address') ?? env('MAIL_ADMIN_ADDRESS');
+        if ($adminEmail) {
+            $destinatarios[] = $adminEmail;
+        }
+
+        // Para aprobación/rechazo/completada, también notificar al adoptante
+        if (in_array($tipo, ['aprobada', 'rechazada', 'completada'])) {
+            $emailAdoptante = $adopcion->adoptante->email ?? null;
+            if ($emailAdoptante && filter_var($emailAdoptante, FILTER_VALIDATE_EMAIL)) {
+                $destinatarios[] = $emailAdoptante;
+            }
+        }
+
+        // Si hay evaluador asignado, notificarle de nuevas solicitudes
+        if ($tipo === 'nueva' && $adopcion->evaluador) {
+            $emailEvaluador = $adopcion->evaluador->email ?? null;
+            if ($emailEvaluador && filter_var($emailEvaluador, FILTER_VALIDATE_EMAIL)) {
+                $destinatarios[] = $emailEvaluador;
+            }
+        }
+
+        return array_unique($destinatarios);
     }
 }
