@@ -4,9 +4,11 @@ namespace App\Services;
 
 use App\Models\Adopcion\Adopcion;
 use App\Models\Adopcion\VisitaDomiciliaria;
+use App\Mail\ContratoFirmadoMail;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class ContratoAdopcionService
@@ -114,6 +116,12 @@ class ContratoAdopcionService
         // Programar seguimientos post-adopción automáticos
         $this->programarSeguimientosPostAdopcion($adopcion);
 
+        // Recargar la adopción con el contrato actualizado
+        $adopcion = $adopcion->fresh(['animal', 'adoptante', 'evaluador', 'visitasDomiciliarias']);
+
+        // Enviar correo con el contrato firmado al adoptante
+        $this->enviarCorreoContratoFirmado($adopcion);
+
         Log::info('Contrato de adopción firmado', [
             'adopcion_id' => $adopcion->id,
             'animal_id' => $adopcion->animal_id,
@@ -121,7 +129,7 @@ class ContratoAdopcionService
             'ip_address' => $ipAddress,
         ]);
 
-        return $adopcion->fresh(['animal', 'adoptante', 'evaluador', 'visitasDomiciliarias']);
+        return $adopcion;
     }
 
     /**
@@ -396,5 +404,37 @@ class ContratoAdopcionService
             'critico' => 'Crítico',
             default => $estado ?? 'No especificado',
         };
+    }
+
+    /**
+     * Enviar correo con el contrato firmado al adoptante.
+     */
+    protected function enviarCorreoContratoFirmado(Adopcion $adopcion): void
+    {
+        try {
+            $emailAdoptante = $adopcion->adoptante->email ?? null;
+
+            if ($emailAdoptante && filter_var($emailAdoptante, FILTER_VALIDATE_EMAIL)) {
+                Mail::to($emailAdoptante)->send(new ContratoFirmadoMail($adopcion));
+
+                Log::info('Correo con contrato firmado enviado', [
+                    'adopcion_id' => $adopcion->id,
+                    'animal' => $adopcion->animal->nombre ?? $adopcion->animal->codigo_unico,
+                    'destinatario' => $emailAdoptante,
+                    'contrato_url' => $adopcion->contrato_url,
+                ]);
+            } else {
+                Log::warning('No se pudo enviar contrato firmado: email de adoptante no válido', [
+                    'adopcion_id' => $adopcion->id,
+                    'email' => $emailAdoptante,
+                ]);
+            }
+        } catch (\Exception $e) {
+            // No interrumpir el flujo si falla el envío
+            Log::error('Error enviando correo con contrato firmado', [
+                'adopcion_id' => $adopcion->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
