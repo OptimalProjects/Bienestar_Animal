@@ -186,14 +186,8 @@ class CirugiaController extends BaseController
             // Crear la cirugía
             $cirugia = Cirugia::create($data);
             
-            // ✅ NUEVA LÓGICA: Actualizar esterilización del animal si la cirugía fue exitosa
-            if (
-                $cirugia->estado === 'realizada' && 
-                $cirugia->resultado === 'exitosa' &&
-                in_array($cirugia->tipo_cirugia, ['esterilizacion', 'castracion'])
-            ) {
-                $this->marcarAnimalComoEsterilizado($cirugia->historial_clinico_id);
-            }
+            // ⚠️ ELIMINADO: Ya NO marcamos automáticamente como esterilizado
+            // El animal solo se marcará como esterilizado cuando se adjunte el certificado
             
             // Cargar relaciones
             $cirugia->load([
@@ -266,10 +260,6 @@ class CirugiaController extends BaseController
         try {
             $cirugia = Cirugia::findOrFail($id);
             
-            // Guardar valores anteriores
-            $estadoAnterior = $cirugia->estado;
-            $resultadoAnterior = $cirugia->resultado;
-            
             // Si se está cambiando a estado "realizada" y no hay fecha_realizacion
             if ($request->estado === 'realizada' && 
                 empty($request->fecha_realizacion) && 
@@ -279,17 +269,8 @@ class CirugiaController extends BaseController
             
             $cirugia->update($request->all());
             
-            // ✅ NUEVA LÓGICA: Si se cambió a realizada/exitosa y es esterilización
-            $cambioAExitosa = (
-                $cirugia->estado === 'realizada' && 
-                $cirugia->resultado === 'exitosa' &&
-                ($estadoAnterior !== 'realizada' || $resultadoAnterior !== 'exitosa') &&
-                in_array($cirugia->tipo_cirugia, ['esterilizacion', 'castracion'])
-            );
-            
-            if ($cambioAExitosa) {
-                $this->marcarAnimalComoEsterilizado($cirugia->historial_clinico_id);
-            }
+            // ⚠️ ELIMINADO: Ya NO marcamos automáticamente como esterilizado al actualizar
+            // El animal solo se marcará como esterilizado cuando se adjunte el certificado
             
             // Cargar relaciones
             $cirugia->load([
@@ -335,42 +316,6 @@ class CirugiaController extends BaseController
             return $this->notFoundResponse('Cirugía no encontrada');
         } catch (\Exception $e) {
             return $this->serverErrorResponse('Error al eliminar cirugía');
-        }
-    }
-
-    /**
-     * ✅ Método helper para marcar animal como esterilizado
-     */
-    protected function marcarAnimalComoEsterilizado(string $historialClinicoId): void
-    {
-        try {
-            $historial = HistorialClinico::with('animal')->find($historialClinicoId);
-            
-            if ($historial && $historial->animal) {
-                $animal = $historial->animal;
-                
-                // Solo actualizar si aún no está marcado como esterilizado
-                if (!$animal->esterilizacion) {
-                    $animal->esterilizacion = true;
-                    $animal->save();
-                    
-                    Log::info("✅ Animal {$animal->codigo_unico} marcado como esterilizado", [
-                        'animal_id' => $animal->id,
-                        'historial_clinico_id' => $historialClinicoId
-                    ]);
-                } else {
-                    Log::info("ℹ️ Animal {$animal->codigo_unico} ya estaba marcado como esterilizado");
-                }
-            } else {
-                Log::warning("⚠️ No se encontró el animal para el historial clínico {$historialClinicoId}");
-            }
-        } catch (\Exception $e) {
-            Log::error('❌ Error al marcar animal como esterilizado: ' . $e->getMessage(), [
-                'historial_clinico_id' => $historialClinicoId,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            // No lanzamos excepción para no afectar el flujo principal
         }
     }
 

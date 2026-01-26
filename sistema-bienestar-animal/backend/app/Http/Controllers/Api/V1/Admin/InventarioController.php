@@ -124,6 +124,20 @@ class InventarioController extends BaseController
     }
 
     /**
+     * Eliminar item de inventario.
+     * DELETE /api/v1/inventario/{id}
+     */
+    public function destroy(string $id)
+    {
+        try {
+            $this->inventarioService->eliminarInventario($id);
+            return $this->successResponse(null, 'Item eliminado exitosamente');
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Error al eliminar item');
+        }
+    }
+
+    /**
      * Registrar entrada de inventario.
      * POST /api/v1/inventario/{id}/entrada
      */

@@ -370,10 +370,15 @@ export const useVeterinaryStore = defineStore('veterinary', () => {
   async function fetchMedicamentos(params = {}) {
     try {
       const response = await veterinaryService.getMedicamentos(params);
-      medicamentos.value = response.data || [];
+      // La respuesta puede ser un array directo o tener estructura { data, pagination }
+      const data = response.data || response;
+      medicamentos.value = Array.isArray(data) ? data : [];
+      console.log('📦 Medicamentos cargados:', medicamentos.value.length);
       return medicamentos.value;
     } catch (err) {
       console.error('Error al cargar medicamentos:', err);
+      medicamentos.value = [];
+      throw err;
     }
   }
 
@@ -406,12 +411,17 @@ export const useVeterinaryStore = defineStore('veterinary', () => {
   async function fetchAlertasStockBajo() {
     try {
       const response = await veterinaryService.getAlertasStockBajo();
-      alertasStockBajo.value = response.data || [];
+      // La respuesta puede tener estructura { inventario, insumos, medicamentos }
+      const data = response.data || response;
+      alertasStockBajo.value = data.insumos || data || [];
+      console.log('⚠️ Alertas de stock bajo:', alertasStockBajo.value.length);
       return alertasStockBajo.value;
     } catch (err) {
       console.error('Error al cargar alertas de stock:', err);
+      alertasStockBajo.value = [];
     }
   }
+
 
   // Actions - Desparasitaciones
   async function fetchDesparasitacionesAnimal(animalId) {

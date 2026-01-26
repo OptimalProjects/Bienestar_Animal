@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 // Controllers
 use App\Http\Controllers\Api\V1\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Animal\AnimalController;
+use App\Http\Controllers\Api\V1\Animal\AnimalCertificateController;
 use App\Http\Controllers\Api\V1\Veterinary\VeterinarioController;
 use App\Http\Controllers\Api\V1\Veterinary\ConsultaController;
 use App\Http\Controllers\Api\V1\Veterinary\VacunaController;
@@ -91,6 +92,11 @@ Route::prefix('v1')->group(function () {
             Route::get('/{animalId}/historial-clinico', [HistorialClinicoController::class, 'show']);
             Route::put('/{animalId}/historial-clinico', [HistorialClinicoController::class, 'update']);
             Route::post('/{animalId}/chip', [HistorialClinicoController::class, 'registrarChip']);
+
+            // Certificados de esterilización
+            Route::post('/{id}/certificado-esterilizacion', [AnimalController::class, 'adjuntarCertificadoEsterilizacion']);
+            Route::get('/{id}/certificado-esterilizacion', [AnimalController::class, 'obtenerCertificadoEsterilizacion']);
+            Route::get('/{id}/certificado-esterilizacion/descargar', [AnimalController::class, 'descargarCertificadoEsterilizacion']);
         });
 
         // Busqueda por chip
@@ -234,6 +240,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/', [InventarioController::class, 'index']);
             Route::post('/', [InventarioController::class, 'store']);
             Route::put('/{id}', [InventarioController::class, 'update']);
+            Route::delete('/{id}', [InventarioController::class, 'destroy']);
             Route::post('/{id}/entrada', [InventarioController::class, 'registrarEntrada']);
             Route::post('/{id}/salida', [InventarioController::class, 'registrarSalida']);
         });

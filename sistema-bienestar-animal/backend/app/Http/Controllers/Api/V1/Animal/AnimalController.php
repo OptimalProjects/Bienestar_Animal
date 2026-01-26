@@ -8,6 +8,8 @@ use App\Models\Animal\HistorialClinico;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;  
+use Illuminate\Support\Facades\Log;
 use App\Services\AnimalService;
 
 class AnimalController extends BaseController
@@ -314,4 +316,148 @@ class AnimalController extends BaseController
             return $this->serverErrorResponse('Error al obtener estadísticas: ' . $e->getMessage());
         }
     }
+
+    public function adjuntarCertificadoEsterilizacion(Request $request, string $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'certificado' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120', // 5MB max
+            'notas' => 'nullable|string|max:500',
+        ], [
+            'certificado.required' => 'El certificado es requerido',
+            'certificado.file' => 'El certificado debe ser un archivo',
+            'certificado.mimes' => 'El certificado debe ser PDF, JPG, JPEG o PNG',
+            'certificado.max' => 'El certificado no puede superar 5MB',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->validationErrorResponse($validator->errors());
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $animal = Animal::findOrFail($id);
+
+            // Subir archivo
+            if ($request->hasFile('certificado')) {
+                // Eliminar certificado anterior si existe
+                if ($animal->certificado_esterilizacion) {
+                    Storage::disk('public')->delete($animal->certificado_esterilizacion);
+                }
+
+                $file = $request->file('certificado');
+                $filename = 'certificado_esterilizacion_' . $animal->codigo_unico . '_' . time() . '.' . $file->getClientOriginalExtension();
+                
+                // Guardar en storage/app/public/certificados
+                $path = $file->storeAs('certificados', $filename, 'public');
+                
+                // Guardar la ruta en el animal
+                $animal->certificado_esterilizacion = $path;
+                $animal->fecha_adjuncion_certificado = now();
+            }
+
+            // Guardar notas si existen
+            if ($request->has('notas')) {
+                $animal->notas_certificado = $request->notas;
+            }
+
+            // ✅ IMPORTANTE: Marcar como esterilizado
+            $animal->esterilizacion = true;
+            
+            // Si no tiene fecha de esterilización, usar la fecha actual
+            if (!$animal->fecha_esterilizacion) {
+                $animal->fecha_esterilizacion = now();
+            }
+
+            $animal->save();
+
+            DB::commit();
+
+            Log::info("✅ Certificado de esterilización adjuntado", [
+                'animal_id' => $animal->id,
+                'codigo_unico' => $animal->codigo_unico,
+                'certificado_path' => $path ?? null,
+            ]);
+
+            return $this->successResponse([
+                'animal' => $animal->fresh(),
+                'certificado_url' => $path ? Storage::url($path) : null,
+            ], 'Certificado de esterilización adjuntado exitosamente');
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            DB::rollBack();
+            return $this->notFoundResponse('Animal no encontrado');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('❌ Error al adjuntar certificado de esterilización: ' . $e->getMessage(), [
+                'animal_id' => $id,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->serverErrorResponse('Error al adjuntar certificado: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Obtener certificado de esterilización.
+     * GET /api/v1/animals/{id}/certificado-esterilizacion
+     */
+    public function obtenerCertificadoEsterilizacion(string $id)
+    {
+        try {
+            $animal = Animal::findOrFail($id);
+
+            if (!$animal->certificado_esterilizacion) {
+                return $this->notFoundResponse('Este animal no tiene certificado de esterilización adjunto');
+            }
+
+            // Verificar que el archivo existe
+            if (!Storage::disk('public')->exists($animal->certificado_esterilizacion)) {
+                return $this->notFoundResponse('El archivo del certificado no existe');
+            }
+
+            return $this->successResponse([
+                'animal_id' => $animal->id,
+                'codigo_unico' => $animal->codigo_unico,
+                'certificado_url' => Storage::url($animal->certificado_esterilizacion),
+                'fecha_esterilizacion' => $animal->fecha_esterilizacion,
+                'fecha_adjuncion' => $animal->fecha_adjuncion_certificado,
+                'notas' => $animal->notas_certificado,
+            ], 'Certificado obtenido exitosamente');
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->notFoundResponse('Animal no encontrado');
+        } catch (\Exception $e) {
+            Log::error('Error al obtener certificado: ' . $e->getMessage());
+            return $this->serverErrorResponse('Error al obtener certificado');
+        }
+    }
+
+    /**
+     * Descargar certificado de esterilización.
+     * GET /api/v1/animals/{id}/certificado-esterilizacion/descargar
+     */
+    public function descargarCertificadoEsterilizacion(string $id)
+    {
+        try {
+            $animal = Animal::findOrFail($id);
+
+            if (!$animal->certificado_esterilizacion) {
+                return $this->notFoundResponse('Este animal no tiene certificado de esterilización adjunto');
+            }
+
+            // Verificar que el archivo existe
+            if (!Storage::disk('public')->exists($animal->certificado_esterilizacion)) {
+                return $this->notFoundResponse('El archivo del certificado no existe');
+            }
+
+            return Storage::disk('public')->download($animal->certificado_esterilizacion);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->notFoundResponse('Animal no encontrado');
+        } catch (\Exception $e) {
+            Log::error('Error al descargar certificado: ' . $e->getMessage());
+            return $this->serverErrorResponse('Error al descargar certificado');
+        }
+    }
+
 }

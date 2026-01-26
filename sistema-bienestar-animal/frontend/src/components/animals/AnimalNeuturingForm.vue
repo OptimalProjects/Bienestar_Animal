@@ -1,18 +1,18 @@
 <template>
   <section class="neutering-section">
     <div class="form-header">
-      <h2 class="h2-tipografia-govco">Registro de esterilización</h2>
-      <p class="text2-tipografia-govco">Complete la información de esterilización del animal</p>
+      <h2 class="h2-tipografia-govco">Adjuntar Certificado de Esterilización</h2>
+      <p class="text2-tipografia-govco">Busque un animal esterilizado y adjunte su certificado digital</p>
     </div>
 
     <form ref="formEl" @submit.prevent="onSubmit" novalidate>
       <div class="form-section">
-        <h3 class="h5-tipografia-govco section-title">Datos de esterilización</h3>
+        <h3 class="h5-tipografia-govco section-title">Búsqueda y Certificado</h3>
         
         <div class="form-grid">
-          <!-- Animal ID (para vincular) -->
+          <!-- Animal ID (para buscar) -->
           <div class="entradas-de-texto-govco">
-            <label for="animalId">ID/Microchip del animal*</label>
+            <label for="animalId">ID/Microchip del animal esterilizado*</label>
             <div class="input-with-button">
               <input
                 type="text"
@@ -35,34 +35,34 @@
             <span v-if="errors.animalId" class="error-text">{{ errors.animalId }}</span>
             <span v-if="animalEncontrado" class="success-text">
               ✅ {{ animalEncontrado.animal?.nombre || 'Animal' }} - {{ animalEncontrado.animal?.especie || '' }}
+              <br><small v-if="animalEncontrado.animal?.esterilizacion">(Ya marcado como esterilizado: ✓)</small>
             </span>
           </div>
 
-          <!-- Fecha de esterilización -->
-          <CalendarioGovco
-            id="neut-date-calendar"
-            input-id="neutDate"
-            v-model="form.neuteringDate"
-            label="Fecha de esterilización"
-            :required="true"
-            :error="!!errors.neuteringDate"
-            :alert-text="errors.neuteringDate"
-            placeholder="DD/MM/AAAA"
-            view-days="true"
-          />
-
-          <!-- Veterinario responsable -->
-          <DesplegableGovco
-            id="vet-dropdown"
-            v-model="form.veterinario_id"
-            label="Veterinario responsable"
-            :options="veterinariosOptions"
-            placeholder="Seleccione un veterinario"
-            :required="true"
-            :error="!!errors.veterinario_id"
-            :alert-text="errors.veterinario_id"
-            width="100%"
-          />
+          <!-- Información del animal encontrado -->
+          <div v-if="animalEncontrado" class="full-width">
+            <div class="info-card">
+              <h4>📋 Información de Cirugía de Esterilización</h4>
+              <div class="info-grid">
+                <div v-if="cirugiasInfo.fecha">
+                  <strong>📅 Fecha de cirugía:</strong>
+                  <span>{{ formatDate(cirugiasInfo.fecha) }}</span>
+                </div>
+                <div v-if="cirugiasInfo.cirujano">
+                  <strong>👨‍⚕️ Veterinario responsable:</strong>
+                  <span>{{ cirugiasInfo.cirujano }}</span>
+                </div>
+                <div v-if="cirugiasInfo.tipo">
+                  <strong>🔧 Tipo de cirugía:</strong>
+                  <span>{{ formatTipoCirugia(cirugiasInfo.tipo) }}</span>
+                </div>
+                <div v-if="cirugiasInfo.resultado">
+                  <strong>✅ Resultado:</strong>
+                  <span :class="'resultado-' + cirugiasInfo.resultado">{{ formatResultado(cirugiasInfo.resultado) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <!-- Certificado usando FileUploader -->
           <div class="full-width">
@@ -70,9 +70,9 @@
               v-model="form.certificateFiles"
               accept="application/pdf,image/jpeg,image/jpg,image/png"
               :max-files="1"
-              :max-size-m-b="2"
-              label="Certificado digital"
-              help-text="PDF o imagen. Peso máximo: 2 MB"
+              :max-size-m-b="5"
+              label="Certificado de Esterilización"
+              help-text="PDF o imagen. Peso máximo: 5 MB. Puede descargar el certificado desde el generador de certificados."
               :required="true"
               @update:modelValue="onCertificateChange"
             />
@@ -85,7 +85,7 @@
             v-model="form.notes"
             label="Notas adicionales (opcional)"
             type="text"
-            placeholder="Observaciones sobre el procedimiento..."
+            placeholder="Observaciones sobre el certificado..."
             class="full-width"
           />
         </div>
@@ -105,7 +105,7 @@
         <ButtonGovCo
           type="submit"
           variant="primary"
-          :label="isSubmitting ? 'Registrando...' : 'Registrar esterilización'"
+          :label="isSubmitting ? 'Adjuntando...' : 'Adjuntar Certificado'"
           width="auto"
           height="44px"
           :disabled="isSubmitting"
@@ -117,92 +117,40 @@
 
 <script setup>
 import { reactive, ref, computed, onMounted } from 'vue';
-import { useVeterinaryStore } from '@/stores/veterinary';
 import api from '@/services/api';
 import ButtonGovCo from '../common/ButtonGovCo.vue';
-import CalendarioGovco from '../common/CalendarioGovco.vue';
-import DesplegableGovco from '../common/DesplegableGovco.vue';
 import InputGovCo from '../common/InputGovCo.vue';
 import FileUploader from '../common/FileUploader.vue';
 
-const emit = defineEmits(['sterilizationRegistered']);
+const emit = defineEmits(['certificateAttached']);
 
-const veterinaryStore = useVeterinaryStore();
 const formEl = ref(null);
 const isSubmitting = ref(false);
-const veterinarios = ref([]);
 const animalEncontrado = ref(null);
 const buscandoAnimal = ref(false);
+const cirugiasInfo = ref({
+  tipo: null,
+  resultado: null,
+  fecha: null,
+  cirujano: null
+});
 
 const form = reactive({
   animalId: '',
-  neuteringDate: '',
-  veterinario_id: '',
   certificateFiles: [],
   notes: ''
 });
 
 const errors = reactive({
   animalId: '',
-  neuteringDate: '',
-  veterinario_id: '',
   neuteringCertificate: ''
 });
-
-// Veterinarios temporales del seeder (hasta que haya data en BD)
-const veterinariosTemporales = [
-  {
-    id: 'temp-1',
-    nombres: 'Ana Maria',
-    apellidos: 'Garcia Sanchez',
-    email: 'ana.garcia@bienestaranimal.gov.co'
-  },
-  {
-    id: 'temp-2',
-    nombres: 'Pedro',
-    apellidos: 'Ramirez Castillo',
-    email: 'pedro.ramirez@bienestaranimal.gov.co'
-  }
-];
-
-// Computed para opciones de veterinarios
-const veterinariosOptions = computed(() => {
-  // Si hay veterinarios de la BD, usarlos
-  if (veterinarios.value.length > 0) {
-    return veterinarios.value.map(vet => ({
-      value: vet.id,
-      text: `${vet.usuario?.nombres || vet.nombre || 'Veterinario'} ${vet.usuario?.apellidos || ''} ${vet.tarjeta_profesional ? `(TP: ${vet.tarjeta_profesional})` : ''}`.trim()
-    }));
-  }
-  
-  // Si no, usar veterinarios temporales
-  return veterinariosTemporales.map(vet => ({
-    value: vet.id,
-    text: `${vet.nombres} ${vet.apellidos}`.trim()
-  }));
-});
-
-// Cargar veterinarios al montar
-async function loadVeterinarios() {
-  try {
-    await veterinaryStore.fetchVeterinarios();
-    veterinarios.value = veterinaryStore.veterinarios;
-    
-    // Si no hay veterinarios en la BD, usar los temporales
-    if (!veterinarios.value || veterinarios.value.length === 0) {
-      console.log('ℹ️ Usando veterinarios temporales del seeder');
-      veterinarios.value = veterinariosTemporales;
-    }
-  } catch (err) {
-    console.warn('⚠️ No se pudieron cargar veterinarios de la BD, usando temporales:', err);
-    veterinarios.value = veterinariosTemporales;
-  }
-}
 
 // Buscar animal por microchip/código
 async function buscarAnimal() {
   if (!form.animalId || form.animalId.trim().length < 3) {
     animalEncontrado.value = null;
+    cirugiasInfo.value = { tipo: null, resultado: null, fecha: null, cirujano: null };
     return;
   }
 
@@ -215,6 +163,10 @@ async function buscarAnimal() {
     if (responseChip.data?.data) {
       animalEncontrado.value = responseChip.data.data;
       console.log('✅ Animal encontrado por chip:', animalEncontrado.value);
+      
+      // Cargar datos de la cirugía
+      await cargarDatosCirugia(responseChip.data.data);
+      buscandoAnimal.value = false;
       return;
     }
   } catch (err) {
@@ -232,7 +184,6 @@ async function buscarAnimal() {
     if (animales.length > 0) {
       const animal = animales[0];
       
-      // Crear estructura compatible
       animalEncontrado.value = {
         animal: animal,
         historial_clinico_id: animal.historial_clinico?.id || null,
@@ -240,18 +191,96 @@ async function buscarAnimal() {
       };
       
       console.log('✅ Animal encontrado:', animalEncontrado.value);
+      
+      // Cargar datos del historial clínico para obtener datos de cirugía
+      try {
+        const historialResponse = await api.get(`/animals/${animal.id}/historial-clinico`);
+        if (historialResponse.data?.data) {
+          await cargarDatosCirugia(historialResponse.data.data);
+        }
+      } catch (historialErr) {
+        console.warn('No se pudo cargar historial clínico:', historialErr);
+      }
+      
+      buscandoAnimal.value = false;
       return;
     }
   } catch (err2) {
     console.error('Error buscando animal:', err2);
-  } finally {
-    buscandoAnimal.value = false;
   }
 
   // No se encontró
   animalEncontrado.value = null;
+  cirugiasInfo.value = { tipo: null, resultado: null, fecha: null, cirujano: null };
   errors.animalId = 'Animal no encontrado';
   buscandoAnimal.value = false;
+}
+
+// Cargar datos de la cirugía de esterilización
+async function cargarDatosCirugia(historial) {
+  try {
+    if (historial.cirugias && historial.cirugias.length > 0) {
+      // Buscar la cirugía de esterilización más reciente
+      const cirugia = historial.cirugias.find(c => 
+        c.tipo_cirugia === 'esterilizacion' || c.tipo_cirugia === 'castracion'
+      ) || historial.cirugias[0];
+      
+      if (cirugia) {
+        cirugiasInfo.value = {
+          tipo: cirugia.tipo_cirugia,
+          resultado: cirugia.resultado,
+          fecha: cirugia.fecha_realizacion || cirugia.fecha_programada,
+          cirujano: cirugia.cirujano?.nombre_completo || 
+                   `${cirugia.cirujano?.nombres || ''} ${cirugia.cirujano?.apellidos || ''}`.trim() ||
+                   'No especificado'
+        };
+        console.log('✅ Datos de cirugía cargados:', cirugiasInfo.value);
+      }
+    }
+  } catch (err) {
+    console.warn('No se pudo cargar datos de cirugía:', err);
+  }
+}
+
+// Formatear tipo de cirugía
+function formatTipoCirugia(tipo) {
+  const tipos = {
+    'esterilizacion': 'Esterilización',
+    'castracion': 'Castración',
+    'ortopedica': 'Ortopédica',
+    'abdominal': 'Abdominal',
+    'oftalmologica': 'Oftalmológica',
+    'dental': 'Dental',
+    'oncologica': 'Oncológica',
+    'emergencia': 'Emergencia'
+  };
+  return tipos[tipo] || tipo;
+}
+
+// Formatear resultado
+function formatResultado(resultado) {
+  const resultados = {
+    'exitosa': '✅ Exitosa',
+    'con_complicaciones': '⚠️ Con complicaciones',
+    'fallida': '❌ Fallida',
+    'ok': '✅ Exitosa'
+  };
+  return resultados[resultado] || resultado;
+}
+
+// Formatear fecha
+function formatDate(dateString) {
+  if (!dateString) return 'No especificada';
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-CO', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  } catch {
+    return dateString;
+  }
 }
 
 // Handler para cuando cambia el certificado
@@ -261,7 +290,7 @@ function onCertificateChange(files) {
 }
 
 onMounted(() => {
-  loadVeterinarios();
+  console.log('🚀 AnimalNeuturingForm: Montado (Adjunción de certificados)');
 });
 
 function validate() {
@@ -279,21 +308,9 @@ function validate() {
     isValid = false;
   }
 
-  // Validar fecha
-  if (!form.neuteringDate || form.neuteringDate.trim() === '') {
-    errors.neuteringDate = 'Campo requerido';
-    isValid = false;
-  }
-
-  // Validar veterinario
-  if (!form.veterinario_id) {
-    errors.veterinario_id = 'Seleccione un veterinario';
-    isValid = false;
-  }
-
   // Validar certificado
   if (!form.certificateFiles || form.certificateFiles.length === 0) {
-    errors.neuteringCertificate = 'Debe adjuntar un certificado';
+    errors.neuteringCertificate = 'Debe adjuntar un certificado de esterilización';
     isValid = false;
   }
 
@@ -303,16 +320,15 @@ function validate() {
 function resetForm() {
   // Limpiar formulario
   form.animalId = '';
-  form.neuteringDate = '';
-  form.veterinario_id = '';
   form.certificateFiles = [];
   form.notes = '';
   
   // Limpiar errores
   Object.keys(errors).forEach(k => errors[k] = '');
   
-  // Limpiar animal encontrado
+  // Limpiar animal encontrado y datos de cirugía
   animalEncontrado.value = null;
+  cirugiasInfo.value = { tipo: null, resultado: null, fecha: null, cirujano: null };
 }
 
 async function onSubmit() {
@@ -336,73 +352,93 @@ async function onSubmit() {
     return;
   }
 
-  console.log('📋 Historial clínico ID:', historialClinicoId);
+  const animalId = animalEncontrado.value.animal?.id;
+
+  if (!animalId) {
+    errors.animalId = 'No se pudo obtener el ID del animal';
+    return;
+  }
+
+  console.log('📋 Adjuntando certificado al animal:', {
+    animalId,
+    historialClinicoId,
+    tieneArchivo: form.certificateFiles.length > 0
+  });
 
   isSubmitting.value = true;
 
   try {
-    // Convertir fecha si está en formato DD/MM/YYYY
-    let fechaCirugia = form.neuteringDate;
-    if (fechaCirugia && fechaCirugia.includes('/')) {
-      const parts = fechaCirugia.split('/');
-      if (parts.length === 3) {
-        fechaCirugia = `${parts[2]}-${parts[1]}-${parts[0]}`;
-      }
+    // Preparar FormData
+    const formData = new FormData();
+    
+    if (form.certificateFiles && form.certificateFiles.length > 0) {
+      const file = form.certificateFiles[0];
+      formData.append('certificado', file);
+      console.log('📎 Archivo adjunto:', {
+        name: file.name,
+        type: file.type,
+        size: file.size
+      });
+    }
+    
+    if (form.notes) {
+      formData.append('notas', form.notes);
     }
 
-    // Preparar datos de la cirugía
-    const cirugiaData = {
-      historial_clinico_id: historialClinicoId,
-      veterinario_id: form.veterinario_id || null,
-      fecha_cirugia: fechaCirugia,
-      tipo_cirugia: 'esterilizacion',
-      descripcion: `Esterilización realizada. ${form.notes || ''}`.trim(),
-      resultado: 'exitosa',
-      notas_postoperatorias: form.notes || null
-    };
+    // 🔍 DEPURACIÓN: Ver la URL completa
+    const url = `/animals/${animalId}/certificado-esterilizacion`;
+    console.log('🌐 URL de la petición:', url);
+    console.log('🌐 URL completa:', api.defaults.baseURL + url);
+    console.log('🔑 Token:', localStorage.getItem('token') ? 'Presente' : 'Ausente');
 
-    console.log('📤 Enviando datos de cirugía:', cirugiaData);
-
-    // Registrar la cirugía
-    const response = await veterinaryStore.crearCirugia(cirugiaData);
-    
-    console.log('✅ Cirugía registrada:', response);
-
-    // Ahora actualizar el animal para marcar esterilización = true
-    const animalId = animalEncontrado.value.animal?.id;
-    
-    if (animalId) {
-      try {
-        await api.put(`/animals/${animalId}`, {
-          esterilizacion: true,
-          fecha_esterilizacion: fechaCirugia,
-          veterinario_esterilizacion: form.veterinario_id
-        });
-        console.log('✅ Animal actualizado con estado de esterilización');
-      } catch (updateError) {
-        console.warn('⚠️ No se pudo actualizar el estado del animal:', updateError);
+    // Adjuntar certificado al animal
+    const response = await api.post(url, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
       }
+    });
+
+    console.log('✅ Certificado adjuntado:', response);
+
+    // Marcar el animal como esterilizado
+    try {
+      console.log('🔄 Marcando animal como esterilizado...');
+      
+      const updateData = {
+        esterilizacion: true,
+        fecha_esterilizacion: cirugiasInfo.value.fecha || new Date().toISOString().split('T')[0]
+      };
+
+      await api.put(`/animals/${animalId}`, updateData);
+      console.log('✅ Animal marcado como esterilizado');
+    } catch (updateError) {
+      console.warn('⚠️ Advertencia: No se pudo actualizar el estado del animal:', updateError);
     }
 
     // Mostrar mensaje de éxito
     if (window.$toast) {
       window.$toast.success(
-        '¡Esterilización registrada!',
-        'El procedimiento ha sido registrado exitosamente en el historial médico del animal.'
+        '¡Certificado adjuntado!',
+        'El certificado de esterilización ha sido adjuntado correctamente y el animal ha sido marcado como esterilizado.'
       );
     } else {
-      alert('✅ Esterilización registrada exitosamente');
+      alert('✅ Certificado adjuntado exitosamente y animal marcado como esterilizado');
     }
 
-    emit('sterilizationRegistered', response);
+    emit('certificateAttached', response.data);
     resetForm();
 
   } catch (error) {
-    console.error('❌ Error al registrar esterilización:', error);
+    console.error('❌ Error al adjuntar certificado:', error);
+    console.error('❌ Error response:', error.response);
+    console.error('❌ Error config:', error.config);
 
-    let errorMessage = 'No se pudo registrar la esterilización. Intente nuevamente.';
+    let errorMessage = 'No se pudo adjuntar el certificado. Intente nuevamente.';
 
-    if (error.response?.data?.message) {
+    if (error.response?.status === 404) {
+      errorMessage = 'La ruta del servidor no existe. Verifique la configuración del backend.';
+      console.error('❌ RUTA NO ENCONTRADA:', error.config?.url);
+    } else if (error.response?.data?.message) {
       errorMessage = error.response.data.message;
     } else if (error.response?.data?.errors) {
       const firstError = Object.values(error.response.data.errors)[0];
@@ -410,7 +446,7 @@ async function onSubmit() {
     }
 
     if (window.$toast) {
-      window.$toast.error('Error al registrar', errorMessage);
+      window.$toast.error('Error al adjuntar certificado', errorMessage);
     } else {
       alert(`❌ Error: ${errorMessage}`);
     }
@@ -434,6 +470,19 @@ async function onSubmit() {
   border-bottom: 3px solid #3366CC; 
 }
 
+.h2-tipografia-govco {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #004884;
+  margin: 0 0 0.5rem 0;
+}
+
+.text2-tipografia-govco {
+  font-size: 1rem;
+  color: #4B4B4B;
+  margin: 0;
+}
+
 .form-section { 
   background: white; 
   border-radius: 8px; 
@@ -452,7 +501,7 @@ async function onSubmit() {
 
 .form-grid { 
   display: grid; 
-  grid-template-columns: repeat(3, minmax(0, 1fr)); 
+  grid-template-columns: repeat(2, minmax(0, 1fr)); 
   column-gap: 2rem; 
   row-gap: 1.5rem; 
   padding: 1.5rem; 
@@ -464,7 +513,7 @@ async function onSubmit() {
 }
 
 .full-width { 
-  grid-column: 1 / 4; 
+  grid-column: 1 / 3; 
 }
 
 .entradas-de-texto-govco { 
@@ -522,6 +571,65 @@ async function onSubmit() {
   flex: 1;
 }
 
+.info-card {
+  background: #f8fafe;
+  border-left: 4px solid #3366cc;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.info-card h4 {
+  margin: 0 0 1rem 0;
+  color: #004884;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.info-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.info-grid strong {
+  color: #666;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.info-grid span {
+  color: #333;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.resultado-exitosa {
+  color: #069169;
+  font-weight: 600;
+}
+
+.resultado-con_complicaciones {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+.resultado-fallida {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.resultado-ok {
+  color: #069169;
+  font-weight: 600;
+}
+
 .form-actions { 
   display: flex; 
   justify-content: flex-end; 
@@ -534,10 +642,13 @@ async function onSubmit() {
 
 @media (max-width: 992px) {
   .form-grid { 
-    grid-template-columns: repeat(2, minmax(0, 1fr)); 
+    grid-template-columns: 1fr; 
   }
   .full-width { 
-    grid-column: 1 / 3; 
+    grid-column: 1 / 2; 
+  }
+  .info-grid {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -44,21 +44,28 @@ class InventarioService
 
     /**
      * Listar insumos con paginacion.
+     * Devuelve inventarios.
      */
     public function listarInsumos(int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
-        $query = Insumo::query()->activos();
+        $query = Inventario::query();
 
         if (!empty($filters['categoria'])) {
             $query->porCategoria($filters['categoria']);
         }
 
+        if (!empty($filters['tipo'])) {
+            $query->porTipo($filters['tipo']);
+        }
+
         if (!empty($filters['stock_bajo'])) {
-            $query->stockBajo();
+            $query->cantidadBaja();
         }
 
         if (!empty($filters['proximos_vencer'])) {
-            $query->proximosAVencer($filters['dias_vencimiento'] ?? 30);
+            $dias = $filters['dias_vencimiento'] ?? 30;
+            $query->whereNotNull('fecha_vencimiento')
+                  ->whereBetween('fecha_vencimiento', [now(), now()->addDays($dias)]);
         }
 
         return $query->orderBy('nombre')->paginate($perPage);
@@ -153,7 +160,7 @@ class InventarioService
         return [
             'inventario' => Inventario::cantidadBaja()->get(),
             'insumos' => Insumo::activos()->stockBajo()->get(),
-            'medicamentos' => Medicamento::activos()->stockBajo()->get(),
+            'productos_farmaceuticos' => ProductoFarmaceutico::activos()->stockBajo()->get(),
         ];
     }
 
@@ -238,5 +245,14 @@ class InventarioService
         $item = Insumo::findOrFail($id);
         $item->update($data);
         return $item->fresh();
+    }
+
+    /**
+     * Eliminar inventario.
+     */
+    public function eliminarInventario(string $id): void
+    {
+        $item = Inventario::findOrFail($id);
+        $item->delete();
     }
 }

@@ -18,6 +18,17 @@
       <div class="form-section">
         <h3 class="h5-tipografia-govco section-title">Datos generales</h3>
 
+        <!-- ALERTA DE ESTERILIZACIÓN/CASTRACIÓN -->
+        <div v-if="form.tipoCirugia === 'esterilizacion' || form.tipoCirugia === 'castracion'" class="alert-section">
+          <div class="alert-warning">
+            <span class="alert-icon">⚠️</span>
+            <div class="alert-content">
+              <strong>Recordatorio importante:</strong>
+              <p>Después de registrar esta cirugía, deberá descargar el certificado de {{ form.tipoCirugia === 'esterilizacion' ? 'esterilización' : 'castración' }} en el <strong>Generador de Certificados</strong> y adjuntarlo en el formulario de <strong>Adjuntar Certificado</strong>.</p>
+            </div>
+          </div>
+        </div>
+
         <div class="form-grid">
           <!-- Animal -->
           <DesplegableGovco
@@ -272,6 +283,7 @@ import InputGovCo from '../common/InputGovCo.vue';
 import { useVeterinaryStore } from '@/stores/veterinary';
 import { useAnimalsStore } from '@/stores/animals';
 import animalService from '@/services/animalService';
+import api from '@/services/api';
 
 const emit = defineEmits(['cirugia-saved', 'cancel']);
 const props = defineProps({
@@ -564,6 +576,27 @@ async function onSubmit() {
     // Guardar cirugía en backend
     await veterinaryStore.crearCirugia(cirugiaData);
 
+    console.log('✅ Cirugía registrada exitosamente');
+
+    // Si es esterilización o castración y está realizada, actualizar el animal
+    if ((form.tipoCirugia === 'esterilizacion' || form.tipoCirugia === 'castracion') && 
+        form.estado === 'realizada') {
+      
+      const animalId = form.animalId;
+      const updateData = {
+        esterilizacion: true,
+        fecha_esterilizacion: form.fechaRealizacion || form.fechaProgramada
+      };
+
+      try {
+        console.log('📝 Actualizando estado de esterilización del animal:', animalId);
+        await api.put(`/animals/${animalId}`, updateData);
+        console.log('✅ Animal actualizado: esterilizado');
+      } catch (updateError) {
+        console.warn('⚠️ Advertencia: No se pudo actualizar el estado del animal, pero la cirugía fue registrada:', updateError);
+      }
+    }
+
     alert('Cirugía registrada exitosamente');
     emit('cirugia-saved', cirugiaData);
     resetForm();
@@ -691,6 +724,51 @@ onMounted(async () => {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+.alert-section {
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.alert-warning {
+  background: #fffbeb;
+  border-left: 4px solid #f59e0b;
+  padding: 1rem 1.5rem;
+  border-radius: 6px;
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.alert-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  min-width: 24px;
+}
+
+.alert-content {
+  flex: 1;
+}
+
+.alert-content strong {
+  display: block;
+  color: #92400e;
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.alert-content p {
+  margin: 0;
+  color: #78350f;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.alert-content strong strong {
+  display: inline;
+  color: #b45309;
+  font-weight: 700;
 }
 
 @media (max-width: 768px) {
