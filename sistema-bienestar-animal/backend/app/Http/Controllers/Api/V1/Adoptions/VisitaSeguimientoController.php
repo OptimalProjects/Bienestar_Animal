@@ -7,10 +7,12 @@ use App\Services\AdopcionService;
 use App\Services\ContratoAdopcionService;
 use App\Services\DenunciaService;
 use App\Models\Adopcion\VisitaDomiciliaria;
+use App\Mail\SolicitudAdopcionMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class VisitaSeguimientoController extends BaseController
 {
@@ -235,6 +237,9 @@ class VisitaSeguimientoController extends BaseController
 
                         $mensaje = 'Visita registrada exitosamente. La adopción ha sido aprobada y el contrato está listo para firma.';
 
+                        // Enviar notificación por correo al adoptante
+                        $this->enviarNotificacionAdopcion($adopcion->fresh(['animal', 'adoptante']), 'aprobada');
+
                         Log::info('Adopción aprobada automáticamente tras visita pre-adopción satisfactoria', [
                             'visita_id' => $visita->id,
                             'adopcion_id' => $adopcion->id,
@@ -261,6 +266,10 @@ class VisitaSeguimientoController extends BaseController
                         'motivo_rechazo' => 'Visita domiciliaria pre-adopción con resultado crítico. ' . ($request->observaciones ?? ''),
                         'evaluador_id' => auth()->id(),
                     ]);
+
+                    // Enviar notificación por correo al adoptante
+                    $this->enviarNotificacionAdopcion($adopcion->fresh(['animal', 'adoptante']), 'rechazada');
+
                     $mensaje = 'Visita registrada. La solicitud de adopción ha sido rechazada debido al resultado crítico de la visita.';
                 }
             }
@@ -562,5 +571,33 @@ class VisitaSeguimientoController extends BaseController
             'extraordinaria' => 'Extraordinaria',
             default => $tipo,
         };
+    }
+
+    /**
+     * Enviar notificación de adopción por correo electrónico.
+     *
+     * @param \App\Models\Adopcion\Adopcion $adopcion
+     * @param string $tipo 'aprobada', 'rechazada', 'completada'
+     */
+    protected function enviarNotificacionAdopcion($adopcion, string $tipo): void
+    {
+        try {
+            $emailAdoptante = $adopcion->adoptante->email ?? null;
+
+            if ($emailAdoptante && filter_var($emailAdoptante, FILTER_VALIDATE_EMAIL)) {
+                Mail::to($emailAdoptante)->send(new SolicitudAdopcionMail($adopcion, $tipo));
+
+                Log::info("Notificación de adopción [{$tipo}] enviada desde visita", [
+                    'adopcion_id' => $adopcion->id,
+                    'animal' => $adopcion->animal->nombre ?? $adopcion->animal->codigo_unico,
+                    'destinatario' => $emailAdoptante,
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error("Error enviando notificación de adopción [{$tipo}] desde visita", [
+                'adopcion_id' => $adopcion->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

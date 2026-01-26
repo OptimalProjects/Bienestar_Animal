@@ -13,6 +13,7 @@ import AdminView from '../views/AdminView.vue';
 import AdoptionsCoordinatorView from '../views/AdoptionsCoordinatorView.vue';
 import SSOCallback from '../views/auth/SSOCallback.vue';
 import AdoptionStatusQuery from '../components/adoptions/AdoptionStatusQuery.vue';
+import AnimalPublicView from '../views/AnimalPublicView.vue';
 
 // Roles
 import { getCurrentRole, ROLES } from '../composables/useRol.js';
@@ -118,6 +119,16 @@ const routes = [
     component: AdoptionStatusQuery,
     meta: {
       title: 'Consultar Estado de Adopción - Sistema Bienestar Animal',
+      requiresAuth: false,
+      layout: 'app'
+    }
+  },
+  {
+    path: '/adopciones/animal/:id',
+    name: 'animal-public',
+    component: AnimalPublicView,
+    meta: {
+      title: 'Conoce a este amiguito - Sistema Bienestar Animal',
       requiresAuth: false,
       layout: 'app'
     }

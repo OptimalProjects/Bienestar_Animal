@@ -300,6 +300,142 @@
       </div>
     </div>
 
+    <!-- Modal de Detalle de Devolucion -->
+    <div v-if="showDetailModal" class="modal-overlay" @click.self="showDetailModal = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Detalle de Devolucion</h3>
+          <button type="button" class="btn-close" @click="showDetailModal = false">×</button>
+        </div>
+
+        <div class="modal-body" v-if="selectedReturnDetail">
+          <div class="detail-section">
+            <h4>Informacion del Animal</h4>
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">Nombre:</span>
+                <span class="detail-value">{{ selectedReturnDetail.animal?.nombre || 'N/A' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Codigo:</span>
+                <span class="detail-value">{{ selectedReturnDetail.animal?.codigo_unico || 'N/A' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Especie:</span>
+                <span class="detail-value">{{ selectedReturnDetail.animal?.especie || 'N/A' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Raza:</span>
+                <span class="detail-value">{{ selectedReturnDetail.animal?.raza || 'N/A' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <h4>Informacion de la Devolucion</h4>
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">Motivo:</span>
+                <span class="detail-value">{{ motivos[selectedReturnDetail.motivo] || selectedReturnDetail.motivo }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Fecha devolucion:</span>
+                <span class="detail-value">{{ formatDate(selectedReturnDetail.fecha_devolucion) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Estado del animal:</span>
+                <span :class="['estado-badge', `estado-animal-${selectedReturnDetail.estado_animal_devolucion}`]">
+                  {{ selectedReturnDetail.estado_animal_devolucion }}
+                </span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Estado del proceso:</span>
+                <span :class="['estado-badge', `proceso-${selectedReturnDetail.estado_proceso}`]">
+                  {{ estadosProceso[selectedReturnDetail.estado_proceso] || selectedReturnDetail.estado_proceso }}
+                </span>
+              </div>
+            </div>
+            <div class="detail-item full-width" v-if="selectedReturnDetail.descripcion_motivo">
+              <span class="detail-label">Descripcion del motivo:</span>
+              <p class="detail-text">{{ selectedReturnDetail.descripcion_motivo }}</p>
+            </div>
+            <div class="detail-item full-width" v-if="selectedReturnDetail.observaciones_estado">
+              <span class="detail-label">Observaciones del estado:</span>
+              <p class="detail-text">{{ selectedReturnDetail.observaciones_estado }}</p>
+            </div>
+          </div>
+
+          <div class="detail-section" v-if="selectedReturnDetail.fecha_revision_programada || selectedReturnDetail.diagnostico">
+            <h4>Revision Veterinaria</h4>
+            <div class="detail-grid">
+              <div class="detail-item" v-if="selectedReturnDetail.fecha_revision_programada">
+                <span class="detail-label">Fecha revision programada:</span>
+                <span class="detail-value">{{ formatDate(selectedReturnDetail.fecha_revision_programada) }}</span>
+              </div>
+              <div class="detail-item" v-if="selectedReturnDetail.fecha_revision_completada">
+                <span class="detail-label">Fecha revision completada:</span>
+                <span class="detail-value">{{ formatDate(selectedReturnDetail.fecha_revision_completada) }}</span>
+              </div>
+              <div class="detail-item" v-if="selectedReturnDetail.estado_salud">
+                <span class="detail-label">Estado de salud:</span>
+                <span class="detail-value">{{ selectedReturnDetail.estado_salud }}</span>
+              </div>
+              <div class="detail-item" v-if="selectedReturnDetail.apto_adopcion !== undefined">
+                <span class="detail-label">Apto para re-adopcion:</span>
+                <span :class="['estado-badge', selectedReturnDetail.apto_adopcion ? 'estado-animal-bueno' : 'estado-animal-malo']">
+                  {{ selectedReturnDetail.apto_adopcion ? 'Si' : 'No' }}
+                </span>
+              </div>
+            </div>
+            <div class="detail-item full-width" v-if="selectedReturnDetail.diagnostico">
+              <span class="detail-label">Diagnostico:</span>
+              <p class="detail-text">{{ selectedReturnDetail.diagnostico }}</p>
+            </div>
+            <div class="detail-item full-width" v-if="selectedReturnDetail.observaciones_veterinario">
+              <span class="detail-label">Observaciones del veterinario:</span>
+              <p class="detail-text">{{ selectedReturnDetail.observaciones_veterinario }}</p>
+            </div>
+            <div class="detail-item full-width" v-if="selectedReturnDetail.recomendaciones">
+              <span class="detail-label">Recomendaciones:</span>
+              <p class="detail-text">{{ selectedReturnDetail.recomendaciones }}</p>
+            </div>
+          </div>
+
+          <div class="detail-section" v-if="selectedReturnDetail.adoptante">
+            <h4>Informacion del Adoptante</h4>
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">Nombre:</span>
+                <span class="detail-value">{{ selectedReturnDetail.adoptante?.nombre_completo || 'N/A' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Documento:</span>
+                <span class="detail-value">{{ selectedReturnDetail.adoptante?.numero_documento || 'N/A' }}</span>
+              </div>
+              <div class="detail-item" v-if="selectedReturnDetail.adoptante?.telefono">
+                <span class="detail-label">Telefono:</span>
+                <span class="detail-value">{{ selectedReturnDetail.adoptante.telefono }}</span>
+              </div>
+              <div class="detail-item" v-if="selectedReturnDetail.adoptante?.email">
+                <span class="detail-label">Email:</span>
+                <span class="detail-value">{{ selectedReturnDetail.adoptante.email }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn-govco btn-govco-secondary"
+            @click="showDetailModal = false"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal de Revision -->
     <div v-if="showReviewModal" class="modal-overlay" @click.self="showReviewModal = false">
       <div class="modal-content">
@@ -421,6 +557,9 @@ const pendingCount = ref(0);
 const showReviewModal = ref(false);
 const selectedReturn = ref(null);
 const reviewSubmitting = ref(false);
+
+const showDetailModal = ref(false);
+const selectedReturnDetail = ref(null);
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -589,11 +728,8 @@ async function loadPendingCount() {
 }
 
 function viewReturnDetail(returnItem) {
-  // Por ahora solo mostrar en consola, se puede expandir a modal
-  console.log('Detalle devolucion:', returnItem);
-  if (window.$toast) {
-    window.$toast.info('Detalle', `Devolucion de ${returnItem.animal?.nombre}: ${motivos[returnItem.motivo]}`);
-  }
+  selectedReturnDetail.value = returnItem;
+  showDetailModal.value = true;
 }
 
 function openReviewModal(returnItem) {
@@ -1018,6 +1154,65 @@ onMounted(() => {
   margin-top: 6px;
 }
 
+/* Modal de detalle */
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 20px;
+  border-top: 1px solid #eee;
+}
+
+.detail-section {
+  margin-bottom: 24px;
+}
+
+.detail-section h4 {
+  margin: 0 0 12px 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #3366cc;
+  color: #004884;
+  font-size: 16px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-item.full-width {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+}
+
+.detail-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.detail-value {
+  font-size: 14px;
+  color: #333;
+}
+
+.detail-text {
+  margin: 4px 0 0 0;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #333;
+  line-height: 1.5;
+}
+
 @media (max-width: 768px) {
   .search-card {
     flex-direction: column;
@@ -1029,6 +1224,10 @@ onMounted(() => {
 
   .tabs-container {
     flex-wrap: wrap;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

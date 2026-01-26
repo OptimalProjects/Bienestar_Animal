@@ -184,8 +184,27 @@
         <div class="chart-container" ref="vaccinationChart">
           <div class="mock-chart gauge-chart">
             <div class="gauge-container">
-              <div class="gauge-bg"></div>
-              <div class="gauge-fill" :style="{ '--fill': kpis.vaccinationRate }"></div>
+              <!-- SVG Gauge para compatibilidad con html2canvas -->
+              <svg viewBox="0 0 100 50" class="gauge-svg">
+                <!-- Fondo gris del semicirculo -->
+                <path
+                  d="M 5 50 A 45 45 0 0 1 95 50"
+                  fill="none"
+                  stroke="#E0E0E0"
+                  stroke-width="8"
+                  stroke-linecap="round"
+                />
+                <!-- Relleno verde segun porcentaje -->
+                <path
+                  d="M 5 50 A 45 45 0 0 1 95 50"
+                  fill="none"
+                  stroke="#068460"
+                  stroke-width="8"
+                  stroke-linecap="round"
+                  :stroke-dasharray="gaugeStrokeDasharray"
+                  :stroke-dashoffset="0"
+                />
+              </svg>
               <div class="gauge-center">
                 <span class="gauge-value">{{ kpis.vaccinationRate }}%</span>
                 <span class="gauge-label">Cobertura</span>
@@ -385,18 +404,38 @@ const speciesData = computed(() => {
   if (!dashboardData.value?.animales?.por_especie) {
     return [];
   }
-  const especies = dashboardData.value.animales.por_especie;
-  const total = Object.values(especies).reduce((a, b) => a + b, 0);
+  const especiesRaw = dashboardData.value.animales.por_especie;
 
+  // Unificar categorías: canino/perro y felino/gato
+  const especiesUnificadas = {};
+  Object.entries(especiesRaw).forEach(([especie, cantidad]) => {
+    const especieLower = especie.toLowerCase();
+    if (especieLower === 'canino' || especieLower === 'perro') {
+      especiesUnificadas['canino'] = (especiesUnificadas['canino'] || 0) + cantidad;
+    } else if (especieLower === 'felino' || especieLower === 'gato') {
+      especiesUnificadas['felino'] = (especiesUnificadas['felino'] || 0) + cantidad;
+    } else {
+      especiesUnificadas['otro'] = (especiesUnificadas['otro'] || 0) + cantidad;
+    }
+  });
+
+  const total = Object.values(especiesUnificadas).reduce((a, b) => a + b, 0);
+
+  // Colores estilo GOV.CO
   const colors = {
-    perro: '#3366CC',
-    gato: '#068460',
-    equino: '#FFAB00',
-    otro: '#737373'
+    canino: '#3366CC',   // Azul GOV.CO
+    felino: '#068460',   // Verde GOV.CO
+    otro: '#FFAB00'      // Amarillo GOV.CO
   };
 
-  return Object.entries(especies).map(([especie, cantidad]) => ({
-    label: especie.charAt(0).toUpperCase() + especie.slice(1),
+  const labels = {
+    canino: 'Canino',
+    felino: 'Felino',
+    otro: 'Otro'
+  };
+
+  return Object.entries(especiesUnificadas).map(([especie, cantidad]) => ({
+    label: labels[especie] || especie,
     cantidad,
     porcentaje: total > 0 ? Math.round((cantidad / total) * 100) : 0,
     color: colors[especie] || '#737373'
@@ -434,6 +473,14 @@ const vaccinationCoverageData = computed(() => {
     return [];
   }
   return dashboardData.value.cobertura_vacunacion.por_tipo_vacuna;
+});
+
+// Calculo del stroke-dasharray para el gauge SVG
+// El arco del semicirculo tiene longitud aproximada de PI * radio = PI * 45 ≈ 141.37
+const gaugeStrokeDasharray = computed(() => {
+  const arcLength = Math.PI * 45; // ~141.37
+  const fillLength = (kpis.value.vaccinationRate / 100) * arcLength;
+  return `${fillLength} ${arcLength}`;
 });
 
 // Calcular slices del pie chart SVG
@@ -1125,49 +1172,21 @@ onBeforeUnmount(() => {
 
 .gauge-container {
   position: relative;
-  width: 150px;
-  height: 90px;
+  width: 180px;
+  height: 100px;
 }
 
-.gauge-bg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-  background: #E0E0E0;
-  clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%);
-}
-
-.gauge-fill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-  /* Gradiente que empieza desde la izquierda (270deg) hacia la derecha (90deg) */
-  /* var(--fill) es 0-100, semicirculo es 50% del circulo, entonces fill*0.5 = porcentaje del circulo */
-  background: conic-gradient(
-    from 270deg,
-    #068460 0%,
-    #068460 calc(var(--fill) * 0.5%),
-    transparent calc(var(--fill) * 0.5%),
-    transparent 100%
-  );
-  clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%);
+.gauge-svg {
+  width: 100%;
+  height: 100%;
 }
 
 .gauge-center {
   position: absolute;
-  top: 25px;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -20%);
   text-align: center;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
 }
 
 .gauge-value {

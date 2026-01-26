@@ -181,6 +181,59 @@ class AnimalController extends BaseController
     }
 
     /**
+     * Obtener animal público para compartir en redes sociales.
+     * Este endpoint es público y no requiere autenticación.
+     * GET /api/v1/animals/public/{idOrCode}
+     */
+    public function showPublic(string $idOrCode)
+    {
+        try {
+            // Buscar por ID o por código único
+            $animal = Animal::where('id', $idOrCode)
+                ->orWhere('codigo_unico', $idOrCode)
+                ->with(['historialClinico'])
+                ->first();
+
+            if (!$animal) {
+                return $this->notFoundResponse('Animal no encontrado');
+            }
+
+            // Verificar que el animal esté disponible para adopción (no mostrar datos sensibles)
+            $estadosPublicos = ['en_adopcion', 'en_refugio', 'adoptado'];
+            if (!in_array($animal->estado, $estadosPublicos)) {
+                return $this->notFoundResponse('Este animal no está disponible públicamente');
+            }
+
+            // Retornar solo datos públicos relevantes
+            $datosPublicos = [
+                'id' => $animal->id,
+                'codigo_unico' => $animal->codigo_unico,
+                'nombre' => $animal->nombre,
+                'especie' => $animal->especie,
+                'raza' => $animal->raza,
+                'sexo' => $animal->sexo,
+                'edad_aproximada' => $animal->edad_aproximada,
+                'edad_formateada' => $animal->edad_formateada,
+                'color' => $animal->color,
+                'tamanio' => $animal->tamanio,
+                'esterilizado' => $animal->esterilizacion,
+                'vacunado' => $animal->historialClinico && $animal->historialClinico->vacunas && count($animal->historialClinico->vacunas) > 0,
+                'senias_particulares' => $animal->senias_particulares,
+                'observaciones' => $animal->observaciones,
+                'estado_adopcion' => $animal->estado === 'adoptado' ? 'Adoptado' : 'Disponible',
+                'foto_url' => $animal->foto_url,
+                'url_foto_principal' => $animal->url_foto_principal,
+                'galeria_urls' => $animal->galeria_urls,
+                'galeria_fotos' => $animal->galeria_fotos,
+            ];
+
+            return $this->successResponse($datosPublicos, 'Animal obtenido exitosamente');
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Error al obtener animal: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Actualizar animal.
      * PUT /api/v1/animals/{id}
      */

@@ -6,9 +6,14 @@ use App\Repositories\Contracts\DenunciaRepositoryInterface;
 use App\Models\Denuncia\Denuncia;
 use App\Models\Denuncia\Denunciante;
 use App\Models\Denuncia\Rescate;
+use App\Models\User\Usuario;
+use App\Models\User\Rol;
+use App\Mail\DenunciaMail;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class DenunciaService
@@ -81,6 +86,9 @@ class DenunciaService
                 $data['descripcion']
             );
 
+            // Asignar automáticamente a un operador de rescate disponible
+            $operadorId = $this->obtenerOperadorDisponible();
+
             // Crear denuncia
             $denuncia = Denuncia::create([
                 'denunciante_id' => $denuncianteId,
@@ -94,9 +102,26 @@ class DenunciaService
                 'longitud' => $data['longitud'] ?? $data['coordenadas_lng'] ?? null,
                 'evidencias' => $data['evidencias'] ?? null,
                 'prioridad' => $prioridad,
-                'estado' => 'recibida',
+                'estado' => $operadorId ? 'asignada' : 'recibida',
                 'es_anonima' => $esAnonima,
+                'responsable_id' => $operadorId,
+                'fecha_asignacion' => $operadorId ? now() : null,
             ]);
+
+            // Cargar relaciones para el correo
+            $denuncia = $denuncia->fresh(['responsable', 'denunciante']);
+
+            // Enviar notificación al operador asignado
+            if ($operadorId) {
+                $this->enviarNotificacionDenuncia($denuncia, 'nueva');
+
+                Log::info('Denuncia asignada automáticamente a operador de rescate', [
+                    'denuncia_id' => $denuncia->id,
+                    'ticket' => $ticket,
+                    'operador_id' => $operadorId,
+                    'operador' => $denuncia->responsable->nombre_completo ?? 'N/A',
+                ]);
+            }
 
             return [
                 'denuncia' => $denuncia,
@@ -107,19 +132,24 @@ class DenunciaService
     }
 
     /**
-     * Asignar denuncia a funcionario.
+     * Asignar denuncia a funcionario (rescatista).
      */
     public function asignar(string $id, string $funcionarioId, ?string $asignadoPorId = null): Denuncia
     {
         $denuncia = Denuncia::findOrFail($id);
 
         $denuncia->update([
-            'asignado_a' => $funcionarioId,
-            'estado' => 'en_proceso',
+            'responsable_id' => $funcionarioId,
+            'estado' => 'asignada',
             'fecha_asignacion' => now(),
         ]);
 
-        return $denuncia->fresh(['asignadoA', 'denunciante']);
+        $denuncia = $denuncia->fresh(['responsable', 'denunciante', 'rescates']);
+
+        // Enviar notificación por correo al rescatista asignado
+        $this->enviarNotificacionDenuncia($denuncia, 'nueva');
+
+        return $denuncia;
     }
 
     /**
@@ -143,7 +173,14 @@ class DenunciaService
 
         $denuncia->update($updateData);
 
-        return $denuncia->fresh();
+        $denuncia = $denuncia->fresh(['responsable', 'denunciante', 'rescates']);
+
+        // Enviar notificación según el nuevo estado
+        if (in_array($estado, ['resuelta', 'cerrada'])) {
+            $this->enviarNotificacionDenuncia($denuncia, $estado);
+        }
+
+        return $denuncia;
     }
 
     /**
@@ -166,6 +203,11 @@ class DenunciaService
             $denuncia->update([
                 'estado' => 'en_atencion',
             ]);
+
+            $denuncia = $denuncia->fresh(['responsable', 'denunciante', 'rescates']);
+
+            // Enviar notificación de que está en atención
+            $this->enviarNotificacionDenuncia($denuncia, 'en_atencion');
 
             return $rescate->fresh(['denuncia', 'animalRescatado']);
         });
@@ -244,5 +286,95 @@ class DenunciaService
             'email' => $data['email'] ?? null,
             'direccion' => $data['direccion'] ?? null,
         ]);
+    }
+
+    /**
+     * Obtener operador de rescate disponible con menor carga de trabajo.
+     *
+     * @return string|null ID del operador o null si no hay disponibles
+     */
+    protected function obtenerOperadorDisponible(): ?string
+    {
+        // Buscar el rol de operador de rescate
+        $rolOperador = Rol::where('codigo', 'OPERADOR')->first();
+
+        if (!$rolOperador) {
+            Log::warning('No se encontró el rol OPERADOR para asignar denuncias');
+            return null;
+        }
+
+        // Obtener todos los operadores activos
+        $operadores = Usuario::activos()
+            ->whereHas('roles', function ($query) use ($rolOperador) {
+                $query->where('rol_id', $rolOperador->id)
+                      ->where('usuario_rol.activo', true);
+            })
+            ->get();
+
+        if ($operadores->isEmpty()) {
+            Log::warning('No hay operadores de rescate activos disponibles');
+            return null;
+        }
+
+        // Calcular carga de trabajo (denuncias pendientes asignadas)
+        $operadorConMenosCarga = $operadores->map(function ($operador) {
+            $denunciasPendientes = Denuncia::where('responsable_id', $operador->id)
+                ->whereNotIn('estado', ['resuelta', 'cerrada', 'desestimada'])
+                ->count();
+
+            return [
+                'id' => $operador->id,
+                'nombre' => $operador->nombre_completo,
+                'carga' => $denunciasPendientes,
+            ];
+        })->sortBy('carga')->first();
+
+        Log::info('Operador de rescate seleccionado para asignación', [
+            'operador_id' => $operadorConMenosCarga['id'],
+            'operador_nombre' => $operadorConMenosCarga['nombre'],
+            'carga_actual' => $operadorConMenosCarga['carga'],
+        ]);
+
+        return $operadorConMenosCarga['id'];
+    }
+
+    /**
+     * Enviar notificación de denuncia por correo electrónico al rescatista.
+     *
+     * @param Denuncia $denuncia
+     * @param string $tipo 'nueva', 'asignada', 'en_atencion', 'resuelta', 'cerrada'
+     */
+    protected function enviarNotificacionDenuncia(Denuncia $denuncia, string $tipo): void
+    {
+        try {
+            // Notificar al rescatista/responsable asignado
+            $emailResponsable = $denuncia->responsable->email ?? null;
+
+            if ($emailResponsable && filter_var($emailResponsable, FILTER_VALIDATE_EMAIL)) {
+                Mail::to($emailResponsable)->send(new DenunciaMail($denuncia, $tipo));
+
+                Log::info("Notificación de denuncia [{$tipo}] enviada al rescatista", [
+                    'denuncia_id' => $denuncia->id,
+                    'ticket' => $denuncia->numero_ticket,
+                    'tipo_denuncia' => $denuncia->tipo_denuncia,
+                    'prioridad' => $denuncia->prioridad,
+                    'destinatario' => $emailResponsable,
+                    'responsable' => $denuncia->responsable->nombre_completo ?? $denuncia->responsable->nombres,
+                ]);
+            } else {
+                Log::warning('No se pudo enviar notificación de denuncia: email del responsable no válido', [
+                    'denuncia_id' => $denuncia->id,
+                    'ticket' => $denuncia->numero_ticket,
+                    'responsable_id' => $denuncia->responsable_id,
+                ]);
+            }
+        } catch (\Exception $e) {
+            // No interrumpir el flujo si falla el envío de correo
+            Log::error("Error enviando notificación de denuncia [{$tipo}]", [
+                'denuncia_id' => $denuncia->id,
+                'ticket' => $denuncia->numero_ticket,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
