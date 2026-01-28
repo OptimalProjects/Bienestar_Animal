@@ -665,11 +665,56 @@ class AdopcionController extends BaseController
 
             $resultado = $this->devolucionService->registrarDevolucion($data, auth()->id());
 
+            // Notificar al adoptante por correo con PDF adjunto
+            if (isset($resultado['devolucion'])) {
+                $this->devolucionService->notificarDevolucionRegistrada($resultado['devolucion']);
+            }
+
             return $this->createdResponse($resultado, $resultado['mensaje']);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->notFoundResponse('Adopcion no encontrada');
         } catch (\Exception $e) {
             return $this->serverErrorResponse('Error al registrar devolucion: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Descargar PDF de resumen de devolución.
+     * GET /api/v1/adopciones/devoluciones/{devolucionId}/pdf
+     */
+    public function descargarPdfDevolucion(string $devolucionId)
+    {
+        try {
+            $devolucion = $this->devolucionService->obtener($devolucionId);
+            $pdf = $this->devolucionService->obtenerPdfResumen($devolucion);
+
+            $animalNombre = $devolucion->animal->nombre ?? $devolucion->animal->codigo_unico;
+            $nombreLimpio = preg_replace('/[^a-zA-Z0-9_-]/', '_', $animalNombre);
+            $fileName = "Resumen_Devolucion_{$nombreLimpio}.pdf";
+
+            return $pdf->download($fileName);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->notFoundResponse('Devolución no encontrada');
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Error al generar PDF: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Ver PDF de resumen de devolución en el navegador.
+     * GET /api/v1/adopciones/devoluciones/{devolucionId}/pdf/ver
+     */
+    public function verPdfDevolucion(string $devolucionId)
+    {
+        try {
+            $devolucion = $this->devolucionService->obtener($devolucionId);
+            $pdf = $this->devolucionService->obtenerPdfResumen($devolucion);
+
+            return $pdf->stream('resumen_devolucion.pdf');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->notFoundResponse('Devolución no encontrada');
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Error al generar PDF: ' . $e->getMessage());
         }
     }
 

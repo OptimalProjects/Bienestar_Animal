@@ -414,6 +414,14 @@
         </div>
 
         <div class="modal-footer">
+          <button
+            v-if="selectedVisit?.fecha_realizada"
+            @click="downloadVisitPdf(selectedVisit)"
+            class="govco-btn govco-bg-elf-green"
+            :disabled="downloadingPdf"
+          >
+            {{ downloadingPdf ? 'Descargando...' : 'Descargar PDF' }}
+          </button>
           <button @click="closeModals" class="govco-btn govco-bg-concrete">
             Cerrar
           </button>
@@ -440,6 +448,7 @@ import adoptionService from '@/services/adoptionService';
 const visits = ref([]);
 const loading = ref(false);
 const submitting = ref(false);
+const downloadingPdf = ref(false);
 
 const filters = reactive({
   estado: '',
@@ -566,6 +575,43 @@ function closeModals() {
   showDetailModal.value = false;
   selectedVisit.value = null;
   selectedPhotos.value = [];
+}
+
+// Descarga de PDF
+async function downloadVisitPdf(visit) {
+  if (!visit?.id || !visit.fecha_realizada) return;
+
+  downloadingPdf.value = true;
+  try {
+    const blob = await adoptionService.downloadFollowUpVisitPdf(visit.id);
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+
+    // Nombre del archivo
+    const animalNombre = visit.adopcion?.animal?.nombre || 'animal';
+    const fecha = visit.fecha_realizada?.split('T')[0] || new Date().toISOString().split('T')[0];
+    link.download = `resumen_visita_${animalNombre}_${fecha}.pdf`;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    if (window.$toast) {
+      window.$toast.success('PDF descargado correctamente');
+    }
+  } catch (err) {
+    console.error('Error al descargar PDF:', err);
+    const message = err.response?.data?.message || 'Error al descargar el PDF';
+    if (window.$toast) {
+      window.$toast.error('Error', message);
+    } else {
+      alert(message);
+    }
+  } finally {
+    downloadingPdf.value = false;
+  }
 }
 
 // Visor de fotos

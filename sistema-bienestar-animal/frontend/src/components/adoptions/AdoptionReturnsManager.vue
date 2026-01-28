@@ -427,6 +427,14 @@
         <div class="modal-footer">
           <button
             type="button"
+            class="btn-govco btn-govco-primary"
+            :disabled="downloadingPdf"
+            @click="downloadReturnPdf(selectedReturnDetail)"
+          >
+            {{ downloadingPdf ? 'Descargando...' : 'Descargar PDF' }}
+          </button>
+          <button
+            type="button"
             class="btn-govco btn-govco-secondary"
             @click="showDetailModal = false"
           >
@@ -560,6 +568,7 @@ const reviewSubmitting = ref(false);
 
 const showDetailModal = ref(false);
 const selectedReturnDetail = ref(null);
+const downloadingPdf = ref(false);
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -730,6 +739,42 @@ async function loadPendingCount() {
 function viewReturnDetail(returnItem) {
   selectedReturnDetail.value = returnItem;
   showDetailModal.value = true;
+}
+
+async function downloadReturnPdf(returnItem) {
+  if (!returnItem?.id) return;
+
+  downloadingPdf.value = true;
+  try {
+    const blob = await adoptionService.downloadReturnPdf(returnItem.id);
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+
+    // Nombre del archivo
+    const animalNombre = returnItem.animal?.nombre || 'animal';
+    const fecha = returnItem.fecha_devolucion?.split('T')[0] || new Date().toISOString().split('T')[0];
+    link.download = `resumen_devolucion_${animalNombre}_${fecha}.pdf`;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    if (window.$toast) {
+      window.$toast.success('PDF descargado correctamente');
+    }
+  } catch (err) {
+    console.error('Error al descargar PDF:', err);
+    const message = err.response?.data?.message || 'Error al descargar el PDF';
+    if (window.$toast) {
+      window.$toast.error('Error', message);
+    } else {
+      alert(message);
+    }
+  } finally {
+    downloadingPdf.value = false;
+  }
 }
 
 function openReviewModal(returnItem) {

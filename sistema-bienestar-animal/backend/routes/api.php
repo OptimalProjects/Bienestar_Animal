@@ -168,6 +168,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/devoluciones/motivos', [AdopcionController::class, 'motivosDevolucion']);
             Route::get('/devoluciones/estadisticas', [AdopcionController::class, 'estadisticasDevoluciones']);
             Route::get('/devoluciones/{devolucionId}', [AdopcionController::class, 'obtenerDevolucion']);
+            Route::get('/devoluciones/{devolucionId}/pdf', [AdopcionController::class, 'descargarPdfDevolucion']);
+            Route::get('/devoluciones/{devolucionId}/pdf/ver', [AdopcionController::class, 'verPdfDevolucion']);
             Route::put('/devoluciones/{devolucionId}/revision', [AdopcionController::class, 'completarRevisionDevolucion']);
 
             Route::get('/', [AdopcionController::class, 'index']);
@@ -188,6 +190,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/', [VisitaSeguimientoController::class, 'index']);
             Route::post('/', [VisitaSeguimientoController::class, 'store']);
             Route::get('/{id}', [VisitaSeguimientoController::class, 'show']);
+            Route::get('/{id}/pdf', [VisitaSeguimientoController::class, 'descargarPdf']);
+            Route::get('/{id}/pdf/ver', [VisitaSeguimientoController::class, 'verPdf']);
             Route::post('/{id}/registrar', [VisitaSeguimientoController::class, 'registrar']);
             Route::put('/{id}/reprogramar', [VisitaSeguimientoController::class, 'reprogramar']);
             Route::delete('/{id}', [VisitaSeguimientoController::class, 'destroy']);

@@ -42,6 +42,12 @@ Schedule::job(new ProcessVaccineReminders)->dailyAt('09:00')
     ->withoutOverlapping()
     ->onOneServer();
 
+// Recordatorios de visitas de seguimiento (1 día antes + día de la visita) a las 8:30 AM
+Schedule::command('visitas:recordatorios --dias=1 --incluir-hoy')->dailyAt('08:30')
+    ->name('send-visitas-recordatorios')
+    ->withoutOverlapping()
+    ->onOneServer();
+
 // Generar reporte diario a las 2:00 AM
 Schedule::job(new GenerateDailyReport)->dailyAt('02:00')
     ->name('generate-daily-report')
