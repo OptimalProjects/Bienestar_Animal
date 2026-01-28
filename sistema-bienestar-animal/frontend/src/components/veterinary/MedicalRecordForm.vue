@@ -391,10 +391,13 @@ try {
       medicationInventory.value = (veterinaryStore.medicamentos || []).map(m => ({
         id: m.id,
         name: m.nombre || m.name,
-        stock: m.stock_actual || m.stock || 0,
+        stock: m.cantidad_actual || m.stock_actual || m.stock || 0, // Fix: leer cantidad_actual primero
         unit: m.unidad_medida || 'unidades'
       }));
       console.log('✅ Medicamentos cargados:', medicationInventory.value.length);
+      if (medicationInventory.value.length > 0) {
+        console.log('📦 Ejemplo de medicamento:', medicationInventory.value[0]); // Debug para verificar estructura
+      }
     } catch (medsError) {
       console.warn('⚠️ Error cargando medicamentos:', medsError);
     }
@@ -901,9 +904,11 @@ async function onSubmit() {
       estado_salud: form.prognosis || null,
       tratamientos: form.medications.length > 0 ? form.medications.map(med => ({
         medicamento_id: med.medicationId,
+        tipo_tratamiento: 'medicamento', // Fix: agregar tipo_tratamiento requerido
         descripcion: med.instructions || form.treatment,
         dosis: med.dose,
         frecuencia: med.frequency,
+        cantidad_total: med.totalQuantity || null, // Enviar cantidad calculada en frontend
         duracion_dias: med.duration ? parseInt(med.duration) : null
       })) : []
     };

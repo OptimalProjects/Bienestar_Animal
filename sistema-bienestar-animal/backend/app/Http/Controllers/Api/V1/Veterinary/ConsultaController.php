@@ -89,7 +89,7 @@ class ConsultaController extends BaseController
             'estado_salud' => 'nullable|string',
             'tratamientos' => 'nullable|array',
             'tratamientos.*.descripcion' => 'required_with:tratamientos|string',
-            'tratamientos.*.medicamento_id' => 'nullable|exists:medicamentos,id',
+            'tratamientos.*.medicamento_id' => 'nullable|exists:inventarios,id', // Fix: cambiar medicamentos → inventarios
             'tratamientos.*.dosis' => 'nullable|string',
             'tratamientos.*.frecuencia' => 'nullable|string',
             'tratamientos.*.duracion_dias' => 'nullable|integer|min:1',

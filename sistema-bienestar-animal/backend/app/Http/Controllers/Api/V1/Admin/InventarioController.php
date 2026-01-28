@@ -287,4 +287,43 @@ class InventarioController extends BaseController
             return $this->serverErrorResponse('Error al obtener estadisticas');
         }
     }
+
+    /**
+     * Obtener historial de movimientos de inventario.
+     * GET /api/v1/inventario/movimientos
+     */
+    public function movimientos(Request $request)
+    {
+        try {
+            $query = \App\Models\MovimientoInventario::with([
+                'medicamento',
+                'consulta.historialClinico.animal',
+                'consulta.veterinario'
+            ])
+            ->orderBy('created_at', 'desc');
+
+            // Filtros opcionales
+            if ($request->has('medicamento_id')) {
+                $query->where('medicamento_id', $request->medicamento_id);
+            }
+
+            if ($request->has('tipo')) {
+                $query->where('tipo_movimiento', $request->tipo);
+            }
+
+            if ($request->has('fecha_desde')) {
+                $query->whereDate('created_at', '>=', $request->fecha_desde);
+            }
+
+            if ($request->has('fecha_hasta')) {
+                $query->whereDate('created_at', '<=', $request->fecha_hasta);
+            }
+
+            $movimientos = $query->paginate($request->get('per_page', 50));
+
+            return $this->successResponse($movimientos);
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Error al obtener movimientos: ' . $e->getMessage());
+        }
+    }
 }

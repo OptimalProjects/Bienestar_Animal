@@ -27,6 +27,12 @@
       >
         📊 Inventario ({{ medications.length }})
       </button>
+      <button
+        @click="loadHistorial"
+        :class="['tab-btn', { active: activeTab === 'historial' }]"
+      >
+        📜 Historial de Uso
+      </button>
     </div>
 
     <!-- TAB 1: REGISTRO -->
@@ -247,6 +253,93 @@
       </div>
     </div>
 
+    <!-- TAB 4: HISTORIAL DE USO -->
+    <div v-show="activeTab === 'historial'" class="tab-content">
+      <div class="form-section">
+        <!-- Indicador de carga -->
+        <div v-if="loadingHistorial" class="loading-container">
+          <div class="spinner"></div>
+          <p>Cargando historial...</p>
+        </div>
+
+        <!-- Filtros de historial -->
+        <div v-else class="filters-bar">
+          <div class="filter-group">
+            <select v-model="historialFilters.medicamento" class="filter-select">
+              <option value="">Todos los medicamentos</option>
+              <option v-for="med in medications" :key="med.id" :value="med.id">
+                {{ med.name }}
+              </option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <select v-model="historialFilters.mes" class="filter-select">
+              <option value="">Todos los meses</option>
+              <option v-for="mes in mesesDisponibles" :key="mes.value" :value="mes.value">
+                {{ mes.text }}
+              </option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <select v-model="historialFilters.anio" class="filter-select">
+              <option value="">Todos los años</option>
+              <option v-for="anio in aniosDisponibles" :key="anio" :value="anio">
+                {{ anio }}
+              </option>
+            </select>
+          </div>
+
+          <button @click="resetHistorialFilters" class="govco-btn govco-btn-small govco-bg-concrete">
+            Limpiar filtros
+          </button>
+        </div>
+
+        <!-- Tabla de historial -->
+        <div v-if="!loadingHistorial" class="table-wrapper">
+          <div v-if="historialGrouped.length === 0" class="no-data">
+            <p>No hay registros de uso de medicamentos</p>
+          </div>
+
+          <div v-else>
+            <!-- Agrupado por mes/año -->
+            <div v-for="group in historialGrouped" :key="group.key" class="historial-group">
+              <h4 class="group-header">
+                📅 {{ group.mesNombre }} {{ group.anio }}
+                <span class="group-total">Total usado: {{ group.totalUsado }} unidades</span>
+              </h4>
+
+              <table class="govco-table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Medicamento</th>
+                    <th>Cantidad</th>
+                    <th>Motivo</th>
+                    <th>Animal</th>
+                    <th>Veterinario</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="registro in group.registros" :key="registro.id">
+                    <td>{{ formatDateTime(registro.fecha) }}</td>
+                    <td><strong>{{ registro.medicamento }}</strong></td>
+                    <td>
+                      <span class="cantidad-badge">{{ registro.cantidad }} {{ registro.unidad }}</span>
+                    </td>
+                    <td>{{ registro.motivo || 'Consulta veterinaria' }}</td>
+                    <td>{{ registro.animal || 'N/A' }}</td>
+                    <td>{{ registro.veterinario || 'N/A' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal de edición -->
     <div v-if="showEditModal" class="modal-overlay" @click="closeEditModal">
       <div class="modal-content" @click.stop>
@@ -302,6 +395,10 @@ const errorMessage = ref('');
 const showEditModal = ref(false);
 const editingMed = ref(null);
 
+// Nuevo: Estado para historial
+const loadingHistorial = ref(false);
+const historialMovimientos = ref([]);
+
 const entryForm = reactive({
   name: '',
   categoria: '',
@@ -317,6 +414,13 @@ const filters = reactive({
   search: '',
   categoria: '',
   stockStatus: ''
+});
+
+// Nuevos filtros para historial
+const historialFilters = reactive({
+  medicamento: '',
+  mes: '',
+  anio: ''
 });
 
 async function loadMedications() {
@@ -344,6 +448,131 @@ async function loadMedications() {
   } finally {
     loading.value = false;
   }
+}
+
+// Nueva función: Cargar historial de movimientos
+async function loadHistorial() {
+  activeTab.value = 'historial';
+  
+  if (historialMovimientos.value.length > 0) {
+    return; // Ya se cargó previamente
+  }
+
+  loadingHistorial.value = true;
+  try {
+    // Llamar al endpoint del historial de movimientos
+    // Endpoint: GET /api/v1/inventario/movimientos (necesitarás crear este endpoint)
+    const response = await inventoryService.getMovimientos();
+    
+    if (Array.isArray(response)) {
+      historialMovimientos.value = response.map(mov => ({
+        id: mov.id,
+        fecha: mov.created_at || mov.fecha,
+        medicamento: mov.medicamento?.nombre || mov.medicamento_nombre || 'N/A',
+        medicamentoId: mov.medicamento_id,
+        cantidad: Math.abs(mov.cantidad),
+        unidad: mov.medicamento?.unidad_medida || 'unidades',
+        motivo: mov.motivo || mov.descripcion,
+        tipo: mov.tipo_movimiento, // 'entrada' o 'salida'
+        animal: mov.consulta?.historial_clinico?.animal?.nombre || 'N/A',
+        veterinario: mov.consulta?.veterinario?.nombre_completo || 'N/A'
+      }));
+    }
+  } catch (error) {
+    console.error('❌ Error cargando historial:', error);
+    errorMessage.value = 'Error al cargar el historial de movimientos';
+  } finally {
+    loadingHistorial.value = false;
+  }
+}
+
+// Computed: Meses disponibles en el historial
+const mesesDisponibles = computed(() => {
+  const meses = [
+    { value: '01', text: 'Enero' },
+    { value: '02', text: 'Febrero' },
+    { value: '03', text: 'Marzo' },
+    { value: '04', text: 'Abril' },
+    { value: '05', text: 'Mayo' },
+    { value: '06', text: 'Junio' },
+    { value: '07', text: 'Julio' },
+    { value: '08', text: 'Agosto' },
+    { value: '09', text: 'Septiembre' },
+    { value: '10', text: 'Octubre' },
+    { value: '11', text: 'Noviembre' },
+    { value: '12', text: 'Diciembre' }
+  ];
+  return meses;
+});
+
+// Computed: Años disponibles en el historial
+const aniosDisponibles = computed(() => {
+  const anios = new Set();
+  historialMovimientos.value.forEach(mov => {
+    const fecha = new Date(mov.fecha);
+    anios.add(fecha.getFullYear());
+  });
+  return Array.from(anios).sort((a, b) => b - a); // Orden descendente
+});
+
+// Computed: Historial filtrado y agrupado por mes
+const historialGrouped = computed(() => {
+  let movimientos = historialMovimientos.value.filter(mov => mov.tipo === 'salida');
+
+  // Aplicar filtros
+  if (historialFilters.medicamento) {
+    movimientos = movimientos.filter(m => m.medicamentoId === historialFilters.medicamento);
+  }
+
+  if (historialFilters.mes) {
+    movimientos = movimientos.filter(m => {
+      const fecha = new Date(m.fecha);
+      const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+      return mes === historialFilters.mes;
+    });
+  }
+
+  if (historialFilters.anio) {
+    movimientos = movimientos.filter(m => {
+      const fecha = new Date(m.fecha);
+      return fecha.getFullYear() === parseInt(historialFilters.anio);
+    });
+  }
+
+  // Agrupar por mes y año
+  const grupos = {};
+  
+  movimientos.forEach(mov => {
+    const fecha = new Date(mov.fecha);
+    const mes = fecha.getMonth();
+    const anio = fecha.getFullYear();
+    const key = `${anio}-${String(mes + 1).padStart(2, '0')}`;
+
+    if (!grupos[key]) {
+      grupos[key] = {
+        key,
+        mes: mes + 1,
+        mesNombre: mesesDisponibles.value[mes].text,
+        anio,
+        registros: [],
+        totalUsado: 0
+      };
+    }
+
+    grupos[key].registros.push(mov);
+    grupos[key].totalUsado += mov.cantidad;
+  });
+
+  // Convertir a array y ordenar por fecha descendente
+  return Object.values(grupos).sort((a, b) => {
+    return b.key.localeCompare(a.key);
+  });
+});
+
+function resetHistorialFilters() {
+  historialFilters.medicamento = '';
+  historialFilters.mes = '';
+  historialFilters.anio = '';
 }
 
 function resetEntryForm() {
@@ -478,6 +707,12 @@ function formatDate(date) {
   if (!date || date === 'N/A') return 'N/A';
   const d = new Date(date);
   return d.toLocaleDateString('es-ES');
+}
+
+function formatDateTime(date) {
+  if (!date) return 'N/A';
+  const d = new Date(date);
+  return d.toLocaleDateString('es-ES') + ' ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 }
 
 function getMedicationClass(med) {
@@ -877,6 +1112,69 @@ code {
   box-shadow: 0 0 0 3px rgba(51, 102, 204, 0.1);
 }
 
+/* Estilos para la pestaña de historial */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+}
+
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3366cc;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.no-data {
+  padding: 3rem;
+  text-align: center;
+  color: #999;
+}
+
+.historial-group {
+  margin-bottom: 2rem;
+}
+
+.group-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 1rem 1.5rem;
+  margin: 0;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.1rem;
+}
+
+.group-total {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.cantidad-badge {
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
 @media (max-width: 768px) {
   .form-grid {
     grid-template-columns: 1fr;
@@ -904,6 +1202,12 @@ code {
   .govco-table th,
   .govco-table td {
     padding: 0.5rem;
+  }
+
+  .group-header {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
   }
 }
 </style>

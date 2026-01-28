@@ -28,14 +28,14 @@ import { ref, computed } from 'vue';
 import AnimalForm from '../components/animals/AnimalForm.vue';
 
 import AnimalSearch from '../components/animals/AnimalSearch.vue';
-import AnimalNeuturingForm from '../components/animals/AnimalNeuturingForm.vue';
+import certificateAttached from '../components/veterinary/AttachCertificateForm.vue';
 
 const currentTab = ref('register');
 
 const tabs = [
   { id: 'register', label: 'Registrar animal', icon: '➕', component: AnimalForm },
   { id: 'search', label: 'Búsqueda avanzada', icon: '🔍', component: AnimalSearch },
-  { id: 'neutering', label: 'Registrar esterilización', icon: '🐾', component: AnimalNeuturingForm }
+  { id: 'certificate', label: 'Adjuntar Certificados', icon: '🐾', component: certificateAttached }
 ];
 
 const currentComponent = computed(() => {

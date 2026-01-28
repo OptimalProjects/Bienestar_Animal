@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\V1\Admin\InventarioController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\Auth\SSOController;
 use App\Http\Controllers\Api\V1\Veterinary\CertificadoController;
+use App\Http\Controllers\Api\V1\Veterinary\CertificadoVeterinarioController;
 
 /*
 |--------------------------------------------------------------------------
@@ -96,7 +97,7 @@ Route::prefix('v1')->group(function () {
             Route::put('/{animalId}/historial-clinico', [HistorialClinicoController::class, 'update']);
             Route::post('/{animalId}/chip', [HistorialClinicoController::class, 'registrarChip']);
 
-            // Certificados de esterilización
+            // Certificados de esterilización (mantener por compatibilidad)
             Route::post('/{id}/certificado-esterilizacion', [AnimalController::class, 'adjuntarCertificadoEsterilizacion']);
             Route::get('/{id}/certificado-esterilizacion', [AnimalController::class, 'obtenerCertificadoEsterilizacion']);
             Route::get('/{id}/certificado-esterilizacion/descargar', [AnimalController::class, 'descargarCertificadoEsterilizacion']);
@@ -111,7 +112,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/veterinarios', [VeterinarioController::class, 'index']);
         
         Route::prefix('veterinarios')->group(function () {
-        Route::get('/', [VeterinarioController::class, 'index']);
+            Route::get('/', [VeterinarioController::class, 'index']);
         });
 
         Route::prefix('consultas')->group(function () {
@@ -144,16 +145,31 @@ Route::prefix('v1')->group(function () {
             Route::get('/hoy', [CirugiaController::class, 'hoy']);
             Route::get('/pendientes', [CirugiaController::class, 'pendientes']);
         });
+
         // ============================================
-    // RUTAS DE CERTIFICADOS
-    // ============================================
-    Route::prefix('certificados')->group(function () {
-        // Certificados en PDF (descarga)
-        Route::get('/vacunacion/{animalId}', [CertificadoController::class, 'vacunacion']);
-        Route::get('/esterilizacion/{animalId}', [CertificadoController::class, 'esterilizacion']);
-        Route::get('/salud/{animalId}', [CertificadoController::class, 'salud']);
-        Route::get('/carnet/{animalId}', [CertificadoController::class, 'carnet']);
-    });
+        // RUTAS DE CERTIFICADOS PDF (GENERACIÓN)
+        // ============================================
+        Route::prefix('certificados')->group(function () {
+            // Certificados en PDF (descarga)
+            Route::get('/vacunacion/{animalId}', [CertificadoController::class, 'vacunacion']);
+            Route::get('/esterilizacion/{animalId}', [CertificadoController::class, 'esterilizacion']);
+            Route::get('/salud/{animalId}', [CertificadoController::class, 'salud']);
+            Route::get('/carnet/{animalId}', [CertificadoController::class, 'carnet']);
+        });
+
+        // ============================================
+        // RUTAS DE CERTIFICADOS VETERINARIOS (ADJUNTAR ARCHIVOS)
+        // ============================================
+        Route::prefix('certificados-veterinarios')->group(function () {
+            // Adjuntar certificado (esterilización, cirugía, vacunación)
+            Route::post('/', [CertificadoVeterinarioController::class, 'adjuntar']);
+            
+            // Obtener todos los certificados de un animal
+            Route::get('/{animalId}', [CertificadoVeterinarioController::class, 'obtenerPorAnimal']);
+            
+            // Descargar certificado específico
+            Route::get('/descargar', [CertificadoVeterinarioController::class, 'descargar']);
+        });
 
         // ============================================
         // MODULO: ADOPCIONES
@@ -246,6 +262,7 @@ Route::prefix('v1')->group(function () {
             Route::delete('/{id}', [InventarioController::class, 'destroy']);
             Route::post('/{id}/entrada', [InventarioController::class, 'registrarEntrada']);
             Route::post('/{id}/salida', [InventarioController::class, 'registrarSalida']);
+            Route::get('/movimientos', [InventarioController::class, 'movimientos']);
         });
 
         // Reportes

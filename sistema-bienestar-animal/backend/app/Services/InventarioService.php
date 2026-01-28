@@ -4,11 +4,13 @@ namespace App\Services;
 
 use App\Models\Administracion\Inventario;
 use App\Models\Administracion\Insumo;
+use App\Models\Veterinaria\MovimientoInventario;
 use App\Models\Veterinaria\ProductoFarmaceutico;
 use App\Models\Veterinaria\Medicamento;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class InventarioService
 {
@@ -72,64 +74,160 @@ class InventarioService
     }
 
     /**
-     * Registrar entrada de inventario.
+     * Registrar entrada de inventario con historial.
+     * 
+     * @param string $tipo Tipo de inventario (inventario, insumo, medicamento)
+     * @param string $id ID del item
+     * @param float $cantidad Cantidad a ingresar
+     * @param array $data Datos adicionales (motivo, descripcion)
+     * @return void
+     * @throws \Exception
      */
     public function registrarEntrada(string $tipo, string $id, float $cantidad, array $data = []): void
     {
-        DB::transaction(function () use ($tipo, $id, $cantidad, $data) {
-            switch ($tipo) {
-                case 'inventario':
-                    $item = Inventario::findOrFail($id);
-                    $item->increment('cantidad_actual', $cantidad);
-                    break;
-                case 'insumo':
-                    $item = Insumo::findOrFail($id);
-                    $item->increment('stock_actual', $cantidad);
-                    break;
-                case 'medicamento':
-                    $item = Medicamento::findOrFail($id);
-                    $item->increment('stock_actual', $cantidad);
-                    break;
-                default:
-                    throw new \InvalidArgumentException("Tipo de inventario no valido: {$tipo}");
+        DB::beginTransaction();
+        
+        try {
+            $item = $this->obtenerItem($tipo, $id);
+            
+            if (!$item) {
+                throw new \Exception('Item no encontrado');
             }
-
-            // Aqui se podria registrar movimiento en tabla de historial
-        });
+            
+            // Actualizar cantidad
+            $campoStock = $this->getCampoStock($tipo);
+            $item->increment($campoStock, $cantidad);
+            
+            // Registrar movimiento en historial
+            MovimientoInventario::create([
+                'medicamento_id' => $tipo === 'inventario' || $tipo === 'insumo' || $tipo === 'medicamento' ? $id : null,
+                'tipo_movimiento' => 'entrada',
+                'cantidad' => $cantidad,
+                'motivo' => $data['motivo'] ?? 'Ingreso al inventario',
+                'descripcion' => $data['descripcion'] ?? null,
+                'usuario_id' => auth()->id(),
+            ]);
+            
+            Log::info('Entrada de inventario registrada', [
+                'tipo' => $tipo,
+                'item_id' => $id,
+                'cantidad' => $cantidad,
+            ]);
+            
+            DB::commit();
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            Log::error('Error al registrar entrada de inventario', [
+                'tipo' => $tipo,
+                'item_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+            
+            throw $e;
+        }
     }
 
     /**
-     * Registrar salida de inventario.
+     * Registrar salida de inventario con historial.
+     * 
+     * @param string $tipo Tipo de inventario (inventario, insumo, medicamento)
+     * @param string $id ID del item
+     * @param float $cantidad Cantidad a sacar
+     * @param array $data Datos adicionales (motivo, descripcion, consulta_id)
+     * @return void
+     * @throws \InvalidArgumentException
+     * @throws \Exception
      */
     public function registrarSalida(string $tipo, string $id, float $cantidad, array $data = []): void
     {
-        DB::transaction(function () use ($tipo, $id, $cantidad, $data) {
-            switch ($tipo) {
-                case 'inventario':
-                    $item = Inventario::findOrFail($id);
-                    if ($item->cantidad_actual < $cantidad) {
-                        throw new \InvalidArgumentException('Stock insuficiente');
-                    }
-                    $item->decrement('cantidad_actual', $cantidad);
-                    break;
-                case 'insumo':
-                    $item = Insumo::findOrFail($id);
-                    if ($item->stock_actual < $cantidad) {
-                        throw new \InvalidArgumentException('Stock insuficiente');
-                    }
-                    $item->decrement('stock_actual', $cantidad);
-                    break;
-                case 'medicamento':
-                    $item = Medicamento::findOrFail($id);
-                    if ($item->stock_actual < $cantidad) {
-                        throw new \InvalidArgumentException('Stock insuficiente');
-                    }
-                    $item->decrement('stock_actual', $cantidad);
-                    break;
-                default:
-                    throw new \InvalidArgumentException("Tipo de inventario no valido: {$tipo}");
+        DB::beginTransaction();
+        
+        try {
+            $item = $this->obtenerItem($tipo, $id);
+            
+            if (!$item) {
+                throw new \InvalidArgumentException('Item no encontrado');
             }
-        });
+            
+            $campoStock = $this->getCampoStock($tipo);
+            $stockActual = $item->$campoStock;
+            
+            // Verificar stock disponible
+            if ($stockActual < $cantidad) {
+                throw new \InvalidArgumentException(
+                    "Stock insuficiente. Disponible: {$stockActual}, Requerido: {$cantidad}"
+                );
+            }
+            
+            // Actualizar cantidad
+            $item->decrement($campoStock, $cantidad);
+            
+            // Registrar movimiento en historial
+            MovimientoInventario::create([
+                'medicamento_id' => $tipo === 'inventario' || $tipo === 'insumo' || $tipo === 'medicamento' ? $id : null,
+                'consulta_id' => $data['consulta_id'] ?? null,
+                'tipo_movimiento' => 'salida',
+                'cantidad' => $cantidad,
+                'motivo' => $data['motivo'] ?? 'Uso en consulta veterinaria',
+                'descripcion' => $data['descripcion'] ?? null,
+                'usuario_id' => auth()->id(),
+            ]);
+            
+            Log::info('Salida de inventario registrada', [
+                'tipo' => $tipo,
+                'item_id' => $id,
+                'cantidad' => $cantidad,
+                'consulta_id' => $data['consulta_id'] ?? null,
+            ]);
+            
+            DB::commit();
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            Log::error('Error al registrar salida de inventario', [
+                'tipo' => $tipo,
+                'item_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+            
+            throw $e;
+        }
+    }
+
+    /**
+     * Obtener item de inventario según tipo.
+     * 
+     * @param string $tipo
+     * @param string $id
+     * @return mixed
+     */
+    private function obtenerItem(string $tipo, string $id)
+    {
+        return match($tipo) {
+            'inventario' => Inventario::find($id),
+            'insumo' => Insumo::find($id),
+            'medicamento' => Medicamento::find($id),
+            default => null,
+        };
+    }
+
+    /**
+     * Obtener nombre del campo de stock según tipo.
+     * 
+     * @param string $tipo
+     * @return string
+     */
+    private function getCampoStock(string $tipo): string
+    {
+        return match($tipo) {
+            'inventario' => 'cantidad_actual',
+            'insumo' => 'stock_actual',
+            'medicamento' => 'stock_actual',
+            default => 'cantidad_actual',
+        };
     }
 
     /**
@@ -137,19 +235,15 @@ class InventarioService
      */
     public function verificarStock(string $tipo, string $id, float $cantidad): bool
     {
-        switch ($tipo) {
-            case 'inventario':
-                $item = Inventario::find($id);
-                return $item && $item->cantidad_actual >= $cantidad;
-            case 'insumo':
-                $item = Insumo::find($id);
-                return $item && $item->stock_actual >= $cantidad;
-            case 'medicamento':
-                $item = Medicamento::find($id);
-                return $item && $item->stock_actual >= $cantidad;
-            default:
-                return false;
+        $item = $this->obtenerItem($tipo, $id);
+        
+        if (!$item) {
+            return false;
         }
+        
+        $campoStock = $this->getCampoStock($tipo);
+        
+        return $item->$campoStock >= $cantidad;
     }
 
     /**

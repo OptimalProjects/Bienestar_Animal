@@ -96,6 +96,61 @@ export const inventoryService = {
   // ============================================
 
   /**
+   * Obtener historial de movimientos de inventario
+   * @param {Object} filters - Filtros opcionales
+   * @returns {Promise<Array>}
+   */
+  async getMovimientos(filters = {}) {
+    try {
+      const params = new URLSearchParams();
+      
+      if (filters.medicamento_id) {
+        params.append('medicamento_id', filters.medicamento_id);
+      }
+      
+      if (filters.tipo) {
+        params.append('tipo', filters.tipo); // 'entrada' o 'salida'
+      }
+      
+      if (filters.fecha_desde) {
+        params.append('fecha_desde', filters.fecha_desde);
+      }
+      
+      if (filters.fecha_hasta) {
+        params.append('fecha_hasta', filters.fecha_hasta);
+      }
+      
+      if (filters.per_page) {
+        params.append('per_page', filters.per_page);
+      }
+      
+      const queryString = params.toString();
+      const url = queryString 
+        ? `/inventario/movimientos?${queryString}`
+        : '/inventario/movimientos';
+      
+      const response = await api.get(url);
+      
+      // Manejar respuesta paginada o array directo
+      const data = response.data?.data;
+      
+      if (Array.isArray(data)) {
+        return data;
+      }
+      
+      // Si es paginado, extraer el array de datos
+      if (data && data.data && Array.isArray(data.data)) {
+        return data.data;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Error al obtener movimientos:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Registrar entrada de inventario
    */
   async registrarEntrada(id, data) {
@@ -211,4 +266,3 @@ export const inventoryService = {
 };
 
 export default inventoryService;
-

@@ -8,6 +8,8 @@ use App\Models\Veterinaria\Vacuna;
 use App\Models\Veterinaria\Cirugia;
 use App\Models\Veterinaria\Tratamiento;
 use App\Models\Animal\HistorialClinico;
+use App\Models\Administracion\Inventario;
+use App\Models\Veterinaria\MovimientoInventario;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -48,54 +50,186 @@ class VeterinariaService
     }
 
     /**
-     * Registrar nueva consulta.
+     * Registrar nueva consulta con tratamientos y registro de inventario.
      */
-    public function registrarConsulta(array $data): Consulta
+    public function registrarConsulta(array $datos): Consulta
     {
-        return DB::transaction(function () use ($data) {
+        DB::beginTransaction();
+        
+        try {
             // Verificar que el historial clinico exista
-            $historial = HistorialClinico::findOrFail($data['historial_clinico_id']);
+            $historial = HistorialClinico::findOrFail($datos['historial_clinico_id']);
 
             // Crear consulta
             $consulta = Consulta::create([
-                'historial_clinico_id' => $data['historial_clinico_id'],
-                'veterinario_id' => $data['veterinario_id'],
-                'fecha_consulta' => $data['fecha_consulta'] ?? now(),
-                'tipo_consulta' => $data['tipo_consulta'],
-                'motivo_consulta' => $data['motivo_consulta'],
-                'sintomas' => $data['sintomas'] ?? null,
-                'diagnostico' => $data['diagnostico'] ?? null,
-                'observaciones' => $data['observaciones'] ?? null,
-                'peso' => $data['peso'] ?? null,
-                'temperatura' => $data['temperatura'] ?? null,
-                'frecuencia_cardiaca' => $data['frecuencia_cardiaca'] ?? null,
-                'frecuencia_respiratoria' => $data['frecuencia_respiratoria'] ?? null,
+                'historial_clinico_id' => $datos['historial_clinico_id'],
+                'veterinario_id' => $datos['veterinario_id'],
+                'fecha_consulta' => $datos['fecha_consulta'] ?? now(),
+                'tipo_consulta' => $datos['tipo_consulta'],
+                'motivo_consulta' => $datos['motivo_consulta'],
+                'sintomas' => $datos['sintomas'] ?? null,
+                'diagnostico' => $datos['diagnostico'] ?? null,
+                'observaciones' => $datos['observaciones'] ?? null,
+                'peso' => $datos['peso'] ?? null,
+                'temperatura' => $datos['temperatura'] ?? null,
+                'frecuencia_cardiaca' => $datos['frecuencia_cardiaca'] ?? null,
+                'frecuencia_respiratoria' => $datos['frecuencia_respiratoria'] ?? null,
                 'estado' => 'realizada',
             ]);
 
             // Registrar tratamientos si existen
-            if (!empty($data['tratamientos'])) {
-                foreach ($data['tratamientos'] as $tratamiento) {
-                    Tratamiento::create([
+            if (!empty($datos['tratamientos']) && is_array($datos['tratamientos'])) {
+                foreach ($datos['tratamientos'] as $tratamiento) {
+                    // Guardar medicamento_id en variable temporal (no va en la tabla)
+                    $medicamentoId = $tratamiento['medicamento_id'] ?? null;
+                    
+                    // Construir descripción completa del tratamiento
+                    $descripcionCompleta = $tratamiento['descripcion'] ?? 'Tratamiento';
+                    
+                    // Si hay dosis y frecuencia, agregarlas a la descripción
+                    if (!empty($tratamiento['dosis'])) {
+                        $descripcionCompleta .= " - Dosis: " . $tratamiento['dosis'];
+                    }
+                    if (!empty($tratamiento['frecuencia'])) {
+                        $descripcionCompleta .= " - Frecuencia: " . $tratamiento['frecuencia'];
+                    }
+                    
+                    // Crear el tratamiento usando solo las columnas que existen en la tabla
+                    $nuevoTratamiento = Tratamiento::create([
+                        'historial_clinico_id' => $datos['historial_clinico_id'],
                         'consulta_id' => $consulta->id,
-                        'medicamento_id' => $tratamiento['medicamento_id'] ?? null,
-                        'descripcion' => $tratamiento['descripcion'],
-                        'dosis' => $tratamiento['dosis'] ?? null,
-                        'frecuencia' => $tratamiento['frecuencia'] ?? null,
-                        'duracion_dias' => $tratamiento['duracion_dias'] ?? null,
+                        'tipo_tratamiento' => $tratamiento['tipo_tratamiento'] ?? 'medicamento',
+                        'descripcion' => $descripcionCompleta,
+                        'objetivo' => $tratamiento['objetivo'] ?? null,
+                        'duracion_estimada' => $tratamiento['duracion_dias'] ?? $tratamiento['duracion_estimada'] ?? null,
                         'fecha_inicio' => $tratamiento['fecha_inicio'] ?? now(),
                         'estado' => 'activo',
+                        'efectividad' => $tratamiento['efectividad'] ?? 'sin_evaluar',
                     ]);
+                    
+                    // Si tiene medicamento, registrar salida de inventario
+                    if (!empty($medicamentoId)) {
+                        // Calcular cantidad total usada
+                        $cantidadTotal = $this->calcularCantidadMedicamento($tratamiento);
+                        
+                        if ($cantidadTotal > 0) {
+                            // Obtener el medicamento del inventario
+                            $medicamento = Inventario::find($medicamentoId);
+                            
+                            if (!$medicamento) {
+                                throw new \Exception('Medicamento no encontrado en inventario');
+                            }
+                            
+                            // Verificar stock disponible
+                            if ($medicamento->cantidad_actual < $cantidadTotal) {
+                                throw new \Exception(
+                                    "Stock insuficiente de {$medicamento->nombre}. " .
+                                    "Disponible: {$medicamento->cantidad_actual}, " .
+                                    "Requerido: {$cantidadTotal}"
+                                );
+                            }
+                            
+                            // Registrar salida de inventario
+                            $medicamento->cantidad_actual -= $cantidadTotal;
+                            $medicamento->save();
+                            
+                            // Crear registro de movimiento
+                            MovimientoInventario::create([
+                                'medicamento_id' => $medicamentoId,
+                                'consulta_id' => $consulta->id,
+                                'tipo_movimiento' => 'salida',
+                                'cantidad' => $cantidadTotal,
+                                'motivo' => 'Uso en consulta veterinaria',
+                                'descripcion' => $tratamiento['descripcion'] ?? "Tratamiento para consulta",
+                                'usuario_id' => auth()->id(),
+                            ]);
+
+                            Log::info('Movimiento de inventario registrado', [
+                                'medicamento_id' => $medicamentoId,
+                                'consulta_id' => $consulta->id,
+                                'cantidad' => $cantidadTotal,
+                            ]);
+                        }
+                    }
                 }
             }
 
             // Actualizar estado de salud del animal si se proporciona
-            if (!empty($data['estado_salud'])) {
-                $historial->update(['estado_general' => $data['estado_salud']]);
+            if (!empty($datos['estado_salud'])) {
+                $historial->update(['estado_general' => $datos['estado_salud']]);
             }
 
-            return $consulta->fresh(['tratamientos', 'historialClinico.animal']);
-        });
+            DB::commit();
+            
+            Log::info('Consulta registrada exitosamente', [
+                'consulta_id' => $consulta->id,
+                'historial_clinico_id' => $consulta->historial_clinico_id,
+            ]);
+
+            return $consulta->fresh([
+                'tratamientos',
+                'historialClinico.animal',
+                'veterinario'
+            ]);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            Log::error('Error al registrar consulta', [
+                'error' => $e->getMessage(),
+                'datos' => $datos,
+            ]);
+            
+            throw $e;
+        }
+    }
+
+    /**
+     * Calcular la cantidad total de medicamento necesaria para el tratamiento.
+     * 
+     * @param array $tratamiento
+     * @return float
+     */
+    private function calcularCantidadMedicamento(array $tratamiento): float
+    {
+        // Si viene cantidad directa
+        if (isset($tratamiento['cantidad_total'])) {
+            return (float) $tratamiento['cantidad_total'];
+        }
+        
+        // Si no, intentar calcular desde dosis, frecuencia y duración
+        $dosis = $tratamiento['dosis'] ?? '';
+        $duracionDias = (int) ($tratamiento['duracion_dias'] ?? 0);
+        $frecuencia = $tratamiento['frecuencia'] ?? '';
+        
+        // Extraer número de la dosis (ej: "5mg" -> 5, "1 tableta" -> 1)
+        preg_match('/(\d+\.?\d*)/', $dosis, $matches);
+        $dosisNumero = isset($matches[1]) ? (float) $matches[1] : 1;
+        
+        // Extraer veces por día de la frecuencia
+        $vecesPorDia = 1;
+        
+        // Casos comunes:
+        // "cada 6 horas" -> 4 veces/día
+        // "cada 8 horas" -> 3 veces/día
+        // "cada 12 horas" -> 2 veces/día
+        // "cada 24 horas" o "1 vez al día" -> 1 vez/día
+        // "2 veces al día" -> 2 veces/día
+        // "3 veces al día" -> 3 veces/día
+        
+        if (preg_match('/(\d+)\s*(veces?|vez)/i', $frecuencia, $matches)) {
+            $vecesPorDia = (int) $matches[1];
+        } elseif (preg_match('/cada\s*(\d+)\s*horas?/i', $frecuencia, $matches)) {
+            $horas = (int) $matches[1];
+            if ($horas > 0) {
+                $vecesPorDia = (int) (24 / $horas);
+            }
+        }
+        
+        // Cantidad total = dosis × veces_por_día × días
+        $cantidadTotal = $dosisNumero * $vecesPorDia * $duracionDias;
+        
+        return $cantidadTotal > 0 ? $cantidadTotal : 1;
     }
 
     /**
@@ -164,10 +298,6 @@ class VeterinariaService
 
     /**
      * Registrar una cirugía.
-     *
-     * @param array $data
-     * @return Cirugia
-     * @throws \Exception
      */
     public function registrarCirugia(array $data): Cirugia
     {
@@ -230,98 +360,6 @@ class VeterinariaService
             ]);
 
             Log::info('Cirugía registrada exitosamente', [
-                'cirugia_id' => $cirugia->id,
-                'tipo' => $cirugia->tipo_cirugia,
-                'animal_id' => $historialClinico->animal_id
-            ]);
-
-            DB::commit();
-
-            return $cirugia;
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            
-            Log::error('Error al registrar cirugía', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'data' => $data
-            ]);
-
-            throw new \Exception('Error al registrar la cirugía: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Obtener cirugías de un animal.
-     *
-     * @param string $animalId
-     * @return Collection
-     */
-    public function getCirugiasAnimal(string $animalId): Collection
-    {
-        try {
-            $historial = HistorialClinico::where('animal_id', $animalId)->firstOrFail();
-
-            $cirugias = Cirugia::where('historial_clinico_id', $historial->id)
-                ->with([
-                    'cirujano.usuario',
-                    'anestesiologo.usuario',
-                    'historialClinico'
-                ])
-                ->orderBy('fecha_programada', 'desc')
-                ->get();
-
-            return $cirugias;
-
-        } catch (\Exception $e) {
-            Log::error('Error al obtener cirugías del animal', [
-                'animal_id' => $animalId,
-                'error' => $e->getMessage()
-            ]);
-
-            throw new \Exception('Error al obtener cirugías del animal');
-        }
-    }
-
-    /**
-     * Actualizar cirugía.
-     *
-     * @param string $cirugiaId
-     * @param array $data
-     * @return Cirugia
-     * @throws \Exception
-     */
-    public function actualizarCirugia(string $cirugiaId, array $data): Cirugia
-    {
-        DB::beginTransaction();
-
-        try {
-            $cirugia = Cirugia::findOrFail($cirugiaId);
-
-            // Validar que la cirugía puede ser editada
-            if (!$cirugia->puedeSerEditada() && !isset($data['resultado'])) {
-                throw new \Exception('Esta cirugía no puede ser editada porque ya fue realizada');
-            }
-
-            // Si se está cambiando a estado "realizada"
-            if (isset($data['estado']) && $data['estado'] === 'realizada') {
-                if (empty($data['fecha_realizacion']) && empty($cirugia->fecha_realizacion)) {
-                    $data['fecha_realizacion'] = now();
-                }
-            }
-
-            // Actualizar la cirugía
-            $cirugia->update($data);
-
-            // Cargar relaciones
-            $cirugia->load([
-                'cirujano.usuario',
-                'anestesiologo.usuario',
-                'historialClinico.animal'
-            ]);
-
-            Log::info('Cirugía actualizada exitosamente', [
                 'cirugia_id' => $cirugia->id
             ]);
 
@@ -332,61 +370,16 @@ class VeterinariaService
         } catch (\Exception $e) {
             DB::rollBack();
             
-            Log::error('Error al actualizar cirugía', [
-                'cirugia_id' => $cirugiaId,
+            Log::error('Error al registrar cirugía', [
                 'error' => $e->getMessage()
             ]);
 
-            throw new \Exception('Error al actualizar la cirugía: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Cancelar cirugía.
-     *
-     * @param string $cirugiaId
-     * @param string|null $motivo
-     * @return Cirugia
-     * @throws \Exception
-     */
-    public function cancelarCirugia(string $cirugiaId, ?string $motivo = null): Cirugia
-    {
-        DB::beginTransaction();
-
-        try {
-            $cirugia = Cirugia::findOrFail($cirugiaId);
-
-            if ($cirugia->estado === 'realizada') {
-                throw new \Exception('No se puede cancelar una cirugía ya realizada');
-            }
-
-            $cirugia->cancelar($motivo);
-
-            Log::info('Cirugía cancelada', [
-                'cirugia_id' => $cirugia->id,
-                'motivo' => $motivo
-            ]);
-
-            DB::commit();
-
-            return $cirugia;
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            
-            Log::error('Error al cancelar cirugía', [
-                'cirugia_id' => $cirugiaId,
-                'error' => $e->getMessage()
-            ]);
-
-            throw new \Exception('Error al cancelar la cirugía: ' . $e->getMessage());
+            throw new \Exception('Error al registrar la cirugía: ' . $e->getMessage());
         }
     }
 
     /**
      * Obtener cirugías programadas para hoy.
-     *
-     * @return Collection
      */
     public function getCirugiasHoy(): Collection
     {
@@ -403,8 +396,6 @@ class VeterinariaService
 
     /**
      * Obtener cirugías pendientes.
-     *
-     * @return Collection
      */
     public function getCirugiasPendientes(): Collection
     {
@@ -416,56 +407,6 @@ class VeterinariaService
         ->pendientes()
         ->orderBy('fecha_programada')
         ->get();
-    }
-
-    /**
-     * Obtener cirugías que requieren seguimiento.
-     *
-     * @return Collection
-     */
-    public function getCirugiasRequierenSeguimiento(): Collection
-    {
-        return Cirugia::with([
-            'cirujano.usuario',
-            'anestesiologo.usuario',
-            'historialClinico.animal'
-        ])
-        ->requierenSeguimiento()
-        ->orderBy('fecha_realizacion', 'desc')
-        ->get();
-    }
-
-    /**
-     * Estadísticas de cirugías.
-     *
-     * @param string|null $fechaInicio
-     * @param string|null $fechaFin
-     * @return array
-     */
-    public function getEstadisticasCirugias($fechaInicio = null, $fechaFin = null): array
-    {
-        $fechaInicio = $fechaInicio ?? now()->startOfMonth();
-        $fechaFin = $fechaFin ?? now()->endOfMonth();
-
-        $total = Cirugia::entreFechas($fechaInicio, $fechaFin)->count();
-        $realizadas = Cirugia::realizadas()->entreFechas($fechaInicio, $fechaFin)->count();
-        $programadas = Cirugia::programadas()->entreFechas($fechaInicio, $fechaFin)->count();
-        $exitosas = Cirugia::exitosas()->entreFechas($fechaInicio, $fechaFin)->count();
-        $conComplicaciones = Cirugia::conComplicaciones()->entreFechas($fechaInicio, $fechaFin)->count();
-
-        $tasaExito = $realizadas > 0 ? round(($exitosas / $realizadas) * 100, 1) : 0;
-
-        return [
-            'total' => $total,
-            'realizadas' => $realizadas,
-            'programadas' => $programadas,
-            'exitosas' => $exitosas,
-            'con_complicaciones' => $conComplicaciones,
-            'tasa_exito' => $tasaExito,
-            'duracion_promedio' => Cirugia::realizadas()
-                ->entreFechas($fechaInicio, $fechaFin)
-                ->avg('duracion'),
-        ];
     }
 
     // ============================================
@@ -508,19 +449,17 @@ class VeterinariaService
                 'cirugias' => fn($q) => $q->orderBy('fecha_programada', 'desc'),
                 'cirugias.cirujano.usuario',
                 'cirugias.anestesiologo.usuario',
-                // 'examenes' => fn($q) => $q->orderBy('fecha_examen', 'desc'), // TODO: Agregar relación cuando esté disponible
             ])
             ->firstOrFail();
 
         return [
-            'id' => $historial->id, // ID del historial clínico (necesario para crear consultas)
+            'id' => $historial->id,
             'animal' => $historial->animal,
             'animal_id' => $historial->animal_id,
             'estado_general' => $historial->estado_general,
             'consultas' => $historial->consultas,
             'vacunas' => $historial->vacunas,
             'cirugias' => $historial->cirugias,
-            // 'examenes' => $historial->examenes, // TODO: Agregar cuando esté disponible
             'resumen' => [
                 'total_consultas' => $historial->consultas->count(),
                 'total_vacunas' => $historial->vacunas->count(),
