@@ -10,10 +10,14 @@ use App\Models\Veterinaria\Tratamiento;
 use App\Models\Animal\HistorialClinico;
 use App\Models\Administracion\Inventario;
 use App\Models\Veterinaria\MovimientoInventario;
+use App\Models\Animal\Animal;
+use App\Models\Adopcion\Adoptante;
+use App\Mail\CirugiaMail;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class VeterinariaService
 {
@@ -345,13 +349,6 @@ class VeterinariaService
             // Crear la cirugía
             $cirugia = Cirugia::create($cirugiaData);
 
-            // Actualizar estado del animal si se especifica
-            if (!empty($data['estado_animal'])) {
-                if ($historialClinico && $historialClinico->animal) {
-                    $historialClinico->animal->update(['estado' => $data['estado_animal']]);
-                }
-            }
-
             // Cargar relaciones
             $cirugia->load([
                 'cirujano.usuario',
@@ -360,6 +357,101 @@ class VeterinariaService
             ]);
 
             Log::info('Cirugía registrada exitosamente', [
+                'cirugia_id' => $cirugia->id,
+                'tipo' => $cirugia->tipo_cirugia,
+                'animal_id' => $historialClinico->animal_id
+            ]);
+
+            DB::commit();
+
+            // Notificar al adoptante si el animal tiene uno
+            $this->notificarAdoptanteCirugia($cirugia, $historialClinico->animal);
+
+            return $cirugia;
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            Log::error('Error al registrar cirugía', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'data' => $data
+            ]);
+
+            throw new \Exception('Error al registrar la cirugía: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Obtener cirugías de un animal.
+     *
+     * @param string $animalId
+     * @return Collection
+     */
+    public function getCirugiasAnimal(string $animalId): Collection
+    {
+        try {
+            $historial = HistorialClinico::where('animal_id', $animalId)->firstOrFail();
+
+            $cirugias = Cirugia::where('historial_clinico_id', $historial->id)
+                ->with([
+                    'cirujano.usuario',
+                    'anestesiologo.usuario',
+                    'historialClinico'
+                ])
+                ->orderBy('fecha_programada', 'desc')
+                ->get();
+
+            return $cirugias;
+
+        } catch (\Exception $e) {
+            Log::error('Error al obtener cirugías del animal', [
+                'animal_id' => $animalId,
+                'error' => $e->getMessage()
+            ]);
+
+            throw new \Exception('Error al obtener cirugías del animal');
+        }
+    }
+
+    /**
+     * Actualizar cirugía.
+     *
+     * @param string $cirugiaId
+     * @param array $data
+     * @return Cirugia
+     * @throws \Exception
+     */
+    public function actualizarCirugia(string $cirugiaId, array $data): Cirugia
+    {
+        DB::beginTransaction();
+
+        try {
+            $cirugia = Cirugia::findOrFail($cirugiaId);
+
+            // Validar que la cirugía puede ser editada
+            if (!$cirugia->puedeSerEditada() && !isset($data['resultado'])) {
+                throw new \Exception('Esta cirugía no puede ser editada porque ya fue realizada');
+            }
+
+            // Si se está cambiando a estado "realizada"
+            if (isset($data['estado']) && $data['estado'] === 'realizada') {
+                if (empty($data['fecha_realizacion']) && empty($cirugia->fecha_realizacion)) {
+                    $data['fecha_realizacion'] = now();
+                }
+            }
+
+            // Actualizar la cirugía
+            $cirugia->update($data);
+
+            // Cargar relaciones
+            $cirugia->load([
+                'cirujano.usuario',
+                'anestesiologo.usuario',
+                'historialClinico.animal'
+            ]);
+
+            Log::info('Cirugía actualizada exitosamente', [
                 'cirugia_id' => $cirugia->id
             ]);
 
@@ -469,5 +561,68 @@ class VeterinariaService
                 'ultima_cirugia' => $historial->cirugias->first()?->fecha_programada,
             ],
         ];
+    }
+
+    // ============================================
+    // NOTIFICACIONES
+    // ============================================
+
+    /**
+     * Notificar al adoptante sobre una cirugía realizada a su mascota.
+     *
+     * @param Cirugia $cirugia
+     * @param Animal $animal
+     */
+    protected function notificarAdoptanteCirugia(Cirugia $cirugia, Animal $animal): void
+    {
+        try {
+            // Obtener la adopción activa/completada del animal
+            $adopcion = $animal->adopciones()
+                ->whereIn('estado', ['aprobada', 'completada'])
+                ->orderByDesc('fecha_entrega')
+                ->orderByDesc('fecha_aprobacion')
+                ->first();
+
+            if (!$adopcion || !$adopcion->adoptante) {
+                Log::info('No se encontró adoptante para notificar sobre cirugía', [
+                    'cirugia_id' => $cirugia->id,
+                    'animal_id' => $animal->id,
+                    'animal_nombre' => $animal->nombre,
+                ]);
+                return;
+            }
+
+            $adoptante = $adopcion->adoptante;
+
+            // Validar email del adoptante
+            if (!$adoptante->email || !filter_var($adoptante->email, FILTER_VALIDATE_EMAIL)) {
+                Log::warning('Adoptante sin email válido para notificación de cirugía', [
+                    'cirugia_id' => $cirugia->id,
+                    'adoptante_id' => $adoptante->id,
+                ]);
+                return;
+            }
+
+            // Enviar correo
+            Mail::to($adoptante->email)->send(new CirugiaMail($cirugia, $adoptante, $animal));
+
+            Log::info('Notificación de cirugía enviada al adoptante', [
+                'cirugia_id' => $cirugia->id,
+                'tipo_cirugia' => $cirugia->tipo_cirugia,
+                'animal_id' => $animal->id,
+                'animal_nombre' => $animal->nombre,
+                'adoptante_id' => $adoptante->id,
+                'adoptante_email' => $adoptante->email,
+                'adoptante_nombre' => $adoptante->nombre_completo ?? $adoptante->nombres,
+            ]);
+
+        } catch (\Exception $e) {
+            // No interrumpir el flujo si falla el envío de correo
+            Log::error('Error enviando notificación de cirugía al adoptante', [
+                'cirugia_id' => $cirugia->id,
+                'animal_id' => $animal->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

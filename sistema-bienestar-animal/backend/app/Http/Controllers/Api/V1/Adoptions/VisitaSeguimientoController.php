@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\BaseController;
 use App\Services\AdopcionService;
 use App\Services\ContratoAdopcionService;
 use App\Services\DenunciaService;
+use App\Services\VisitaSeguimientoService;
 use App\Models\Adopcion\VisitaDomiciliaria;
 use App\Mail\SolicitudAdopcionMail;
 use Illuminate\Http\Request;
@@ -19,7 +20,8 @@ class VisitaSeguimientoController extends BaseController
     public function __construct(
         protected AdopcionService $adopcionService,
         protected ContratoAdopcionService $contratoService,
-        protected DenunciaService $denunciaService
+        protected DenunciaService $denunciaService,
+        protected VisitaSeguimientoService $visitaSeguimientoService
     ) {}
 
     /**
@@ -375,6 +377,11 @@ class VisitaSeguimientoController extends BaseController
 
             $responseData = $visita->fresh(['adopcion.animal', 'adopcion.adoptante', 'visitador', 'denuncia']);
 
+            // Enviar notificación de visita realizada al adoptante (solo para seguimientos post-adopción)
+            if ($visita->tipo_visita !== 'pre_adopcion' && !$rescateIniciado) {
+                $this->visitaSeguimientoService->notificarVisitaRealizada($responseData);
+            }
+
             // Añadir información adicional si se aprobó la adopción
             if ($adopcionAprobada) {
                 $responseData = [
@@ -484,6 +491,61 @@ class VisitaSeguimientoController extends BaseController
             return $this->successResponse($visitas);
         } catch (\Exception $e) {
             return $this->serverErrorResponse('Error al obtener visitas de la adopción');
+        }
+    }
+
+    /**
+     * Descargar PDF de resumen de visita.
+     * GET /api/v1/visitas-seguimiento/{id}/pdf
+     */
+    public function descargarPdf(string $id)
+    {
+        try {
+            $visita = VisitaDomiciliaria::with(['adopcion.animal', 'adopcion.adoptante', 'visitador'])
+                ->findOrFail($id);
+
+            // Solo permitir descargar PDF de visitas realizadas
+            if (!$visita->fecha_realizada) {
+                return $this->errorResponse('Solo se puede descargar el PDF de visitas realizadas', null, 400);
+            }
+
+            $pdf = $this->visitaSeguimientoService->obtenerPdfResumen($visita);
+
+            $nombreAnimal = $visita->adopcion->animal->nombre ?? $visita->adopcion->animal->codigo_unico;
+            $fileName = 'resumen_visita_' . preg_replace('/[^a-zA-Z0-9]/', '_', $nombreAnimal) . '_' . $visita->fecha_realizada->format('Y-m-d') . '.pdf';
+
+            return $pdf->download($fileName);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->notFoundResponse('Visita no encontrada');
+        } catch (\Exception $e) {
+            Log::error('Error al generar PDF de visita: ' . $e->getMessage());
+            return $this->serverErrorResponse('Error al generar PDF de visita');
+        }
+    }
+
+    /**
+     * Ver PDF de resumen de visita en el navegador.
+     * GET /api/v1/visitas-seguimiento/{id}/pdf/ver
+     */
+    public function verPdf(string $id)
+    {
+        try {
+            $visita = VisitaDomiciliaria::with(['adopcion.animal', 'adopcion.adoptante', 'visitador'])
+                ->findOrFail($id);
+
+            // Solo permitir ver PDF de visitas realizadas
+            if (!$visita->fecha_realizada) {
+                return $this->errorResponse('Solo se puede ver el PDF de visitas realizadas', null, 400);
+            }
+
+            $pdf = $this->visitaSeguimientoService->obtenerPdfResumen($visita);
+
+            return $pdf->stream('resumen_visita.pdf');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->notFoundResponse('Visita no encontrada');
+        } catch (\Exception $e) {
+            Log::error('Error al generar PDF de visita: ' . $e->getMessage());
+            return $this->serverErrorResponse('Error al generar PDF de visita');
         }
     }
 

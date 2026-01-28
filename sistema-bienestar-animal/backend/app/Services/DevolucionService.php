@@ -7,10 +7,14 @@ use App\Models\Adopcion\Devolucion;
 use App\Models\Animal\Animal;
 use App\Models\Animal\HistorialClinico;
 use App\Models\Veterinaria\Consulta;
+use App\Mail\DevolucionRegistradaMail;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 
 class DevolucionService
 {
@@ -314,5 +318,189 @@ class DevolucionService
     public function getMotivos(): array
     {
         return Devolucion::MOTIVOS;
+    }
+
+    /**
+     * Generar PDF de resumen de devolución.
+     */
+    public function generarPdfResumen(Devolucion $devolucion): array
+    {
+        $devolucion->load(['adopcion.adoptante', 'animal', 'registradoPor', 'consultaRevision']);
+
+        $data = $this->prepararDatosPdf($devolucion);
+
+        $pdf = Pdf::loadView('pdf.resumen-devolucion', $data);
+        $pdf->setPaper('letter', 'portrait');
+
+        // Nombre del archivo
+        $fileName = 'devolucion_' . $devolucion->id . '_' . now()->format('Ymd_His') . '.pdf';
+        $path = 'devoluciones/pdf/' . $fileName;
+
+        // Guardar en storage
+        Storage::disk('public')->put($path, $pdf->output());
+
+        Log::info('PDF de resumen de devolución generado', [
+            'devolucion_id' => $devolucion->id,
+            'path' => $path,
+        ]);
+
+        return [
+            'path' => $path,
+            'url' => Storage::disk('public')->url($path),
+            'filename' => $fileName,
+        ];
+    }
+
+    /**
+     * Obtener PDF de devolución sin guardar (para preview/descarga directa).
+     */
+    public function obtenerPdfResumen(Devolucion $devolucion)
+    {
+        $devolucion->load(['adopcion.adoptante', 'animal', 'registradoPor', 'consultaRevision']);
+        $data = $this->prepararDatosPdf($devolucion);
+
+        $pdf = Pdf::loadView('pdf.resumen-devolucion', $data);
+        $pdf->setPaper('letter', 'portrait');
+
+        return $pdf;
+    }
+
+    /**
+     * Preparar datos para la plantilla del PDF.
+     */
+    protected function prepararDatosPdf(Devolucion $devolucion): array
+    {
+        $adopcion = $devolucion->adopcion;
+        $adoptante = $adopcion->adoptante;
+        $animal = $devolucion->animal;
+        $funcionario = $devolucion->registradoPor;
+
+        // Calcular tiempo en adopción
+        $fechaAdopcion = $adopcion->fecha_entrega ?? $adopcion->created_at;
+        $fechaDevolucion = $devolucion->fecha_devolucion ?? now();
+        $tiempoEnAdopcion = $this->calcularTiempoEnAdopcion($fechaAdopcion, $fechaDevolucion);
+
+        return [
+            'devolucion' => $devolucion,
+            'adopcion' => $adopcion,
+
+            // Datos del adoptante
+            'adoptante' => [
+                'nombre_completo' => $adoptante->nombre_completo ?? $adoptante->nombres . ' ' . $adoptante->apellidos,
+                'documento' => $adoptante->numero_documento,
+                'direccion' => $adoptante->direccion,
+                'telefono' => $adoptante->telefono,
+                'email' => $adoptante->email,
+            ],
+
+            // Datos del animal
+            'animal' => [
+                'codigo' => $animal->codigo_unico,
+                'nombre' => $animal->nombre ?? 'Sin nombre asignado',
+                'especie' => ucfirst($animal->especie),
+                'raza' => $animal->raza ?? 'Mestizo',
+                'sexo' => $animal->sexo === 'macho' ? 'Macho' : 'Hembra',
+                'color' => $animal->color ?? 'No especificado',
+            ],
+
+            // Datos de la devolución
+            'motivo_texto' => $devolucion->motivo_texto,
+            'descripcion_motivo' => $devolucion->descripcion_motivo,
+            'estado_animal_texto' => $devolucion->estado_animal_texto,
+            'estado_proceso_texto' => $devolucion->estado_proceso_texto,
+            'fecha_devolucion' => $devolucion->fecha_devolucion?->format('d/m/Y'),
+            'observaciones_estado' => $devolucion->observaciones_estado,
+
+            // Revisión veterinaria
+            'fecha_revision_programada' => $devolucion->fecha_revision_programada?->format('d/m/Y'),
+            'revision_completada' => $devolucion->revision_veterinaria_completada,
+
+            // Historial
+            'fecha_adopcion' => $fechaAdopcion?->format('d/m/Y'),
+            'tiempo_en_adopcion' => $tiempoEnAdopcion,
+            'codigo_adopcion' => $adopcion->codigo ?? 'ADP-' . $adopcion->id,
+
+            // Funcionario
+            'funcionario' => $funcionario ? [
+                'nombre' => $funcionario->nombre_completo ?? $funcionario->nombres . ' ' . $funcionario->apellidos,
+                'cargo' => 'Funcionario de Bienestar Animal',
+            ] : null,
+
+            // Metadata
+            'fecha_generacion' => now()->format('d/m/Y H:i'),
+            'numero_reporte' => $this->generarNumeroReporte($devolucion),
+        ];
+    }
+
+    /**
+     * Generar número de reporte único.
+     */
+    protected function generarNumeroReporte(Devolucion $devolucion): string
+    {
+        $year = now()->format('Y');
+        $sequence = Devolucion::whereYear('created_at', $year)->count();
+        return sprintf('DEV-%s-%04d', $year, $sequence);
+    }
+
+    /**
+     * Calcular tiempo en adopción de forma legible.
+     */
+    protected function calcularTiempoEnAdopcion($fechaInicio, $fechaFin): string
+    {
+        if (!$fechaInicio || !$fechaFin) {
+            return 'No determinado';
+        }
+
+        $diff = $fechaInicio->diff($fechaFin);
+
+        $partes = [];
+        if ($diff->y > 0) {
+            $partes[] = $diff->y . ' año' . ($diff->y > 1 ? 's' : '');
+        }
+        if ($diff->m > 0) {
+            $partes[] = $diff->m . ' mes' . ($diff->m > 1 ? 'es' : '');
+        }
+        if ($diff->d > 0 && $diff->y == 0) {
+            $partes[] = $diff->d . ' día' . ($diff->d > 1 ? 's' : '');
+        }
+
+        return empty($partes) ? 'Menos de un día' : implode(', ', $partes);
+    }
+
+    /**
+     * Notificar al adoptante sobre la devolución registrada.
+     */
+    public function notificarDevolucionRegistrada(Devolucion $devolucion): void
+    {
+        try {
+            $devolucion->load(['adopcion.adoptante', 'animal', 'registradoPor']);
+            $emailAdoptante = $devolucion->adopcion->adoptante->email ?? null;
+
+            if (!$emailAdoptante || !filter_var($emailAdoptante, FILTER_VALIDATE_EMAIL)) {
+                Log::warning('No se pudo enviar notificación de devolución: email inválido', [
+                    'devolucion_id' => $devolucion->id,
+                    'email' => $emailAdoptante,
+                ]);
+                return;
+            }
+
+            // Generar PDF del resumen
+            $pdfInfo = $this->generarPdfResumen($devolucion);
+
+            // Enviar correo con PDF adjunto
+            Mail::to($emailAdoptante)->send(new DevolucionRegistradaMail($devolucion, $pdfInfo['path']));
+
+            Log::info('Notificación de devolución enviada', [
+                'devolucion_id' => $devolucion->id,
+                'adopcion_id' => $devolucion->adopcion_id,
+                'destinatario' => $emailAdoptante,
+                'pdf_path' => $pdfInfo['path'],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error enviando notificación de devolución', [
+                'devolucion_id' => $devolucion->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

@@ -229,9 +229,24 @@
                     <strong>{{ $animal->nombre ?? 'tu mascota' }}</strong>. Estas visitas están programadas para:
                 </p>
                 <ul style="margin-top: 10px; color: #555;">
-                    <li><strong>1 mes:</strong> Primera visita de seguimiento</li>
-                    <li><strong>3 meses:</strong> Segunda visita de seguimiento</li>
-                    <li><strong>6 meses:</strong> Tercera visita de seguimiento</li>
+                    @if(isset($visitas) && $visitas->count() > 0)
+                        @foreach($visitas as $visita)
+                            @php
+                                $tipoTexto = match($visita->tipo_visita) {
+                                    'seguimiento_1mes' => 'Seguimiento 1 Mes',
+                                    'seguimiento_3meses' => 'Seguimiento 3 Meses',
+                                    'seguimiento_6meses' => 'Seguimiento 6 Meses',
+                                    'extraordinaria' => 'Visita Extraordinaria',
+                                    default => ucfirst(str_replace('_', ' ', $visita->tipo_visita)),
+                                };
+                            @endphp
+                            <li><strong>{{ $visita->fecha_programada->format('d/m/Y') }}:</strong> {{ $tipoTexto }}</li>
+                        @endforeach
+                    @else
+                        <li><strong>1 mes:</strong> Primera visita de seguimiento</li>
+                        <li><strong>3 meses:</strong> Segunda visita de seguimiento</li>
+                        <li><strong>6 meses:</strong> Tercera visita de seguimiento</li>
+                    @endif
                 </ul>
             </div>
 

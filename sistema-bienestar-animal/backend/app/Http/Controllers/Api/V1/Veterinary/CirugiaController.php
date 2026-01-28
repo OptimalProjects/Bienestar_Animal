@@ -169,38 +169,17 @@ class CirugiaController extends BaseController
             return $this->validationErrorResponse($validator->errors());
         }
 
-        DB::beginTransaction();
-
         try {
             $data = $request->all();
-            
-            // Si el estado es "realizada" y no se especificó fecha_realizacion,
-            // usar la fecha actual
-            if ($data['estado'] === 'realizada' && empty($data['fecha_realizacion'])) {
-                $data['fecha_realizacion'] = now();
-            }
-            
+
             // Asegurar que seguimiento_requerido sea booleano
             $data['seguimiento_requerido'] = $request->boolean('seguimiento_requerido', false);
-            
-            // Crear la cirugía
-            $cirugia = Cirugia::create($data);
-            
-            // ⚠️ ELIMINADO: Ya NO marcamos automáticamente como esterilizado
-            // El animal solo se marcará como esterilizado cuando se adjunte el certificado
-            
-            // Cargar relaciones
-            $cirugia->load([
-                'cirujano.usuario',
-                'anestesiologo.usuario',
-                'historialClinico.animal'
-            ]);
-            
-            DB::commit();
-            
+
+            // Usar el servicio para registrar la cirugía (incluye notificación al adoptante)
+            $cirugia = $this->veterinariaService->registrarCirugia($data);
+
             return $this->createdResponse($cirugia, 'Cirugía registrada exitosamente');
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Error al registrar cirugía: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
             ]);

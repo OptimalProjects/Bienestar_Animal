@@ -43,12 +43,20 @@ class ContratoFirmadoMail extends Mailable
     {
         $animalNombre = $this->adopcion->animal->nombre ?? $this->adopcion->animal->codigo_unico;
 
+        // Cargar las visitas programadas
+        $this->adopcion->load('visitasDomiciliarias');
+        $visitas = $this->adopcion->visitasDomiciliarias()
+            ->whereNull('fecha_realizada')
+            ->orderBy('fecha_programada')
+            ->get();
+
         $mail = $this->subject("Contrato de Adopción Firmado - {$animalNombre}")
             ->view('emails.contrato-firmado')
             ->with([
                 'adopcion' => $this->adopcion,
                 'animal' => $this->adopcion->animal,
                 'adoptante' => $this->adopcion->adoptante,
+                'visitas' => $visitas,
             ]);
 
         // Adjuntar el contrato firmado si existe

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Adopcion\Adopcion;
 use App\Models\Adopcion\VisitaDomiciliaria;
 use App\Mail\ContratoFirmadoMail;
+use App\Mail\VisitasProgramadasMail;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -195,7 +196,44 @@ class ContratoAdopcionService
             'cantidad' => count($seguimientos),
         ]);
 
+        // Notificar al adoptante las fechas de las visitas programadas
+        $this->notificarVisitasProgramadas($adopcion, collect($seguimientos));
+
         return $seguimientos;
+    }
+
+    /**
+     * Notificar al adoptante las visitas de seguimiento programadas.
+     */
+    protected function notificarVisitasProgramadas(Adopcion $adopcion, $visitas): void
+    {
+        try {
+            $adopcion->load(['animal', 'adoptante']);
+            $emailAdoptante = $adopcion->adoptante->email ?? null;
+
+            if (!$emailAdoptante || !filter_var($emailAdoptante, FILTER_VALIDATE_EMAIL)) {
+                Log::warning('No se pudo enviar notificación de visitas programadas: email inválido', [
+                    'adopcion_id' => $adopcion->id,
+                    'email' => $emailAdoptante,
+                ]);
+                return;
+            }
+
+            Mail::to($emailAdoptante)->send(new VisitasProgramadasMail($adopcion, $visitas));
+
+            Log::info('Notificación de visitas programadas enviada al adoptante', [
+                'adopcion_id' => $adopcion->id,
+                'animal' => $adopcion->animal->nombre ?? $adopcion->animal->codigo_unico,
+                'destinatario' => $emailAdoptante,
+                'cantidad_visitas' => $visitas->count(),
+            ]);
+        } catch (\Exception $e) {
+            // No interrumpir el flujo si falla el envío
+            Log::error('Error enviando notificación de visitas programadas', [
+                'adopcion_id' => $adopcion->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

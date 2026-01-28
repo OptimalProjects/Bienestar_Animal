@@ -413,6 +413,17 @@ export async function fetchVisitsByAdoption(adopcionId) {
   return response.data;
 }
 
+/**
+ * Descargar PDF de resumen de visita de seguimiento
+ * GET /api/v1/visitas-seguimiento/{id}/pdf
+ */
+export async function downloadFollowUpVisitPdf(visitId) {
+  const response = await api.get(`/visitas-seguimiento/${visitId}/pdf`, {
+    responseType: 'blob'
+  });
+  return response.data;
+}
+
 // ============================================
 // FUNCIONES LEGACY (para compatibilidad)
 // ============================================
@@ -531,6 +542,17 @@ export async function completeReturnReview(returnId, payload) {
 }
 
 /**
+ * Descargar PDF de resumen de devolución
+ * GET /api/v1/adopciones/devoluciones/{id}/pdf
+ */
+export async function downloadReturnPdf(returnId) {
+  const response = await api.get(`/adopciones/devoluciones/${returnId}/pdf`, {
+    responseType: 'blob'
+  });
+  return response.data;
+}
+
+/**
  * @deprecated Use fetchAnimal from animalService
  */
 export async function fetchAnimalAdoptionHistory(animalId) {
@@ -581,6 +603,7 @@ export default {
   deleteFollowUpVisit,
   rescheduleFollowUpVisit,
   fetchVisitsByAdoption,
+  downloadFollowUpVisitPdf,
 
   // Returns (Devoluciones)
   fetchReturnReasons,
@@ -589,6 +612,7 @@ export default {
   fetchReturn,
   registerReturn,
   completeReturnReview,
+  downloadReturnPdf,
 
   // Legacy functions (deprecated)
   fetchApprovedRequestsWithoutContract,
