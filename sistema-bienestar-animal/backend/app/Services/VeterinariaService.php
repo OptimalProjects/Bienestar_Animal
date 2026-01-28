@@ -8,10 +8,14 @@ use App\Models\Veterinaria\Vacuna;
 use App\Models\Veterinaria\Cirugia;
 use App\Models\Veterinaria\Tratamiento;
 use App\Models\Animal\HistorialClinico;
+use App\Models\Animal\Animal;
+use App\Models\Adopcion\Adoptante;
+use App\Mail\CirugiaMail;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class VeterinariaService
 {
@@ -215,13 +219,6 @@ class VeterinariaService
             // Crear la cirugía
             $cirugia = Cirugia::create($cirugiaData);
 
-            // Actualizar estado del animal si se especifica
-            if (!empty($data['estado_animal'])) {
-                if ($historialClinico && $historialClinico->animal) {
-                    $historialClinico->animal->update(['estado' => $data['estado_animal']]);
-                }
-            }
-
             // Cargar relaciones
             $cirugia->load([
                 'cirujano.usuario',
@@ -236,6 +233,9 @@ class VeterinariaService
             ]);
 
             DB::commit();
+
+            // Notificar al adoptante si el animal tiene uno
+            $this->notificarAdoptanteCirugia($cirugia, $historialClinico->animal);
 
             return $cirugia;
 
@@ -530,5 +530,68 @@ class VeterinariaService
                 'ultima_cirugia' => $historial->cirugias->first()?->fecha_programada,
             ],
         ];
+    }
+
+    // ============================================
+    // NOTIFICACIONES
+    // ============================================
+
+    /**
+     * Notificar al adoptante sobre una cirugía realizada a su mascota.
+     *
+     * @param Cirugia $cirugia
+     * @param Animal $animal
+     */
+    protected function notificarAdoptanteCirugia(Cirugia $cirugia, Animal $animal): void
+    {
+        try {
+            // Obtener la adopción activa/completada del animal
+            $adopcion = $animal->adopciones()
+                ->whereIn('estado', ['aprobada', 'completada'])
+                ->orderByDesc('fecha_entrega')
+                ->orderByDesc('fecha_aprobacion')
+                ->first();
+
+            if (!$adopcion || !$adopcion->adoptante) {
+                Log::info('No se encontró adoptante para notificar sobre cirugía', [
+                    'cirugia_id' => $cirugia->id,
+                    'animal_id' => $animal->id,
+                    'animal_nombre' => $animal->nombre,
+                ]);
+                return;
+            }
+
+            $adoptante = $adopcion->adoptante;
+
+            // Validar email del adoptante
+            if (!$adoptante->email || !filter_var($adoptante->email, FILTER_VALIDATE_EMAIL)) {
+                Log::warning('Adoptante sin email válido para notificación de cirugía', [
+                    'cirugia_id' => $cirugia->id,
+                    'adoptante_id' => $adoptante->id,
+                ]);
+                return;
+            }
+
+            // Enviar correo
+            Mail::to($adoptante->email)->send(new CirugiaMail($cirugia, $adoptante, $animal));
+
+            Log::info('Notificación de cirugía enviada al adoptante', [
+                'cirugia_id' => $cirugia->id,
+                'tipo_cirugia' => $cirugia->tipo_cirugia,
+                'animal_id' => $animal->id,
+                'animal_nombre' => $animal->nombre,
+                'adoptante_id' => $adoptante->id,
+                'adoptante_email' => $adoptante->email,
+                'adoptante_nombre' => $adoptante->nombre_completo ?? $adoptante->nombres,
+            ]);
+
+        } catch (\Exception $e) {
+            // No interrumpir el flujo si falla el envío de correo
+            Log::error('Error enviando notificación de cirugía al adoptante', [
+                'cirugia_id' => $cirugia->id,
+                'animal_id' => $animal->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

@@ -5,9 +5,13 @@ namespace App\Services;
 use App\Repositories\Contracts\AnimalRepositoryInterface;
 use App\Models\Animal\Animal;
 use App\Models\Animal\HistorialClinico;
+use App\Models\Veterinaria\Veterinario;
+use App\Mail\AnimalRegistradoMail;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
@@ -97,7 +101,12 @@ class AnimalService
                 'estado_general' => $data['estado_salud'] ?? 'pendiente_evaluacion',
             ]);
 
-            return $animal->fresh(['historialClinico']);
+            $animal = $animal->fresh(['historialClinico']);
+
+            // Notificar a los veterinarios sobre el nuevo animal
+            $this->notificarVeterinariosNuevoAnimal($animal);
+
+            return $animal;
         });
     }
 
@@ -240,5 +249,56 @@ class AnimalService
             $paths[] = $foto->store('animales/galeria', 'public');
         }
         return $paths;
+    }
+
+    /**
+     * Notificar a todos los veterinarios activos sobre un nuevo animal registrado.
+     */
+    protected function notificarVeterinariosNuevoAnimal(Animal $animal): void
+    {
+        try {
+            // Obtener todos los veterinarios activos
+            $veterinarios = Veterinario::where('activo', true)->get();
+
+            if ($veterinarios->isEmpty()) {
+                Log::warning('No hay veterinarios activos para notificar sobre nuevo animal', [
+                    'animal_id' => $animal->id,
+                    'codigo' => $animal->codigo_unico,
+                ]);
+                return;
+            }
+
+            $notificados = 0;
+
+            foreach ($veterinarios as $veterinario) {
+                if ($veterinario->email && filter_var($veterinario->email, FILTER_VALIDATE_EMAIL)) {
+                    try {
+                        Mail::to($veterinario->email)->send(new AnimalRegistradoMail($animal, $veterinario));
+                        $notificados++;
+                    } catch (\Exception $e) {
+                        Log::error('Error enviando correo a veterinario', [
+                            'veterinario_id' => $veterinario->id,
+                            'veterinario_email' => $veterinario->email,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+            }
+
+            Log::info('Notificación de nuevo animal enviada a veterinarios', [
+                'animal_id' => $animal->id,
+                'codigo' => $animal->codigo_unico,
+                'nombre' => $animal->nombre,
+                'especie' => $animal->especie,
+                'veterinarios_notificados' => $notificados,
+                'total_veterinarios' => $veterinarios->count(),
+            ]);
+        } catch (\Exception $e) {
+            // No interrumpir el flujo si falla el envío de correos
+            Log::error('Error en notificación de nuevo animal a veterinarios', [
+                'animal_id' => $animal->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
