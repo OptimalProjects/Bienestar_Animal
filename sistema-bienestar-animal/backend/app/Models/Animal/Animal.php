@@ -246,6 +246,20 @@ class Animal extends Model
 
     public function scopePorEspecie($query, string $especie)
     {
+        $especie = strtolower($especie);
+        $especieSinonimos = [
+            'canino' => ['canino', 'perro'],
+            'perro' => ['canino', 'perro'],
+            'felino' => ['felino', 'gato'],
+            'gato' => ['felino', 'gato'],
+            'equino' => ['equino', 'caballo'],
+            'caballo' => ['equino', 'caballo'],
+        ];
+
+        if (isset($especieSinonimos[$especie])) {
+            return $query->whereIn('especie', $especieSinonimos[$especie]);
+        }
+
         return $query->where('especie', $especie);
     }
 

@@ -125,7 +125,21 @@ class AnimalRepository extends BaseRepository implements AnimalRepositoryInterfa
         $query = $this->model->query();
 
         if (!empty($filters['especie'])) {
-            $query->where('especie', $filters['especie']);
+            $especie = strtolower($filters['especie']);
+            $especieSinonimos = [
+                'canino' => ['canino', 'perro'],
+                'perro' => ['canino', 'perro'],
+                'felino' => ['felino', 'gato'],
+                'gato' => ['felino', 'gato'],
+                'equino' => ['equino', 'caballo'],
+                'caballo' => ['equino', 'caballo'],
+            ];
+
+            if (isset($especieSinonimos[$especie])) {
+                $query->whereIn('especie', $especieSinonimos[$especie]);
+            } else {
+                $query->where('especie', $especie);
+            }
         }
 
         if (!empty($filters['estado'])) {

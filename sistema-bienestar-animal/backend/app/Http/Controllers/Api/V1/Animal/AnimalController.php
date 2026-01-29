@@ -23,9 +23,23 @@ class AnimalController extends BaseController
     try {
         $query = Animal::with(['historialClinico', 'creador:id,nombres,apellidos']);
 
-        // Filtro por especie
+        // Filtro por especie (maneja sinónimos: canino/perro, felino/gato)
         if ($request->has('especie') && $request->especie) {
-            $query->where('especie', $request->especie);
+            $especie = strtolower($request->especie);
+            $especieSinonimos = [
+                'canino' => ['canino', 'perro'],
+                'perro' => ['canino', 'perro'],
+                'felino' => ['felino', 'gato'],
+                'gato' => ['felino', 'gato'],
+                'equino' => ['equino', 'caballo'],
+                'caballo' => ['equino', 'caballo'],
+            ];
+
+            if (isset($especieSinonimos[$especie])) {
+                $query->whereIn('especie', $especieSinonimos[$especie]);
+            } else {
+                $query->where('especie', $especie);
+            }
         }
 
         // Filtro por estado
@@ -305,9 +319,23 @@ class AnimalController extends BaseController
                 ->saludable()
                 ->with(['historialClinico']);
 
-            // Filtro por especie
+            // Filtro por especie (maneja sinónimos: canino/perro, felino/gato)
             if ($request->has('especie') && $request->especie) {
-                $query->where('especie', $request->especie);
+                $especie = strtolower($request->especie);
+                $especieSinonimos = [
+                    'canino' => ['canino', 'perro'],
+                    'perro' => ['canino', 'perro'],
+                    'felino' => ['felino', 'gato'],
+                    'gato' => ['felino', 'gato'],
+                    'equino' => ['equino', 'caballo'],
+                    'caballo' => ['equino', 'caballo'],
+                ];
+
+                if (isset($especieSinonimos[$especie])) {
+                    $query->whereIn('especie', $especieSinonimos[$especie]);
+                } else {
+                    $query->where('especie', $especie);
+                }
             }
 
             // Filtro por tamaño

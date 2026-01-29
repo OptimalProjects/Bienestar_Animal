@@ -35,8 +35,19 @@ class AdopcionesExport implements FromCollection, WithHeadings, WithMapping, Wit
         }
 
         if (!empty($this->filters['especie'])) {
-            $query->whereHas('animal', function ($q) {
-                $q->where('especie', $this->filters['especie']);
+            $especie = strtolower($this->filters['especie']);
+            $especieSinonimos = [
+                'canino' => ['canino', 'perro'],
+                'perro' => ['canino', 'perro'],
+                'felino' => ['felino', 'gato'],
+                'gato' => ['felino', 'gato'],
+                'equino' => ['equino', 'caballo'],
+                'caballo' => ['equino', 'caballo'],
+            ];
+
+            $especiesArray = $especieSinonimos[$especie] ?? [$especie];
+            $query->whereHas('animal', function ($q) use ($especiesArray) {
+                $q->whereIn('especie', $especiesArray);
             });
         }
 

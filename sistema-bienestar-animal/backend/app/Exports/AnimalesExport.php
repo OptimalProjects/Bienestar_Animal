@@ -29,9 +29,23 @@ class AnimalesExport implements FromCollection, WithHeadings, WithMapping, WithS
         $query = Animal::with(['historialClinico'])
             ->whereBetween('created_at', [$this->fechaInicio, $this->fechaFin]);
 
-        // Aplicar filtros adicionales
+        // Aplicar filtros adicionales (maneja sinónimos: canino/perro, felino/gato)
         if (!empty($this->filters['especie'])) {
-            $query->where('especie', $this->filters['especie']);
+            $especie = strtolower($this->filters['especie']);
+            $especieSinonimos = [
+                'canino' => ['canino', 'perro'],
+                'perro' => ['canino', 'perro'],
+                'felino' => ['felino', 'gato'],
+                'gato' => ['felino', 'gato'],
+                'equino' => ['equino', 'caballo'],
+                'caballo' => ['equino', 'caballo'],
+            ];
+
+            if (isset($especieSinonimos[$especie])) {
+                $query->whereIn('especie', $especieSinonimos[$especie]);
+            } else {
+                $query->where('especie', $especie);
+            }
         }
 
         if (!empty($this->filters['estado'])) {

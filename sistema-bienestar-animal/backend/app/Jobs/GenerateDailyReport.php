@@ -61,9 +61,9 @@ class GenerateDailyReport implements ShouldQueue
             'en_adopcion' => Animal::where('estado', 'en_adopcion')->count(),
             'adoptados' => Animal::where('estado', 'adoptado')->count(),
             'por_especie' => [
-                'perros' => Animal::where('especie', 'perro')->count(),
-                'gatos' => Animal::where('especie', 'gato')->count(),
-                'otros' => Animal::whereNotIn('especie', ['perro', 'gato'])->count(),
+                'perros' => Animal::whereIn('especie', ['perro', 'canino'])->count(),
+                'gatos' => Animal::whereIn('especie', ['gato', 'felino'])->count(),
+                'otros' => Animal::whereNotIn('especie', ['perro', 'canino', 'gato', 'felino'])->count(),
             ],
         ];
     }

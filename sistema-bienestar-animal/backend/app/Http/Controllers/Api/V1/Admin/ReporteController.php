@@ -251,7 +251,22 @@ class ReporteController extends BaseController
             case 'animales':
                 $query = \App\Models\Animal\Animal::query()
                     ->whereBetween('created_at', [$fechaInicio, $fechaFin]);
-                if (!empty($filters['especie'])) $query->where('especie', $filters['especie']);
+                if (!empty($filters['especie'])) {
+                    $especie = strtolower($filters['especie']);
+                    $especieSinonimos = [
+                        'canino' => ['canino', 'perro'],
+                        'perro' => ['canino', 'perro'],
+                        'felino' => ['felino', 'gato'],
+                        'gato' => ['felino', 'gato'],
+                        'equino' => ['equino', 'caballo'],
+                        'caballo' => ['equino', 'caballo'],
+                    ];
+                    if (isset($especieSinonimos[$especie])) {
+                        $query->whereIn('especie', $especieSinonimos[$especie]);
+                    } else {
+                        $query->where('especie', $especie);
+                    }
+                }
                 if (!empty($filters['estado'])) $query->where('estado', $filters['estado']);
                 return $query->orderBy('created_at', 'desc')->paginate($perPage);
 
