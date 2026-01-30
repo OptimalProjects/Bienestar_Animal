@@ -107,9 +107,30 @@ class ContratoAdopcionService
         ]);
 
         // Cambiar estado del animal a adoptado
-        $adopcion->animal->update([
-            'estado' => 'adoptado',
-        ]);
+        // Usar el modelo Animal directamente para evitar problemas de caché
+        $animal = \App\Models\Animal\Animal::find($adopcion->animal_id);
+
+        if ($animal) {
+            $estadoAnterior = $animal->estado;
+
+            $animal->estado = 'adoptado';
+            $animal->save();
+
+            Log::info('Estado del animal actualizado a adoptado', [
+                'animal_id' => $animal->id,
+                'animal_codigo' => $animal->codigo_unico,
+                'estado_anterior' => $estadoAnterior,
+                'estado_nuevo' => 'adoptado',
+            ]);
+
+            // Refrescar la relación en la adopción
+            $adopcion->setRelation('animal', $animal);
+        } else {
+            Log::error('No se pudo actualizar estado del animal: animal no encontrado', [
+                'adopcion_id' => $adopcion->id,
+                'animal_id' => $adopcion->animal_id,
+            ]);
+        }
 
         // Regenerar contrato con la firma incluida
         $this->regenerarContratoConFirma($adopcion, $firmaPath ?? null);

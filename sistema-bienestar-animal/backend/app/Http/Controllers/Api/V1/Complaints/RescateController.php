@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Api\V1\Complaints;
 use App\Http\Controllers\Api\V1\BaseController;
 use App\Services\DenunciaService;
 use App\Models\Denuncia\Rescate;
+use App\Mail\ResultadoOperativoMail;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class RescateController extends BaseController
 {
@@ -123,6 +126,9 @@ class RescateController extends BaseController
         try {
             $rescate = Rescate::findOrFail($id);
 
+            // Verificar si se está registrando el resultado (fecha_ejecucion)
+            $registrandoResultado = $request->has('fecha_ejecucion') && !$rescate->fecha_ejecucion;
+
             $rescate->update($request->only([
                 'exitoso',
                 'fecha_ejecucion',
@@ -133,8 +139,16 @@ class RescateController extends BaseController
                 'destino',
             ]));
 
+            // Refrescar el rescate con sus relaciones
+            $rescate = $rescate->fresh(['denuncia.denunciante', 'animalRescatado']);
+
+            // Notificar al denunciante si se registró el resultado
+            if ($registrandoResultado) {
+                $this->notificarResultadoOperativo($rescate);
+            }
+
             return $this->successResponse(
-                $rescate->fresh(['denuncia', 'animalRescatado']),
+                $rescate,
                 'Resultado del rescate registrado exitosamente'
             );
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -198,6 +212,67 @@ class RescateController extends BaseController
             return $this->successResponse($stats);
         } catch (\Exception $e) {
             return $this->serverErrorResponse('Error al obtener estadisticas');
+        }
+    }
+
+    /**
+     * Notificar al denunciante sobre el resultado del operativo.
+     * Solo se notifica si la denuncia NO es anónima y el denunciante tiene email.
+     */
+    protected function notificarResultadoOperativo(Rescate $rescate): void
+    {
+        try {
+            $denuncia = $rescate->denuncia;
+
+            // Verificar que la denuncia existe
+            if (!$denuncia) {
+                Log::warning('No se puede notificar resultado: denuncia no encontrada', [
+                    'rescate_id' => $rescate->id
+                ]);
+                return;
+            }
+
+            // Verificar que NO sea anónima
+            if ($denuncia->es_anonima) {
+                Log::info('No se notifica resultado: denuncia anónima', [
+                    'rescate_id' => $rescate->id,
+                    'denuncia_id' => $denuncia->id,
+                    'ticket' => $denuncia->numero_ticket
+                ]);
+                return;
+            }
+
+            // Obtener el denunciante
+            $denunciante = $denuncia->denunciante;
+
+            // Verificar que el denunciante existe y tiene email
+            if (!$denunciante || !$denunciante->email) {
+                Log::warning('No se puede notificar resultado: denunciante sin email', [
+                    'rescate_id' => $rescate->id,
+                    'denuncia_id' => $denuncia->id,
+                    'ticket' => $denuncia->numero_ticket,
+                    'tiene_denunciante' => $denunciante ? 'si' : 'no'
+                ]);
+                return;
+            }
+
+            // Enviar el correo
+            Mail::to($denunciante->email)->send(new ResultadoOperativoMail($rescate));
+
+            Log::info('Notificación de resultado de operativo enviada', [
+                'rescate_id' => $rescate->id,
+                'denuncia_id' => $denuncia->id,
+                'ticket' => $denuncia->numero_ticket,
+                'denunciante_email' => $denunciante->email,
+                'exitoso' => $rescate->exitoso
+            ]);
+
+        } catch (\Exception $e) {
+            // No lanzar excepción para no interrumpir el flujo principal
+            Log::error('Error al notificar resultado de operativo: ' . $e->getMessage(), [
+                'rescate_id' => $rescate->id,
+                'exception' => $e->getMessage()
+            ]);
         }
     }
 }

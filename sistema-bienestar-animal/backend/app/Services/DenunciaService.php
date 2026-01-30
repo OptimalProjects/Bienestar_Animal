@@ -9,6 +9,7 @@ use App\Models\Denuncia\Rescate;
 use App\Models\User\Usuario;
 use App\Models\User\Rol;
 use App\Mail\DenunciaMail;
+use App\Mail\CambioEstadoDenunciaMail;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -68,6 +69,13 @@ class DenunciaService
     public function registrar(array $data): array
     {
         return DB::transaction(function () use ($data) {
+            // Log de datos recibidos para debug
+            Log::info('Datos recibidos para nueva denuncia', [
+                'es_anonima' => $data['es_anonima'] ?? $data['anonima'] ?? false,
+                'tiene_denunciante' => !empty($data['denunciante']),
+                'denunciante_data' => $data['denunciante'] ?? null,
+            ]);
+
             // Crear o vincular denunciante (puede ser anonimo)
             $denuncianteId = null;
             $esAnonima = $data['es_anonima'] ?? $data['anonima'] ?? false;
@@ -75,6 +83,12 @@ class DenunciaService
             if (!empty($data['denunciante']) && !$esAnonima) {
                 $denunciante = $this->obtenerOCrearDenunciante($data['denunciante']);
                 $denuncianteId = $denunciante->id;
+                Log::info('Denunciante vinculado a denuncia', [
+                    'denunciante_id' => $denuncianteId,
+                    'nombres' => $denunciante->nombres,
+                    'apellidos' => $denunciante->apellidos,
+                    'email' => $denunciante->email
+                ]);
             }
 
             // Generar ticket de consulta
@@ -121,6 +135,12 @@ class DenunciaService
                     'operador_id' => $operadorId,
                     'operador' => $denuncia->responsable->nombre_completo ?? 'N/A',
                 ]);
+
+                // Notificar al denunciante que su denuncia fue asignada
+                $this->notificarDenunciante($denuncia, 'asignada', 'recibida');
+            } else {
+                // Si no hay operador, notificar que fue recibida
+                $this->notificarDenunciante($denuncia, 'recibida', null);
             }
 
             return [
@@ -138,6 +158,9 @@ class DenunciaService
     {
         $denuncia = Denuncia::findOrFail($id);
 
+        // Guardar estado anterior para notificación
+        $estadoAnterior = $denuncia->estado;
+
         $denuncia->update([
             'responsable_id' => $funcionarioId,
             'estado' => 'asignada',
@@ -149,6 +172,9 @@ class DenunciaService
         // Enviar notificación por correo al rescatista asignado
         $this->enviarNotificacionDenuncia($denuncia, 'nueva');
 
+        // Notificar al denunciante que se ha asignado un equipo
+        $this->notificarDenunciante($denuncia, 'asignada', $estadoAnterior);
+
         return $denuncia;
     }
 
@@ -158,6 +184,9 @@ class DenunciaService
     public function actualizarEstado(string $id, string $estado, ?array $data = []): Denuncia
     {
         $denuncia = Denuncia::findOrFail($id);
+
+        // Guardar estado anterior para notificación
+        $estadoAnterior = $denuncia->estado;
 
         $updateData = ['estado' => $estado];
 
@@ -175,10 +204,13 @@ class DenunciaService
 
         $denuncia = $denuncia->fresh(['responsable', 'denunciante', 'rescates']);
 
-        // Enviar notificación según el nuevo estado
+        // Enviar notificación al funcionario según el nuevo estado
         if (in_array($estado, ['resuelta', 'cerrada'])) {
             $this->enviarNotificacionDenuncia($denuncia, $estado);
         }
+
+        // Notificar al denunciante sobre el cambio de estado
+        $this->notificarDenunciante($denuncia, $estado, $estadoAnterior);
 
         return $denuncia;
     }
@@ -190,6 +222,9 @@ class DenunciaService
     {
         return DB::transaction(function () use ($denunciaId, $data) {
             $denuncia = Denuncia::findOrFail($denunciaId);
+
+            // Guardar estado anterior para notificación
+            $estadoAnterior = $denuncia->estado;
 
             $rescate = Rescate::create([
                 'denuncia_id' => $denunciaId,
@@ -206,8 +241,11 @@ class DenunciaService
 
             $denuncia = $denuncia->fresh(['responsable', 'denunciante', 'rescates']);
 
-            // Enviar notificación de que está en atención
+            // Enviar notificación al funcionario de que está en atención
             $this->enviarNotificacionDenuncia($denuncia, 'en_atencion');
+
+            // Notificar al denunciante que hay un operativo en curso
+            $this->notificarDenunciante($denuncia, 'en_atencion', $estadoAnterior);
 
             return $rescate->fresh(['denuncia', 'animalRescatado']);
         });
@@ -259,33 +297,69 @@ class DenunciaService
 
     /**
      * Obtener o crear denunciante.
+     * Si ya existe, actualiza los datos con la información proporcionada.
      */
     protected function obtenerOCrearDenunciante(array $data): Denunciante
     {
+        $denunciante = null;
+
         // Buscar por email si se proporciona (para evitar duplicados)
         if (!empty($data['email'])) {
             $denunciante = Denunciante::where('email', $data['email'])->first();
-            if ($denunciante) {
-                return $denunciante;
-            }
         }
 
-        // Buscar por telefono si se proporciona
-        if (!empty($data['telefono'])) {
+        // Si no se encontró por email, buscar por teléfono
+        if (!$denunciante && !empty($data['telefono'])) {
             $denunciante = Denunciante::where('telefono', $data['telefono'])->first();
-            if ($denunciante) {
-                return $denunciante;
+        }
+
+        // Si se encontró un denunciante existente, actualizar sus datos
+        if ($denunciante) {
+            $updateData = [];
+
+            // Solo actualizar campos que tienen valor
+            if (!empty($data['nombres'])) {
+                $updateData['nombres'] = $data['nombres'];
             }
+            if (!empty($data['apellidos'])) {
+                $updateData['apellidos'] = $data['apellidos'];
+            }
+            if (!empty($data['telefono'])) {
+                $updateData['telefono'] = $data['telefono'];
+            }
+            if (!empty($data['email'])) {
+                $updateData['email'] = $data['email'];
+            }
+            if (!empty($data['direccion'])) {
+                $updateData['direccion'] = $data['direccion'];
+            }
+
+            if (!empty($updateData)) {
+                $denunciante->update($updateData);
+                Log::info('Denunciante existente actualizado', [
+                    'denunciante_id' => $denunciante->id,
+                    'datos_actualizados' => array_keys($updateData)
+                ]);
+            }
+
+            return $denunciante;
         }
 
         // Crear nuevo denunciante
-        return Denunciante::create([
+        $denunciante = Denunciante::create([
             'nombres' => $data['nombres'] ?? '',
             'apellidos' => $data['apellidos'] ?? '',
             'telefono' => $data['telefono'] ?? null,
             'email' => $data['email'] ?? null,
             'direccion' => $data['direccion'] ?? null,
         ]);
+
+        Log::info('Nuevo denunciante creado', [
+            'denunciante_id' => $denunciante->id,
+            'email' => $denunciante->email
+        ]);
+
+        return $denunciante;
     }
 
     /**
@@ -374,6 +448,72 @@ class DenunciaService
                 'denuncia_id' => $denuncia->id,
                 'ticket' => $denuncia->numero_ticket,
                 'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Notificar al denunciante sobre cambios de estado en su denuncia.
+     * Solo se envía si la denuncia NO es anónima y el denunciante tiene email.
+     *
+     * @param Denuncia $denuncia
+     * @param string $nuevoEstado El nuevo estado de la denuncia
+     * @param string|null $estadoAnterior El estado anterior (opcional)
+     */
+    protected function notificarDenunciante(Denuncia $denuncia, string $nuevoEstado, ?string $estadoAnterior = null): void
+    {
+        try {
+            // Verificar que NO sea anónima
+            if ($denuncia->es_anonima) {
+                Log::info('No se notifica al denunciante: denuncia anónima', [
+                    'denuncia_id' => $denuncia->id,
+                    'ticket' => $denuncia->numero_ticket,
+                    'nuevo_estado' => $nuevoEstado
+                ]);
+                return;
+            }
+
+            // Obtener el denunciante
+            $denunciante = $denuncia->denunciante;
+
+            // Verificar que el denunciante existe y tiene email
+            if (!$denunciante || !$denunciante->email) {
+                Log::warning('No se puede notificar al denunciante: sin email', [
+                    'denuncia_id' => $denuncia->id,
+                    'ticket' => $denuncia->numero_ticket,
+                    'tiene_denunciante' => $denunciante ? 'si' : 'no'
+                ]);
+                return;
+            }
+
+            // Validar email
+            if (!filter_var($denunciante->email, FILTER_VALIDATE_EMAIL)) {
+                Log::warning('No se puede notificar al denunciante: email inválido', [
+                    'denuncia_id' => $denuncia->id,
+                    'ticket' => $denuncia->numero_ticket,
+                    'email' => $denunciante->email
+                ]);
+                return;
+            }
+
+            // Enviar el correo
+            Mail::to($denunciante->email)->send(new CambioEstadoDenunciaMail($denuncia, $nuevoEstado, $estadoAnterior));
+
+            Log::info('Notificación de cambio de estado enviada al denunciante', [
+                'denuncia_id' => $denuncia->id,
+                'ticket' => $denuncia->numero_ticket,
+                'denunciante_email' => $denunciante->email,
+                'nuevo_estado' => $nuevoEstado,
+                'estado_anterior' => $estadoAnterior
+            ]);
+
+        } catch (\Exception $e) {
+            // No lanzar excepción para no interrumpir el flujo principal
+            Log::error('Error al notificar cambio de estado al denunciante: ' . $e->getMessage(), [
+                'denuncia_id' => $denuncia->id,
+                'ticket' => $denuncia->numero_ticket,
+                'nuevo_estado' => $nuevoEstado,
+                'exception' => $e->getMessage()
             ]);
         }
     }

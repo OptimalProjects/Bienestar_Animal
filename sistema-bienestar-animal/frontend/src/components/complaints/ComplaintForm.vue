@@ -390,6 +390,16 @@ function validate() {
 // Preparar datos para envio al backend
 // Mapeo de campos frontend -> backend segun DenunciaController@store
 function prepareComplaintData() {
+  // Log de valores del formulario antes de preparar
+  console.log('Estado del formulario antes de preparar:', {
+    isAnonymous: form.isAnonymous,
+    reporterFirstName: form.reporterFirstName,
+    reporterLastName: form.reporterLastName,
+    reporterPhone: form.reporterPhone,
+    reporterEmail: form.reporterEmail,
+    reporterAddress: form.reporterAddress
+  });
+
   const data = {
     // Campos requeridos por backend
     canal_recepcion: form.canalRecepcion,
@@ -419,6 +429,8 @@ function prepareComplaintData() {
   if (data.es_anonima) {
     delete data.denunciante;
   }
+
+  console.log('Datos preparados para enviar:', data);
 
   return data;
 }
@@ -480,6 +492,40 @@ function syncFormFromDOM() {
 
   if (addressInput && addressInput.value) {
     form.address = addressInput.value;
+  }
+
+  // Sincronizar campos del denunciante desde el DOM
+  // (por si el v-model no está capturando correctamente los valores)
+  if (!form.isAnonymous) {
+    const reporterFirstNameInput = document.querySelector('#reporterFirstName');
+    const reporterLastNameInput = document.querySelector('#reporterLastName');
+    const reporterPhoneInput = document.querySelector('#reporterPhone');
+    const reporterEmailInput = document.querySelector('#reporterEmail');
+    const reporterAddressInput = document.querySelector('#reporterAddress');
+
+    if (reporterFirstNameInput && reporterFirstNameInput.value) {
+      form.reporterFirstName = reporterFirstNameInput.value;
+    }
+    if (reporterLastNameInput && reporterLastNameInput.value) {
+      form.reporterLastName = reporterLastNameInput.value;
+    }
+    if (reporterPhoneInput && reporterPhoneInput.value) {
+      form.reporterPhone = reporterPhoneInput.value;
+    }
+    if (reporterEmailInput && reporterEmailInput.value) {
+      form.reporterEmail = reporterEmailInput.value;
+    }
+    if (reporterAddressInput && reporterAddressInput.value) {
+      form.reporterAddress = reporterAddressInput.value;
+    }
+
+    console.log('Datos del denunciante sincronizados:', {
+      nombres: form.reporterFirstName,
+      apellidos: form.reporterLastName,
+      telefono: form.reporterPhone,
+      email: form.reporterEmail,
+      direccion: form.reporterAddress
+    });
   }
 }
 
