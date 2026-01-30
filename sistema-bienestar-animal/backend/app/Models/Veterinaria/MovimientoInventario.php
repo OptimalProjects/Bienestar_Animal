@@ -2,6 +2,8 @@
 
 namespace App\Models\Veterinaria;
 
+use App\Models\Administracion\Inventario;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -28,8 +30,11 @@ class MovimientoInventario extends Model
         'updated_at' => 'datetime',
     ];
 
+    protected $appends = ['medicamento_nombre'];
+
     /**
-     * Relación con el medicamento (inventario)
+     * Relación con el medicamento/inventario
+     * IMPORTANTE: medicamento_id puede referenciar a Inventario, Insumo o Medicamento
      */
     public function medicamento()
     {
@@ -50,6 +55,14 @@ class MovimientoInventario extends Model
     public function usuario()
     {
         return $this->belongsTo(User::class, 'usuario_id');
+    }
+
+    /**
+     * Accessor para obtener el nombre del medicamento
+     */
+    public function getMedicamentoNombreAttribute()
+    {
+        return $this->medicamento?->nombre ?? 'N/A';
     }
 
     /**
@@ -74,5 +87,21 @@ class MovimientoInventario extends Model
     public function scopeEntreFechas($query, $desde, $hasta)
     {
         return $query->whereBetween('created_at', [$desde, $hasta]);
+    }
+
+    /**
+     * Scope para solo salidas
+     */
+    public function scopeSalidas($query)
+    {
+        return $query->where('tipo_movimiento', 'salida');
+    }
+
+    /**
+     * Scope para solo entradas
+     */
+    public function scopeEntradas($query)
+    {
+        return $query->where('tipo_movimiento', 'entrada');
     }
 }

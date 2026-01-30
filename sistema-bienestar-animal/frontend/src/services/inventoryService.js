@@ -102,6 +102,8 @@ export const inventoryService = {
    */
   async getMovimientos(filters = {}) {
     try {
+      console.log('🔍 Solicitando movimientos con filtros:', filters);
+      
       const params = new URLSearchParams();
       
       if (filters.medicamento_id) {
@@ -120,32 +122,46 @@ export const inventoryService = {
         params.append('fecha_hasta', filters.fecha_hasta);
       }
       
-      if (filters.per_page) {
-        params.append('per_page', filters.per_page);
-      }
+      // Solicitar todos los registros
+      params.append('per_page', filters.per_page || 1000);
       
       const queryString = params.toString();
       const url = queryString 
         ? `/inventario/movimientos?${queryString}`
         : '/inventario/movimientos';
       
+      console.log('📡 URL de solicitud:', url);
+      
       const response = await api.get(url);
+      
+      console.log('📦 Respuesta recibida:', response.data);
       
       // Manejar respuesta paginada o array directo
       const data = response.data?.data;
       
+      // Si es un array directo
       if (Array.isArray(data)) {
+        console.log('✅ Movimientos obtenidos (array):', data.length);
         return data;
       }
       
       // Si es paginado, extraer el array de datos
       if (data && data.data && Array.isArray(data.data)) {
+        console.log('✅ Movimientos obtenidos (paginados):', data.data.length);
         return data.data;
       }
       
+      // Si tiene propiedad 'data' pero no es paginado
+      if (data && Array.isArray(data)) {
+        console.log('✅ Movimientos obtenidos (data):', data.length);
+        return data;
+      }
+      
+      console.warn('⚠️ No se encontraron movimientos en la respuesta');
       return [];
     } catch (error) {
-      console.error('Error al obtener movimientos:', error);
+      console.error('❌ Error al obtener movimientos:', error);
+      console.error('Error details:', error.response?.data);
       throw error;
     }
   },

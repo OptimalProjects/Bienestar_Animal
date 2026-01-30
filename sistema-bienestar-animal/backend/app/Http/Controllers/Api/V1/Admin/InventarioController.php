@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\BaseController;
 use App\Services\InventarioService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class InventarioController extends BaseController
 {
@@ -295,7 +296,11 @@ class InventarioController extends BaseController
     public function movimientos(Request $request)
     {
         try {
-            $query = \App\Models\MovimientoInventario::with([
+            Log::info('📊 Solicitando movimientos de inventario', [
+                'params' => $request->all()
+            ]);
+
+            $query = \App\Models\Veterinaria\MovimientoInventario::with([
                 'medicamento',
                 'consulta.historialClinico.animal',
                 'consulta.veterinario'
@@ -319,10 +324,34 @@ class InventarioController extends BaseController
                 $query->whereDate('created_at', '<=', $request->fecha_hasta);
             }
 
-            $movimientos = $query->paginate($request->get('per_page', 50));
+            $perPage = $request->get('per_page', 50);
+            
+            // Si per_page es muy alto o -1, obtener todos
+            if ($perPage > 100 || $perPage < 0) {
+                $movimientos = $query->get();
+                
+                Log::info('✅ Movimientos obtenidos (sin paginar)', [
+                    'total' => $movimientos->count()
+                ]);
+
+                return $this->successResponse($movimientos);
+            }
+
+            $movimientos = $query->paginate($perPage);
+
+            Log::info('✅ Movimientos obtenidos (paginados)', [
+                'total' => $movimientos->total(),
+                'per_page' => $movimientos->perPage(),
+                'current_page' => $movimientos->currentPage()
+            ]);
 
             return $this->successResponse($movimientos);
         } catch (\Exception $e) {
+            Log::error('❌ Error al obtener movimientos', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return $this->serverErrorResponse('Error al obtener movimientos: ' . $e->getMessage());
         }
     }

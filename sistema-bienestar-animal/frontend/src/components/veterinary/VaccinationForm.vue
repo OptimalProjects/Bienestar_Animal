@@ -429,60 +429,96 @@ async function loadInitialData() {
   loadingData.value = true;
 
   try {
-    // Cargar tipos de vacuna
     try {
-      const tiposData = await veterinaryStore.fetchTiposVacuna();
-      if (tiposData && tiposData.length > 0) {
-        tiposVacunaApi.value = tiposData;
+      console.log('🔄 Cargando tipos de vacuna...');
+      const raw = await veterinaryStore.fetchTiposVacuna();
+      const tiposData = Array.isArray(raw) ? raw : (raw?.data ?? []);
+      
+      if (tiposData.length > 0) {
+        // Verificar que los IDs sean UUIDs válidos
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const tiposValidos = tiposData.filter(tipo => {
+          const esValido = tipo.id && uuidRegex.test(tipo.id);
+          if (!esValido) {
+            console.error('❌ Tipo de vacuna con ID inválido:', tipo);
+          }
+          return esValido;
+        });
+        
+        console.log('✅ Tipos válidos:', tiposValidos.length);
+        console.log('📋 Primer tipo (ejemplo):', tiposValidos[0]);
+        
+        if (tiposValidos.length > 0) {
+          tiposVacunaApi.value = tiposValidos;
+        } else {
+          console.error('⚠️ No hay tipos de vacuna con IDs válidos');
+          alert('Error: Los tipos de vacuna no tienen IDs válidos. Contacte al administrador.');
+        }
+      } else {
+        console.error('⚠️ La API no devolvió tipos de vacuna');
+        alert('No se pudieron cargar los tipos de vacuna. Verifique la conexión con el servidor.');
       }
     } catch (error) {
-      console.warn('Error cargando tipos de vacuna:', error);
+      console.error('❌ Error cargando tipos de vacuna:', error);
+      console.error('Detalles del error:', error.response?.data);
+      alert('Error al cargar tipos de vacuna. Verifique la consola para más detalles.');
     }
 
-    // Cargar veterinarios
     try {
+      console.log('🔄 Cargando veterinarios...');
       const vetsData = await veterinaryStore.fetchVeterinarios();
       veterinarians.value = vetsData || veterinaryStore.veterinarios || [];
       
+      console.log('👨‍⚕️ Veterinarios cargados:', veterinarians.value.length);
+      
       if (veterinarians.value.length === 0) {
-        alert('No hay veterinarios registrados. Debes crear al menos uno para registrar vacunaciones.');
+        alert('⚠️ No hay veterinarios registrados. Debes crear al menos uno para registrar vacunaciones.');
       }
     } catch (error) {
-      console.error('Error cargando veterinarios:', error);
+      console.error('❌ Error cargando veterinarios:', error);
     }
 
     await nextTick();
     setTimeout(() => {
       initGovCoComponents();
+      console.log('✅ Componentes GovCo inicializados');
     }, 200);
 
   } catch (error) {
-    console.error('Error cargando datos iniciales:', error);
+    console.error('❌ Error crítico cargando datos iniciales:', error);
     alert('Error al cargar datos. Por favor recargue la página.');
   } finally {
     loadingData.value = false;
+    console.log('✅ Carga inicial completada');
   }
 }
 
+
 const vaccineTypeOptions = computed(() => {
+  console.log('🔍 Generando opciones de vacuna...');
+  console.log('Tipos disponibles:', tiposVacunaApi.value.length);
+  
   if (tiposVacunaApi.value.length > 0) {
-    return tiposVacunaApi.value.map(tipo => ({
-      value: tipo.id,
-      text: tipo.nombre,
-      codigo: tipo.codigo,
-      intervalo: tipo.intervalo_dosis
-    }));
+    const options = tiposVacunaApi.value.map(tipo => {
+      console.log(`  - ${tipo.nombre}: ${tipo.id}`);
+      return {
+        value: tipo.id,  
+        text: tipo.nombre,
+        codigo: tipo.codigo,
+        intervalo: tipo.intervalo_dosis
+      };
+    });
+    
+    console.log('✅ Opciones generadas:', options.length);
+    return options;
   }
   
+  // ⚠️ FALLBACK: Solo se usa si la API falla completamente
+  console.warn('⚠️ Usando opciones hardcoded (fallback) - La API no devolvió datos');
+  console.warn('⚠️ IMPORTANTE: Estas opciones NO funcionarán para guardar vacunas');
+  
   return [
-    { value: 'rabia', text: 'Rabia' },
-    { value: 'quintuple', text: 'Quíntuple (DHPPL)' },
-    { value: 'sextuple', text: 'Séxtuple (DHPPL + Corona)' },
-    { value: 'triple_felina', text: 'Triple Felina' },
-    { value: 'leucemia_felina', text: 'Leucemia Felina' },
-    { value: 'parvovirus', text: 'Parvovirus' },
-    { value: 'bordetella', text: 'Bordetella (Tos de las perreras)' },
-    { value: 'otra', text: 'Otra' }
+    { value: '', text: '⚠️ Error: No hay tipos disponibles. Recargue la página.' }
   ];
 });
 
@@ -697,41 +733,95 @@ function convertirFecha(fechaStr) {
 }
 
 async function onSubmit() {
+  console.log('📝 Iniciando envío de formulario...');
+  
   if (!validate()) {
+    console.error('❌ Validación fallida');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return;
   }
 
-  if (isSubmitting.value) return;
+  if (isSubmitting.value) {
+    console.warn('⚠️ Ya hay un envío en proceso');
+    return;
+  }
+  
   isSubmitting.value = true;
 
   try {
+    // ✅ VALIDACIÓN CRÍTICA: Verificar que tipo_vacuna_id sea un UUID válido
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    console.log('🔍 Validando tipo_vacuna_id...');
+    console.log('  Valor actual:', form.vaccineType);
+    console.log('  Es UUID válido:', uuidRegex.test(form.vaccineType));
+    
+    if (!form.vaccineType || !uuidRegex.test(form.vaccineType)) {
+      alert('❌ Error: Tipo de vacuna inválido.\n\nEl sistema no pudo cargar correctamente los tipos de vacuna.\n\nPor favor:\n1. Verifique su conexión\n2. Recargue la página\n3. Si el problema persiste, contacte al administrador');
+      console.error('❌ tipo_vacuna_id inválido:', {
+        valor: form.vaccineType,
+        tipo: typeof form.vaccineType,
+        esUUID: uuidRegex.test(form.vaccineType)
+      });
+      isSubmitting.value = false;
+      return;
+    }
+
+    // Mapear "refuerzo" a número 4
+    let numeroDosis = form.doseNumber;
+    if (numeroDosis === 'refuerzo') {
+      numeroDosis = '4';
+    }
+
     const vacunaData = {
       historial_clinico_id: animalSeleccionado.value.historial_clinico_id,
-      tipo_vacuna_id: form.vaccineType,
+      tipo_vacuna_id: form.vaccineType,  // ✅ Ya validado como UUID
       veterinario_id: form.veterinarianId,
       fecha_aplicacion: convertirFecha(form.applicationDate),
       fecha_proxima_dosis: form.requiresNextDose ? convertirFecha(form.nextDoseDate) : null,
       lote: form.batchNumber,
       fabricante: form.laboratory,
       nombre_vacuna: form.vaccineName,
-      dosis: form.dose,
+      dosis: String(parseFloat(form.dose)),
       via_administracion: form.route,
       sitio_aplicacion: form.site || null,
-      numero_dosis: form.doseNumber,
-      observaciones: form.observations || null
+      numero_dosis: parseInt(numeroDosis),
+      observaciones: form.observations || null,
+      fecha_vencimiento: convertirFecha(form.expirationDate) || null
     };
 
-    console.log('📤 Enviando vacunación:', vacunaData);
+    console.log('📤 Enviando vacunación:', JSON.stringify(vacunaData, null, 2));
+    console.log('📋 Tipos de datos:', {
+      tipo_vacuna_id: typeof vacunaData.tipo_vacuna_id,
+      numero_dosis: typeof vacunaData.numero_dosis,
+      dosis: typeof vacunaData.dosis,
+      veterinario_id: typeof vacunaData.veterinario_id
+    });
 
     await veterinaryStore.crearVacuna(vacunaData);
 
+    console.log('✅ Vacunación registrada exitosamente');
     alert('✅ Vacunación registrada exitosamente');
     resetForm();
+    
   } catch (error) {
     console.error('❌ Error al registrar vacunación:', error);
-    const errorMsg = error.response?.data?.message || 'Error al registrar la vacunación';
-    alert(errorMsg);
+    console.error('Respuesta del servidor:', error.response?.data);
+    
+    // Mostrar errores de validación detallados
+    if (error.response?.data?.errors) {
+      const validationErrors = error.response.data.errors;
+      console.error('Errores de validación:', validationErrors);
+      
+      const errorMessages = Object.entries(validationErrors)
+        .map(([field, messages]) => `• ${field}: ${messages.join(', ')}`)
+        .join('\n');
+      
+      alert(`❌ Errores de validación:\n\n${errorMessages}\n\nRevise la consola del navegador para más detalles.`);
+    } else {
+      const errorMsg = error.response?.data?.message || 'Error desconocido al registrar la vacunación';
+      alert(`❌ Error: ${errorMsg}`);
+    }
   } finally {
     isSubmitting.value = false;
   }
