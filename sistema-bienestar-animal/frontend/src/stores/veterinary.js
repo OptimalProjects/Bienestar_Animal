@@ -155,15 +155,11 @@ export const useVeterinaryStore = defineStore('veterinary', () => {
   }
 
   // Actions - Vacunas
-  async function fetchTiposVacuna() {
-    try {
-      const response = await veterinaryService.getTiposVacuna();
-      tiposVacuna.value = response.data || [];
-      return tiposVacuna.value;
-    } catch (err) {
-      console.error('Error al cargar tipos de vacuna:', err);
+    async function fetchTiposVacuna() {
+      const tipos = await veterinaryService.getTiposVacuna();
+      this.tiposVacuna = tipos;
+      return tipos;
     }
-  }
 
   async function fetchVacunasAnimal(animalId) {
     try {

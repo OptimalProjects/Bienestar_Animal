@@ -261,9 +261,9 @@ class VeterinariaService
                 'tipo_vacuna_id' => $data['tipo_vacuna_id'],
                 'veterinario_id' => $data['veterinario_id'],
                 'fecha_aplicacion' => $data['fecha_aplicacion'] ?? now(),
-                'fecha_proxima_dosis' => $data['fecha_proxima'] ?? null, 
+                'fecha_proxima_dosis' => $data['fecha_proxima_dosis'] ?? $data['fecha_proxima'] ?? null, 
                 'nombre_vacuna' => $data['nombre_vacuna'],
-                'lote_vacuna' => $data['lote'], 
+                'lote_vacuna' => $data['lote'] ?? $data['lote_vacuna'] ?? null, 
                 'fabricante' => $data['fabricante'],
                 'fecha_vencimiento' => $data['fecha_vencimiento'] ?? null,
                 'dosis' => $data['dosis'],
@@ -275,7 +275,7 @@ class VeterinariaService
 
             DB::commit();
             
-            return $vacuna->load(['tipoVacuna', 'veterinario', 'historialClinico.animal']);
+            return $vacuna->load(['veterinario', 'historialClinico.animal']);
             
         } catch (\Exception $e) {
             DB::rollBack();

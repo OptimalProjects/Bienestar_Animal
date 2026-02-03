@@ -123,10 +123,10 @@ class TipoVacunaSeeder extends Seeder
             TipoVacuna::updateOrCreate(
                 ['codigo' => $tipo['codigo']],
                 array_merge($tipo, [
-                    'id' => (string) Str::uuid(),
                     'activo' => true,
                 ])
             );
         }
+
     }
 }

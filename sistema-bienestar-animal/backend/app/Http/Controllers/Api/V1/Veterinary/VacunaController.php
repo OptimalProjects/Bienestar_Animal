@@ -19,16 +19,35 @@ class VacunaController extends BaseController
     /**
      * Listar tipos de vacunas disponibles.
      * GET /api/v1/vacunas/tipos
+     * 
+     * ✅ CORREGIDO: Ahora obtiene los datos desde la tabla tipos_vacunas
      */
     public function tiposVacuna()
     {
         try {
+            // Obtener tipos de vacuna desde la base de datos
             $tipos = TipoVacuna::activos()
                 ->orderBy('nombre')
-                ->get(['id', 'codigo', 'nombre', 'especie_aplicable', 'intervalo_dosis']);
+                ->get()
+                ->map(function($tipo) {
+                    return [
+                        'id' => $tipo->id,  // UUID real para enviar al backend
+                        'codigo' => $tipo->codigo,  // Código (ej: VAC-CAN-PAR)
+                        'nombre' => $tipo->nombre,  // Nombre completo
+                        'descripcion' => $tipo->descripcion,
+                        'especie_aplicable' => $tipo->especie_aplicable,
+                        'edad_minima' => $tipo->edad_minima,
+                        'intervalo_dosis' => $tipo->intervalo_dosis,
+                        'numero_dosis' => $tipo->numero_dosis,
+                        'es_obligatoria' => $tipo->es_obligatoria,
+                    ];
+                })
+                ->values()
+                ->toArray();
 
             return $this->successResponse($tipos);
         } catch (\Exception $e) {
+            \Log::error('Error al obtener tipos de vacuna: ' . $e->getMessage());
             return $this->serverErrorResponse('Error al obtener tipos de vacuna: ' . $e->getMessage());
         }
     }
@@ -40,7 +59,7 @@ class VacunaController extends BaseController
     public function index(Request $request)
     {
         try {
-            $query = Vacuna::with(['tipoVacuna', 'veterinario.usuario', 'historialClinico.animal']);
+            $query = Vacuna::with(['veterinario.usuario', 'historialClinico.animal']);
 
             if ($request->has('animal_id')) {
                 $query->whereHas('historialClinico', function ($q) use ($request) {
@@ -87,18 +106,18 @@ class VacunaController extends BaseController
     {
         $validator = Validator::make($request->all(), [
             'historial_clinico_id' => 'required|exists:historiales_clinicos,id',
-            'tipo_vacuna_id' => 'required|exists:tipos_vacunas,id',
+            'tipo_vacuna_id' => 'required|exists:tipos_vacunas,id', // ✅ CORREGIDO: Ahora valida exists
             'veterinario_id' => 'required|exists:veterinarios,id',
             'fecha_aplicacion' => 'nullable|date',
-            'fecha_proxima' => 'nullable|date|after:fecha_aplicacion',
+            'fecha_proxima_dosis' => 'nullable|date|after:fecha_aplicacion',
             'nombre_vacuna' => 'required|string|max:100',
             'lote' => 'required|string|max:100',
             'fabricante' => 'required|string|max:100',
-            'fecha_vencimiento' => 'nullable|date|after:today',
-            'dosis' => 'required|numeric|min:0.1|max:50',
+            'fecha_vencimiento' => 'nullable|date',
+            'dosis' => 'required|string|max:50',
             'via_administracion' => 'required|in:subcutanea,intramuscular,intranasal,oral,intravenosa',
             'sitio_aplicacion' => 'nullable|string|max:100',
-            'numero_dosis' => 'required|in:1,2,3,refuerzo',
+            'numero_dosis' => 'required|integer|min:1',
             'observaciones' => 'nullable|string',
         ]);
 
@@ -121,7 +140,7 @@ class VacunaController extends BaseController
     public function show(string $id)
     {
         try {
-            $vacuna = Vacuna::with(['tipoVacuna', 'veterinario.usuario', 'historialClinico.animal'])
+            $vacuna = Vacuna::with(['veterinario.usuario', 'historialClinico.animal'])
                 ->findOrFail($id);
 
             return $this->successResponse($vacuna);
@@ -141,10 +160,10 @@ class VacunaController extends BaseController
         try {
             $dias = $request->get('dias', 30);
 
-            $vacunas = Vacuna::with(['tipoVacuna', 'historialClinico.animal'])
-                ->whereNotNull('fecha_proxima')
-                ->whereBetween('fecha_proxima', [now(), now()->addDays($dias)])
-                ->orderBy('fecha_proxima')
+            $vacunas = Vacuna::with(['historialClinico.animal', 'veterinario.usuario'])
+                ->whereNotNull('fecha_proxima_dosis')
+                ->whereBetween('fecha_proxima_dosis', [now(), now()->addDays($dias)])
+                ->orderBy('fecha_proxima_dosis')
                 ->get();
 
             return $this->successResponse($vacunas);
