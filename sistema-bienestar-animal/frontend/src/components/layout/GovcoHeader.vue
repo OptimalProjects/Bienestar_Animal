@@ -16,7 +16,7 @@
               rel="noopener noreferrer"
             >
               <img
-                src="../../assets/icons/logo-govco.png"
+                :src="logoGovco"
                 alt="Logo GOV.CO"
                 class="govco-logo"
               />
@@ -72,7 +72,7 @@
           <div class="col-auto">
             <router-link to="/" class="govco-entity-brand">
               <img
-                src="../../assets/icons/alcaldiacali.png"
+                :src="logoAlcaldia"
                 alt="Logo Alcaldía"
                 class="govco-entity-logo"
                 @error="handleLogoError"
@@ -183,6 +183,10 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRole, ROLES } from '../../composables/useRol.js';
+
+// Rutas a imágenes en carpeta public (no requieren import)
+const logoGovco = '/images/logo-govco.png';
+const logoAlcaldia = '/images/alcaldiacali.png';
 
 // Estado del menú
 const menuOpen = ref(false);
