@@ -97,8 +97,9 @@ const filteredAnimals = computed(() => {
 async function loadAnimals() {
   loadingAnimals.value = true;
   try {
-    const response = await animalService.getCatalogoAdopcion();
-    // El backend ahora devuelve solo animales en_adopcion y saludables con los accessors correctos
+    // Solicitar todos los animales disponibles (sin límite de paginación)
+    const response = await animalService.getCatalogoAdopcion({ all: 'true' });
+    // El backend devuelve solo animales en_adopcion, saludables y sin adopción activa
     const data = response.data || response;
     const rawAnimals = Array.isArray(data) ? data : data.data || [];
 

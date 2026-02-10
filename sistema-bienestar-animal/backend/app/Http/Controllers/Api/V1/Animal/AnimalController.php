@@ -315,9 +315,14 @@ class AnimalController extends BaseController
     public function catalogoAdopcion(Request $request)
     {
         try {
-            $query = Animal::disponiblesAdopcion()
-                ->saludable()
+            $query = Animal::whereIn('estado', ['en_adopcion', 'en_refugio'])
+                ->whereIn('estado_salud', ['estable', 'bueno', 'excelente'])
                 ->with(['historialClinico']);
+
+            // Excluir animales que ya tienen una adopción activa o completada
+            $query->whereDoesntHave('adopciones', function ($q) {
+                $q->whereIn('estado', ['aprobada', 'completada', 'en_evaluacion']);
+            });
 
             // Filtro por especie (maneja sinónimos: canino/perro, felino/gato)
             if ($request->has('especie') && $request->especie) {
@@ -359,8 +364,15 @@ class AnimalController extends BaseController
             // Ordenamiento por defecto: más recientes primero
             $query->orderBy('created_at', 'desc');
 
-            // Sin paginación para catálogo público (o paginación grande)
-            $perPage = $request->get('per_page', 50);
+            // Paginación - el frontend puede solicitar todas o por página
+            $perPage = $request->get('per_page', 100);
+
+            // Si se solicitan todas, usar get() sin límite
+            if ($request->get('all') === 'true' || $request->get('all') === '1') {
+                $animals = $query->get();
+                return $this->successResponse($animals, 'Catálogo de adopción obtenido exitosamente');
+            }
+
             $animals = $query->paginate($perPage);
 
             return $this->successResponse($animals, 'Catálogo de adopción obtenido exitosamente');

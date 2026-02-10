@@ -62,8 +62,14 @@ class VisitaSeguimientoController extends BaseController
                 $query->where('adopcion_id', $request->adopcion_id);
             }
 
-            $visitas = $query->orderBy('fecha_programada', 'asc')
-                ->paginate($request->get('per_page', 15));
+            $query->orderBy('fecha_programada', 'desc');
+
+            // Soporte para retornar todos sin paginación
+            if ($request->get('all') === 'true') {
+                $visitas = $query->get();
+            } else {
+                $visitas = $query->paginate($request->get('per_page', 15));
+            }
 
             return $this->successResponse($visitas);
         } catch (\Exception $e) {

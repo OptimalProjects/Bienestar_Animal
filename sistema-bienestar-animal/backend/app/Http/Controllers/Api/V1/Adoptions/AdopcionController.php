@@ -36,10 +36,15 @@ class AdopcionController extends BaseController
                 'busqueda',
             ]);
 
-            $adopciones = $this->adopcionService->listar(
-                $request->get('per_page', 15),
-                $filters
-            );
+            // Soporte para retornar todos los registros sin paginación
+            if ($request->get('all') === 'true') {
+                $adopciones = $this->adopcionService->listarTodas($filters);
+            } else {
+                $adopciones = $this->adopcionService->listar(
+                    $request->get('per_page', 15),
+                    $filters
+                );
+            }
 
             return $this->successResponse($adopciones);
         } catch (\Exception $e) {
@@ -542,10 +547,8 @@ class AdopcionController extends BaseController
                 });
             }
 
-            $contratos = $query->paginate($request->get('per_page', 20));
-
-            // Transformar los datos
-            $contratos->getCollection()->transform(function ($adopcion) {
+            // Función de transformación
+            $transformar = function ($adopcion) {
                 return [
                     'id' => $adopcion->id,
                     'numero_contrato' => $this->generarNumeroContrato($adopcion),
@@ -570,7 +573,16 @@ class AdopcionController extends BaseController
                         'raza' => $adopcion->animal?->raza,
                     ],
                 ];
-            });
+            };
+
+            // Soporte para retornar todos sin paginación
+            if ($request->get('all') === 'true') {
+                $contratos = $query->get()->map($transformar)->values();
+                return $this->successResponse($contratos);
+            }
+
+            $contratos = $query->paginate($request->get('per_page', 20));
+            $contratos->getCollection()->transform($transformar);
 
             return $this->successResponse($contratos);
         } catch (\Exception $e) {

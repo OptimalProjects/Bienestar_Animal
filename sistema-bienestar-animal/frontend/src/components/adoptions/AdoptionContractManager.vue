@@ -67,7 +67,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="contract in filteredContracts" :key="contract.id">
+          <tr v-for="contract in paginatedContracts" :key="contract.id">
             <td>
               <span class="contract-number">{{ contract.numeroContrato || 'Sin número' }}</span>
             </td>
@@ -93,26 +93,99 @@
                 Firmado: {{ formatDate(contract.fechaFirma) }}
               </small>
             </td>
-            <td class="actions-col">
-              <button
-                @click="downloadContract(contract)"
-                class="action-btn govco-bg-marine"
-                title="Descargar PDF"
-              >
-                <span class="btn-icon">📄</span> Descargar
-              </button>
-              <button
-                v-if="!contract.firmado"
-                @click="viewContractDetails(contract)"
-                class="action-btn govco-bg-elf-green"
-                title="Ver detalles"
-              >
-                <span class="btn-icon">👁</span> Ver
-              </button>
+            <td>
+              <div class="actions-wrapper">
+                <button
+                  @click="downloadContract(contract)"
+                  class="action-btn govco-bg-marine"
+                  title="Descargar PDF"
+                >
+                  <span class="btn-icon">📄</span> Descargar
+                </button>
+                <button
+                  v-if="!contract.firmado"
+                  @click="viewContractDetails(contract)"
+                  class="action-btn govco-bg-elf-green"
+                  title="Ver detalles"
+                >
+                  <span class="btn-icon">👁</span> Ver
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
       </table>
+
+      <!-- Información de resultados y paginación -->
+      <div v-if="filteredContracts.length > 0" class="pagination-container">
+        <div class="pagination-info">
+          Mostrando {{ ((currentPage - 1) * itemsPerPage) + 1 }}–{{ Math.min(currentPage * itemsPerPage, filteredContracts.length) }}
+          de {{ filteredContracts.length }} contratos
+        </div>
+
+        <div v-if="totalPages > 1" class="pagination-controls">
+          <button
+            class="pagination-btn"
+            :disabled="currentPage === 1"
+            @click="goToPage(1)"
+            title="Primera página"
+          >
+            «
+          </button>
+          <button
+            class="pagination-btn"
+            :disabled="currentPage === 1"
+            @click="goToPage(currentPage - 1)"
+            title="Página anterior"
+          >
+            ‹
+          </button>
+
+          <template v-for="page in totalPages" :key="page">
+            <button
+              v-if="page === 1 || page === totalPages || (page >= currentPage - 2 && page <= currentPage + 2)"
+              class="pagination-btn"
+              :class="{ active: page === currentPage }"
+              @click="goToPage(page)"
+            >
+              {{ page }}
+            </button>
+            <span
+              v-else-if="page === currentPage - 3 || page === currentPage + 3"
+              class="pagination-ellipsis"
+            >
+              ...
+            </span>
+          </template>
+
+          <button
+            class="pagination-btn"
+            :disabled="currentPage === totalPages"
+            @click="goToPage(currentPage + 1)"
+            title="Página siguiente"
+          >
+            ›
+          </button>
+          <button
+            class="pagination-btn"
+            :disabled="currentPage === totalPages"
+            @click="goToPage(totalPages)"
+            title="Última página"
+          >
+            »
+          </button>
+        </div>
+
+        <div class="pagination-per-page">
+          <label for="contractsPerPage">Por página:</label>
+          <select id="contractsPerPage" v-model.number="itemsPerPage" @change="currentPage = 1">
+            <option :value="5">5</option>
+            <option :value="10">10</option>
+            <option :value="20">20</option>
+            <option :value="50">50</option>
+          </select>
+        </div>
+      </div>
     </div>
 
     <!-- Modal de detalles del contrato -->
@@ -205,7 +278,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import adoptionService from '@/services/adoptionService';
 import DesplegableGovco from '@/components/common/DesplegableGovco.vue';
 import InputGovCo from '@/components/common/InputGovCo.vue';
@@ -252,6 +325,31 @@ const filteredContracts = computed(() => {
   }
 
   return result;
+});
+
+// Paginación del lado del cliente
+const currentPage = ref(1);
+const itemsPerPage = ref(10);
+
+const totalPages = computed(() => {
+  return Math.max(1, Math.ceil(filteredContracts.value.length / itemsPerPage.value));
+});
+
+const paginatedContracts = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value;
+  const end = start + itemsPerPage.value;
+  return filteredContracts.value.slice(start, end);
+});
+
+function goToPage(page) {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page;
+  }
+}
+
+// Reset a página 1 cuando cambian los filtros
+watch([() => filters.value.contractStatus, () => filters.value.search], () => {
+  currentPage.value = 1;
 });
 
 /**
@@ -305,15 +403,19 @@ async function loadContracts() {
   contracts.value = [];
 
   try {
-    // Usar el endpoint dedicado que busca adopciones con contrato_url NOT NULL
-    const response = await adoptionService.fetchContracts({
-      per_page: 100,
-    });
+    // Usar el endpoint dedicado - traer todos los contratos
+    const response = await adoptionService.fetchContracts({ all: 'true' });
 
-    const contratosData = response.data?.data || response.data || response || [];
+    const data = response.data || response;
+    const contratosData = Array.isArray(data) ? data : (data.data || []);
 
     // Transformar al formato del componente
     contracts.value = contratosData.map(transformAdoption);
+
+    // Reset a la primera página
+    currentPage.value = 1;
+
+    console.log(`📋 Contratos: ${contracts.value.length} cargados`);
 
   } catch (err) {
     console.error('Error al cargar contratos:', err);
@@ -596,9 +698,10 @@ onMounted(loadContracts);
 }
 
 /* Acciones */
-.actions-col {
+.actions-wrapper {
   display: flex;
   gap: 0.5rem;
+  align-items: center;
 }
 
 .action-btn {
@@ -829,7 +932,7 @@ onMounted(loadContracts);
     grid-template-columns: 1fr;
   }
 
-  .actions-col {
+  .actions-wrapper {
     flex-direction: column;
   }
 }
@@ -857,6 +960,88 @@ onMounted(loadContracts);
 
   .contracts-table {
     min-width: 700px;
+  }
+}
+
+/* Paginación */
+.pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-top: 1px solid #dee2e6;
+  border-radius: 0 0 8px 8px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pagination-info {
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination-btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #dee2e6;
+  background: white;
+  color: #3366cc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(:disabled):not(.active) {
+  background: #e9ecef;
+  border-color: #3366cc;
+}
+
+.pagination-btn.active {
+  background: #3366cc;
+  color: white;
+  border-color: #3366cc;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-ellipsis {
+  padding: 0 4px;
+  color: #6c757d;
+}
+
+.pagination-per-page {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.pagination-per-page select {
+  padding: 4px 8px;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  background: white;
+}
+
+@media (max-width: 768px) {
+  .pagination-container {
+    flex-direction: column;
+    align-items: center;
   }
 }
 </style>

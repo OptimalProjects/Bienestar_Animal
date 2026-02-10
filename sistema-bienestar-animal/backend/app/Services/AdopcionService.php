@@ -32,6 +32,14 @@ class AdopcionService
     }
 
     /**
+     * Listar todas las adopciones sin paginación (con filtros).
+     */
+    public function listarTodas(array $filters = []): Collection
+    {
+        return $this->adopcionRepository->getAllWithFilters($filters);
+    }
+
+    /**
      * Obtener adopciones pendientes de evaluacion.
      */
     public function getPendientes(): Collection

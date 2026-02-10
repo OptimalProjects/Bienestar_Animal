@@ -40,4 +40,9 @@ interface AdopcionRepositoryInterface extends BaseRepositoryInterface
      * Obtener estadisticas de adopciones.
      */
     public function getEstadisticas(): array;
+
+    /**
+     * Obtener todas las adopciones con filtros (sin paginación).
+     */
+    public function getAllWithFilters(array $filters = []): Collection;
 }

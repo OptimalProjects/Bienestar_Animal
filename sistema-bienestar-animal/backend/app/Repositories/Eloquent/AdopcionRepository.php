@@ -152,12 +152,42 @@ class AdopcionRepository extends BaseRepository implements AdopcionRepositoryInt
     }
 
     /**
+     * Obtener todas las adopciones con filtros (sin paginación).
+     */
+    public function getAllWithFilters(array $filters = []): \Illuminate\Database\Eloquent\Collection
+    {
+        $query = $this->model->query()
+            ->with(['animal', 'adoptante', 'evaluador']);
+
+        if (!empty($filters['estado'])) {
+            $query->where('estado', $filters['estado']);
+        }
+
+        if (!empty($filters['busqueda'])) {
+            $busqueda = $filters['busqueda'];
+            $query->where(function ($q) use ($busqueda) {
+                $q->whereHas('adoptante', function ($sub) use ($busqueda) {
+                    $sub->where('nombres', 'like', "%{$busqueda}%")
+                        ->orWhere('apellidos', 'like', "%{$busqueda}%")
+                        ->orWhere('numero_documento', 'like', "%{$busqueda}%");
+                })
+                ->orWhereHas('animal', function ($sub) use ($busqueda) {
+                    $sub->where('nombre', 'like', "%{$busqueda}%")
+                        ->orWhere('codigo_unico', 'like', "%{$busqueda}%");
+                });
+            });
+        }
+
+        return $query->orderBy('fecha_solicitud', 'desc')->get();
+    }
+
+    /**
      * Obtener adopciones con paginacion y filtros.
      */
     public function paginateWithFilters(int $perPage, array $filters = [])
     {
         $query = $this->model->query()
-            ->with(['animal', 'adoptante']);
+            ->with(['animal', 'adoptante', 'evaluador']);
 
         if (!empty($filters['estado'])) {
             $query->where('estado', $filters['estado']);
