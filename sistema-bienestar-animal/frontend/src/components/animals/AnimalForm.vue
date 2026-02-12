@@ -231,9 +231,9 @@
               v-model="form.photos"
               accept="image/jpeg,image/jpg,image/png"
               :max-files="10"
-              :max-size-m-b="10"
+              :max-size-m-b="2"
               label="Fotografías del animal"
-              help-text="Opcional. JPG/PNG. Peso máximo: 10 MB por archivo"
+              help-text="Opcional. JPG/PNG. Peso maximo: 2 MB por archivo"
               :required="false"
               :multiple="true"
             />
@@ -766,7 +766,16 @@ async function onSubmit() {
     setQrForAnimal(animal);
   } catch (e) {
     console.error(e);
-    // Aquí puedes agregar manejo de errores
+    if (e.response?.status === 413) {
+      if (window.$toast) {
+        window.$toast.error('Archivos demasiado pesados', 'Las imagenes exceden el peso maximo permitido de 2 MB por archivo. Por favor reduzca el tamano e intente nuevamente.');
+      }
+    } else {
+      const msg = e.response?.data?.message || 'Error al registrar el animal. Por favor intente nuevamente.';
+      if (window.$toast) {
+        window.$toast.error('Error al registrar', msg);
+      }
+    }
   } finally {
     isSubmitting.value = false;
   }
