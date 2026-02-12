@@ -259,7 +259,7 @@
                   </button>
                 </div>
               </div>
-              <small class="file-hint">Formatos: PDF, JPG, PNG. Max: 5MB</small>
+              <small class="file-hint">Formatos: PDF, JPG, PNG. Peso maximo: 2 MB</small>
             </div>
 
             <!-- Comprobante de domicilio -->
@@ -282,7 +282,7 @@
                   </button>
                 </div>
               </div>
-              <small class="file-hint">Recibo de servicios publicos o extracto bancario (max 3 meses)</small>
+              <small class="file-hint">Recibo de servicios publicos o extracto bancario (max 3 meses). Peso maximo: 2 MB</small>
             </div>
           </div>
         </fieldset>
@@ -426,9 +426,9 @@ const isFormValid = computed(() => {
 function handleFileChange(field, event) {
   const file = event.target.files[0];
   if (file) {
-    // Validar tamano (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-      errorMessage.value = `El archivo ${field === 'copia_cedula' ? 'de cedula' : 'de domicilio'} excede el tamano maximo de 5MB`;
+    // Validar tamano (2MB max - limite del servidor)
+    if (file.size > 2 * 1024 * 1024) {
+      errorMessage.value = `El archivo ${field === 'copia_cedula' ? 'de cedula' : 'de domicilio'} excede el peso maximo permitido de 2 MB. Por favor reduzca el tamano del archivo.`;
       event.target.value = '';
       return;
     }
@@ -494,7 +494,9 @@ async function onSubmit() {
   } catch (error) {
     console.error('Error al enviar solicitud:', error);
 
-    if (error.response?.data?.errors) {
+    if (error.response?.status === 413) {
+      errorMessage.value = 'Los archivos adjuntos son demasiado pesados. El peso maximo permitido es de 2 MB por archivo. Por favor reduzca el tamano de los documentos e intente nuevamente.';
+    } else if (error.response?.data?.errors) {
       // Errores de validacion
       const errors = error.response.data.errors;
       const firstError = Object.values(errors)[0];
