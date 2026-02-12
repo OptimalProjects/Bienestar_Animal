@@ -16,7 +16,7 @@
               rel="noopener noreferrer"
             >
               <img
-                :src="logoGovco"
+                src="https://cdn.www.gov.co/assets/images/logo.svg"
                 alt="Logo GOV.CO"
                 class="govco-logo"
               />
@@ -72,15 +72,10 @@
           <div class="col-auto">
             <router-link to="/" class="govco-entity-brand">
               <img
-                :src="logoAlcaldia"
-                alt="Logo Alcaldía"
+                src="/images/logos/logo_bienestar_animal.svg"
+                alt="Sistema de Bienestar Animal"
                 class="govco-entity-logo"
-                @error="handleLogoError"
               />
-              <div class="govco-entity-info">
-                <span class="govco-entity-name">Alcaldía Municipal</span>
-                <span class="govco-entity-subtitle">Sistema de Bienestar Animal</span>
-              </div>
             </router-link>
           </div>
 
@@ -184,10 +179,6 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRole, ROLES } from '../../composables/useRol.js';
 
-// Rutas a imágenes en carpeta public (no requieren import)
-const logoGovco = '/images/logo-govco.png';
-const logoAlcaldia = '/images/alcaldiacali.png';
-
 // Estado del menú
 const menuOpen = ref(false);
 const userMenuOpen = ref(false);
@@ -281,10 +272,6 @@ function logout() {
   // Si quieres, aquí puedes hacer router.push('/')
 }
 
-function handleLogoError(e) {
-  e.target.style.display = 'none';
-}
-
 // Cerrar menús al hacer clic fuera del menú de usuario
 function handleClickOutside(event) {
   if (
@@ -371,24 +358,10 @@ onUnmounted(() => {
 }
 
 .govco-entity-logo {
-  height: 50px;
+  height: 45px;
   width: auto;
-}
-
-.govco-entity-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.govco-entity-name {
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-.govco-entity-subtitle {
-  font-size: 0.75rem;
-  opacity: 0.85;
+  max-width: 200px;
+  object-fit: contain;
 }
 
 /* Botón hamburguesa */

@@ -562,17 +562,7 @@ async function onSubmit() {
     // Obtener el ticket del response
     const ticket = response?.ticket || response?.data?.ticket || 'N/A';
 
-    // Toast de exito
-    if (window.$toast) {
-      window.$toast.success(
-        'Denuncia registrada',
-        `Numero de caso: ${ticket}. Guarde este numero para consultar el estado de su denuncia.`,
-        10000
-      );
-    } else {
-      alert(`Denuncia registrada exitosamente.\n\nNumero de caso: ${ticket}\n\nGuarde este numero para consultar el estado de su denuncia.`);
-    }
-
+    // Emitir al padre (ComplaintsView) que se encarga del toast y cambio de pestaña
     emit('submitted', ticket);
     resetForm();
 
