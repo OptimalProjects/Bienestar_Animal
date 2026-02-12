@@ -11,6 +11,7 @@ class DatabaseSeeder extends Seeder
      *
      * Ejecutar con: php artisan db:seed
      * Ejecutar seeder especifico: php artisan db:seed --class=NombreSeeder
+     * Resetear y poblar: php artisan migrate:fresh --seed
      */
     public function run(): void
     {
@@ -20,17 +21,21 @@ class DatabaseSeeder extends Seeder
             PermisoSeeder::class,
             UsuarioSeeder::class,
 
-            // 2. Catalogos de veterinaria
+            // 2. Catalogos
             TipoVacunaSeeder::class,
+            VeterinariosSeeder::class,
 
-            // 3. Datos de prueba (animales basicos)
+            // 3. Datos de animales (~50 registros con historial clinico)
             AnimalSeeder::class,
 
-            // Nota: Los siguientes seeders requieren ajustes adicionales
-            // para coincidir con el esquema de migraciones actual:
-            // - ConsultaSeeder
-            // - DenunciaSeeder
-            // - AdopcionSeeder
+            // 4. Consultas veterinarias (~30) y vacunas
+            ConsultaSeeder::class,
+
+            // 5. Denuncias (~15) con denunciantes
+            DenunciaSeeder::class,
+
+            // 6. Adopciones (~20) con adoptantes y visitas
+            AdopcionSeeder::class,
         ]);
 
         $this->command->info('');
@@ -38,16 +43,23 @@ class DatabaseSeeder extends Seeder
         $this->command->info('  Seeders ejecutados exitosamente!');
         $this->command->info('========================================');
         $this->command->info('');
-        $this->command->info('Usuarios de prueba creados:');
-        $this->command->info('  admin / Cali2025* (Administrador)');
-        $this->command->info('  director / Cali2025* (Director)');
-        $this->command->info('  coordinador / Cali2025* (Coordinador)');
-        $this->command->info('  vet.garcia / Cali2025* (Veterinario)');
-        $this->command->info('  vet.ramirez / Cali2025* (Veterinario)');
-        $this->command->info('  aux.lopez / Cali2025* (Auxiliar Vet)');
-        $this->command->info('  op.torres / Cali2025* (Operador)');
-        $this->command->info('  op.moreno / Cali2025* (Operador)');
-        $this->command->info('  eval.castro / Cali2025* (Evaluador)');
+        $this->command->info('Datos creados:');
+        $this->command->info('  ~50 animales (perros, gatos, otros)');
+        $this->command->info('  ~30 consultas veterinarias + vacunas');
+        $this->command->info('  ~15 denuncias con denunciantes');
+        $this->command->info('  ~20 adopciones con adoptantes y visitas');
+        $this->command->info('  2 veterinarios vinculados a usuarios');
+        $this->command->info('');
+        $this->command->info('Usuarios de prueba (password: Cali2025*):');
+        $this->command->info('  admin        (Administrador)');
+        $this->command->info('  director     (Director)');
+        $this->command->info('  coordinador  (Coordinador)');
+        $this->command->info('  vet.garcia   (Veterinario)');
+        $this->command->info('  vet.ramirez  (Veterinario)');
+        $this->command->info('  aux.lopez    (Auxiliar Vet)');
+        $this->command->info('  op.torres    (Operador)');
+        $this->command->info('  op.moreno    (Operador)');
+        $this->command->info('  eval.castro  (Evaluador)');
         $this->command->info('');
     }
 }

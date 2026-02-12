@@ -12,7 +12,7 @@ return [
     |
     */
 
-    'app_id' => env('SCI_APP_ID', 'bienestar-animal'),
+    'app_id' => env('SCI_CLIENT_ID', 'bienestar-animal'),
 
     'api_token' => env('SCI_API_TOKEN'),
 
