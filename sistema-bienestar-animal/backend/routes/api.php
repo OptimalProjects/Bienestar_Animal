@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\Auth\SSOController;
 use App\Http\Controllers\Api\V1\Veterinary\CertificadoController;
 use App\Http\Controllers\Api\V1\Veterinary\CertificadoVeterinarioController;
+use App\Http\Controllers\Api\V1\SciController;
 
 /*
 |--------------------------------------------------------------------------
@@ -282,4 +283,17 @@ Route::prefix('v1')->group(function () {
 
     }); // Fin middleware auth:sanctum
 
+});
+
+/*
+|--------------------------------------------------------------------------
+| SCI - Sistema Central de Interoperabilidad
+|--------------------------------------------------------------------------
+| Base URL: /api/sci
+| Autenticacion: Bearer Token (SCI_API_TOKEN)
+*/
+
+Route::prefix('sci')->middleware('auth.sci')->group(function () {
+    Route::get('/kpis', [SciController::class, 'kpis']);
+    Route::get('/data', [SciController::class, 'data']);
 });

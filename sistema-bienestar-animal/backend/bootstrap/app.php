@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => \App\Http\Middleware\CheckPermission::class,
             'role' => \App\Http\Middleware\CheckRole::class,
             'mfa' => \App\Http\Middleware\RequireMfa::class,
+            'auth.sci' => \App\Http\Middleware\VerifySciToken::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
