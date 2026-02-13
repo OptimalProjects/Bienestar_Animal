@@ -178,7 +178,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRole, ROLES } from '../../composables/useRol.js';
-import logoGovco from '@/assets/icons/logo-govco.png';
 
 // Estado del menú
 const menuOpen = ref(false);

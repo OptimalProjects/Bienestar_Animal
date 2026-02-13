@@ -24,24 +24,28 @@
           v-model="searchQuery"
           placeholder="Buscar por nombre, email o documento..."
           class="search-input"
+          @keyup.enter="fetchUsers"
         />
-        <span class="search-icon">=
-</span>
+        <span class="search-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+        </span>
       </div>
       <div class="filter-group">
-        <select v-model="filterRole" class="filter-select">
+        <select v-model="filterRoleId" class="filter-select" @change="fetchUsers">
           <option value="">Todos los roles</option>
           <option v-for="role in roles" :key="role.id" :value="role.id">
-            {{ role.name }}
+            {{ role.nombre }}
           </option>
         </select>
       </div>
       <div class="filter-group">
-        <select v-model="filterStatus" class="filter-select">
+        <select v-model="filterStatus" class="filter-select" @change="fetchUsers">
           <option value="">Todos los estados</option>
-          <option value="activo">Activo</option>
-          <option value="inactivo">Inactivo</option>
-          <option value="bloqueado">Bloqueado</option>
+          <option value="true">Activo</option>
+          <option value="false">Inactivo</option>
         </select>
       </div>
     </div>
@@ -53,26 +57,37 @@
         <span class="stat-label">Total Usuarios</span>
       </div>
       <div class="stat-card active">
-        <span class="stat-value">{{ stats.active }}</span>
+        <span class="stat-value">{{ stats.activos }}</span>
         <span class="stat-label">Activos</span>
       </div>
       <div class="stat-card inactive">
-        <span class="stat-value">{{ stats.inactive }}</span>
+        <span class="stat-value">{{ stats.inactivos }}</span>
         <span class="stat-label">Inactivos</span>
       </div>
-      <div class="stat-card blocked">
-        <span class="stat-value">{{ stats.blocked }}</span>
-        <span class="stat-label">Bloqueados</span>
+      <div class="stat-card mfa">
+        <span class="stat-value">{{ stats.conMfa }}</span>
+        <span class="stat-label">Con MFA</span>
       </div>
     </div>
 
+    <!-- Loading -->
+    <div v-if="loading" class="loading-container">
+      <div class="loading-spinner"></div>
+      <p>Cargando usuarios...</p>
+    </div>
+
+    <!-- Error -->
+    <div v-else-if="error" class="error-container">
+      <p>{{ error }}</p>
+      <button type="button" class="btn-retry" @click="fetchUsers">Reintentar</button>
+    </div>
+
     <!-- Tabla de Usuarios -->
-    <div class="users-table-container">
+    <div v-else class="users-table-container">
       <table class="users-table">
         <thead>
           <tr>
             <th>Usuario</th>
-            <th>Documento</th>
             <th>Rol</th>
             <th>Estado</th>
             <th>MFA</th>
@@ -81,91 +96,104 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="user in filteredUsers" :key="user.id">
+          <tr v-for="user in users" :key="user.id">
             <td class="user-cell">
-              <div class="user-avatar">{{ getInitials(user.nombre) }}</div>
+              <div class="user-avatar">{{ getInitials(user.nombre_completo || `${user.nombres} ${user.apellidos}`) }}</div>
               <div class="user-info">
-                <span class="user-name">{{ user.nombre }}</span>
+                <span class="user-name">{{ user.nombre_completo || `${user.nombres} ${user.apellidos}` }}</span>
                 <span class="user-email">{{ user.email }}</span>
               </div>
             </td>
-            <td>{{ user.documento }}</td>
             <td>
-              <span class="role-badge" :class="getRoleClass(user.rol)">
-                {{ user.rolNombre }}
+              <span class="role-badge" :class="getRoleClass(user.roles?.[0]?.codigo)">
+                {{ user.roles?.[0]?.nombre || 'Sin rol' }}
               </span>
             </td>
             <td>
-              <span class="status-badge" :class="user.estado">
-                {{ capitalize(user.estado) }}
+              <span class="status-badge" :class="user.activo ? 'activo' : 'inactivo'">
+                {{ user.activo ? 'Activo' : 'Inactivo' }}
               </span>
             </td>
             <td>
-              <span class="mfa-badge" :class="{ enabled: user.mfaEnabled }">
-                {{ user.mfaEnabled ? 'Activo' : 'Inactivo' }}
+              <span class="mfa-badge" :class="{ enabled: user.mfa_enabled }">
+                {{ user.mfa_enabled ? 'Activo' : 'Inactivo' }}
               </span>
             </td>
-            <td>{{ formatDate(user.ultimoAcceso) }}</td>
+            <td>{{ formatDate(user.ultimo_acceso) }}</td>
             <td class="actions-cell">
-              <button 
-                type="button" 
-                class="action-btn view" 
-                @click="viewUser(user)" 
+              <button
+                type="button"
+                class="action-btn view"
+                @click="viewUser(user)"
                 title="Ver detalle"
               >
-                👁️
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
               </button>
-              <button 
-                type="button" 
-                class="action-btn edit" 
-                @click="openModal('edit', user)" 
+              <button
+                type="button"
+                class="action-btn edit"
+                @click="openModal('edit', user)"
                 title="Editar"
               >
-                ✏️
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
               </button>
               <button
                 type="button"
                 class="action-btn toggle"
                 @click="toggleUserStatus(user)"
-                :title="user.estado === 'activo' ? 'Desactivar' : 'Activar'"
+                :title="user.activo ? 'Desactivar' : 'Activar'"
               >
-                {{ user.estado === 'activo' ? '⏸️' : '▶️' }}
+                <svg v-if="user.activo" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+                </svg>
+                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
               </button>
-              <button 
-                type="button" 
-                class="action-btn reset" 
-                @click="resetPassword(user)" 
-                title="Resetear contraseña"
+              <button
+                type="button"
+                class="action-btn reset"
+                @click="openPasswordModal(user)"
+                title="Cambiar contrasena"
               >
-                🔑
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+                </svg>
               </button>
             </td>
           </tr>
         </tbody>
       </table>
 
-      <div v-if="filteredUsers.length === 0" class="no-results">
+      <div v-if="users.length === 0 && !loading" class="no-results">
         <p>No se encontraron usuarios con los filtros aplicados</p>
       </div>
     </div>
 
     <!-- Paginacion -->
-    <div class="pagination">
+    <div v-if="pagination.lastPage > 1" class="pagination">
       <button
         type="button"
-        @click="currentPage--"
-        :disabled="currentPage === 1"
+        @click="goToPage(pagination.currentPage - 1)"
+        :disabled="pagination.currentPage === 1"
         class="page-btn"
       >
         Anterior
       </button>
       <span class="page-info">
-        Pagina {{ currentPage }} de {{ totalPages }}
+        Pagina {{ pagination.currentPage }} de {{ pagination.lastPage }}
+        ({{ pagination.total }} usuarios)
       </span>
       <button
         type="button"
-        @click="currentPage++"
-        :disabled="currentPage === totalPages"
+        @click="goToPage(pagination.currentPage + 1)"
+        :disabled="pagination.currentPage === pagination.lastPage"
         class="page-btn"
       >
         Siguiente
@@ -175,76 +203,90 @@
     <!-- Seccion de Roles -->
     <div class="roles-section">
       <div class="roles-header">
-        <h3 class="h5-tipografia-govco">Gestión de Roles</h3>
-        <button type="button" class="btn-add-role" @click="openRoleModal">
-          + Nuevo Rol
-        </button>
+        <h3 class="h5-tipografia-govco">Roles del Sistema</h3>
       </div>
-      <div class="roles-grid">
+      <div v-if="loadingRoles" class="loading-container">
+        <div class="loading-spinner"></div>
+        <p>Cargando roles...</p>
+      </div>
+      <div v-else class="roles-grid">
         <div v-for="role in roles" :key="role.id" class="role-card">
-          <div class="role-header">
-            <span class="role-name">{{ role.name }}</span>
-            <span class="role-count">{{ role.userCount }} usuarios</span>
+          <div class="role-header-card">
+            <span class="role-name">{{ role.nombre }}</span>
+            <span v-if="role.requiere_mfa" class="mfa-required-tag">MFA</span>
           </div>
-          <p class="role-description">{{ role.description }}</p>
+          <p class="role-description">{{ role.descripcion }}</p>
           <div class="role-permissions">
             <span
-              v-for="perm in role.permissions.slice(0, 3)"
-              :key="perm"
+              v-for="perm in role.permisos?.slice(0, 4)"
+              :key="perm.id"
               class="permission-tag"
             >
-              {{ perm }}
+              {{ perm.recurso }}.{{ perm.accion }}
             </span>
-            <span v-if="role.permissions.length > 3" class="more-permissions">
-              +{{ role.permissions.length - 3 }} más
+            <span v-if="(role.permisos?.length || 0) > 4" class="more-permissions">
+              +{{ role.permisos.length - 4 }} mas
             </span>
-          </div>
-          <div class="role-actions">
-            <button type="button" class="role-btn" @click="editRole(role)">Editar</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Modal de Usuario -->
+    <!-- Modal Crear/Editar Usuario -->
     <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal-content">
         <div class="modal-header">
           <h3>{{ modalMode === 'create' ? 'Nuevo Usuario' : 'Editar Usuario' }}</h3>
-          <button type="button" class="close-btn" @click="closeModal">X</button>
+          <button type="button" class="close-btn" @click="closeModal">&times;</button>
         </div>
         <div class="modal-body">
           <form @submit.prevent="saveUser">
             <div class="form-row">
               <div class="form-group">
-                <label>Nombre Completo *</label>
+                <label>Nombres *</label>
                 <input
                   type="text"
-                  v-model="userForm.nombre"
+                  v-model="userForm.nombres"
                   required
                   class="form-input"
+                  placeholder="Ej: Carlos Alberto"
                 />
               </div>
               <div class="form-group">
-                <label>Tipo Documento *</label>
-                <select v-model="userForm.tipoDocumento" required class="form-select">
-                  <option value="CC">Cedula de Ciudadania</option>
-                  <option value="CE">Cedula de Extranjeria</option>
-                  <option value="PA">Pasaporte</option>
-                </select>
+                <label>Apellidos *</label>
+                <input
+                  type="text"
+                  v-model="userForm.apellidos"
+                  required
+                  class="form-input"
+                  placeholder="Ej: Ramirez Lopez"
+                />
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label>Número de Documento *</label>
+                <label>Tipo Documento *</label>
+                <select v-model="userForm.tipo_documento" required class="form-select">
+                  <option value="CC">Cedula de Ciudadania</option>
+                  <option value="CE">Cedula de Extranjeria</option>
+                  <option value="TI">Tarjeta de Identidad</option>
+                  <option value="PP">Pasaporte</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Numero de Documento *</label>
                 <input
                   type="text"
-                  v-model="userForm.documento"
+                  v-model="userForm.documento_identidad"
                   required
                   class="form-input"
+                  placeholder="Ej: 1234567890"
                 />
               </div>
+            </div>
+
+            <div class="form-row">
               <div class="form-group">
                 <label>Email Institucional *</label>
                 <input
@@ -252,48 +294,66 @@
                   v-model="userForm.email"
                   required
                   class="form-input"
+                  placeholder="usuario@bienestaranimal.gov.co"
                 />
               </div>
-            </div>
-
-            <div class="form-row">
               <div class="form-group">
-                <label>Teléfono</label>
+                <label>Telefono</label>
                 <input
                   type="tel"
                   v-model="userForm.telefono"
                   class="form-input"
+                  placeholder="Ej: 3001234567"
                 />
-              </div>
-              <div class="form-group">
-                <label>Rol *</label>
-                <select v-model="userForm.rol" required class="form-select">
-                  <option value="">Seleccione un rol</option>
-                  <option v-for="role in roles" :key="role.id" :value="role.id">
-                    {{ role.name }}
-                  </option>
-                </select>
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label>Dependencia</label>
-                <select v-model="userForm.dependencia" class="form-select">
-                  <option value="">Seleccione</option>
-                  <option value="direccion">Direccion General</option>
-                  <option value="operaciones">Operaciones</option>
-                  <option value="veterinaria">Area Veterinaria</option>
-                  <option value="adopciones">Area de Adopciones</option>
-                  <option value="denuncias">Atención Denuncias</option>
+                <label>Rol *</label>
+                <select v-model="userForm.rol_id" required class="form-select">
+                  <option value="">Seleccione un rol</option>
+                  <option v-for="role in roles" :key="role.id" :value="role.id">
+                    {{ role.nombre }}
+                  </option>
                 </select>
               </div>
               <div class="form-group">
-                <label>Estado</label>
-                <select v-model="userForm.estado" class="form-select">
-                  <option value="activo">Activo</option>
-                  <option value="inactivo">Inactivo</option>
+                <label>Area</label>
+                <select v-model="userForm.area" class="form-select">
+                  <option value="">Seleccione</option>
+                  <option value="Direccion General">Direccion General</option>
+                  <option value="Operaciones">Operaciones</option>
+                  <option value="Area Veterinaria">Area Veterinaria</option>
+                  <option value="Area de Adopciones">Area de Adopciones</option>
+                  <option value="Atencion Denuncias">Atencion Denuncias</option>
                 </select>
+              </div>
+            </div>
+
+            <!-- Password solo para creacion -->
+            <div v-if="modalMode === 'create'" class="form-row">
+              <div class="form-group">
+                <label>Contrasena *</label>
+                <input
+                  type="password"
+                  v-model="userForm.password"
+                  required
+                  class="form-input"
+                  placeholder="Min. 8 caracteres, mayusculas, numeros"
+                  minlength="8"
+                />
+              </div>
+              <div class="form-group">
+                <label>Confirmar Contrasena *</label>
+                <input
+                  type="password"
+                  v-model="userForm.password_confirmation"
+                  required
+                  class="form-input"
+                  placeholder="Repita la contrasena"
+                  minlength="8"
+                />
               </div>
             </div>
 
@@ -301,28 +361,30 @@
             <div class="mfa-section">
               <h4>Autenticacion Multi-Factor (MFA)</h4>
               <label class="checkbox-label">
-                <input type="checkbox" v-model="userForm.mfaEnabled" />
+                <input
+                  type="checkbox"
+                  v-model="userForm.mfa_enabled"
+                  :disabled="selectedRoleRequiresMfa"
+                />
                 Habilitar MFA para este usuario
               </label>
-              <p class="mfa-note">
-                * Obligatorio para usuarios con rol de Administrador
+              <p v-if="selectedRoleRequiresMfa" class="mfa-note">
+                * Obligatorio para el rol seleccionado
               </p>
             </div>
 
-            <!-- SSO Info -->
-            <div class="sso-section">
-              <h4>Integracion SSO</h4>
-              <p class="sso-info">
-                Este usuario será sincronizado con sci-auth y sci-rbac para autenticación única (SSO).
-              </p>
+            <!-- Mensaje de error del formulario -->
+            <div v-if="formError" class="form-error">
+              {{ formError }}
             </div>
 
             <div class="form-actions">
-              <button type="button" class="btn-cancel" @click="closeModal">
+              <button type="button" class="btn-cancel" @click="closeModal" :disabled="saving">
                 Cancelar
               </button>
-              <button type="submit" class="btn-save">
-                {{ modalMode === 'create' ? 'Crear Usuario' : 'Guardar Cambios' }}
+              <button type="submit" class="btn-save" :disabled="saving">
+                <span v-if="saving" class="btn-loading"></span>
+                {{ saving ? 'Guardando...' : (modalMode === 'create' ? 'Crear Usuario' : 'Guardar Cambios') }}
               </button>
             </div>
           </form>
@@ -335,287 +397,442 @@
       <div class="modal-content view-modal">
         <div class="modal-header">
           <h3>Detalle de Usuario</h3>
-          <button type="button" class="close-btn" @click="closeViewModal">X</button>
+          <button type="button" class="close-btn" @click="closeViewModal">&times;</button>
         </div>
         <div class="modal-body">
-          <div class="user-detail-header">
-            <div class="user-avatar-large">{{ getInitials(selectedUser?.nombre) }}</div>
-            <div class="user-detail-info">
-              <h4>{{ selectedUser?.nombre }}</h4>
-              <p>{{ selectedUser?.email }}</p>
-              <span class="status-badge" :class="selectedUser?.estado">
-                {{ capitalize(selectedUser?.estado) }}
-              </span>
-            </div>
+          <div v-if="loadingDetail" class="loading-container">
+            <div class="loading-spinner"></div>
+            <p>Cargando detalle...</p>
           </div>
-
-          <div class="detail-grid">
-            <div class="detail-item">
-              <span class="detail-label">Documento</span>
-              <span class="detail-value">{{ selectedUser?.tipoDocumento }} {{ selectedUser?.documento }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Rol</span>
-              <span class="detail-value">{{ selectedUser?.rolNombre }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Dependencia</span>
-              <span class="detail-value">{{ selectedUser?.dependencia || 'Sin asignar' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Teléfono</span>
-              <span class="detail-value">{{ selectedUser?.telefono || 'No registrado' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">MFA</span>
-              <span class="detail-value">{{ selectedUser?.mfaEnabled ? 'Habilitado' : 'No habilitado' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Ultimo Acceso</span>
-              <span class="detail-value">{{ formatDate(selectedUser?.ultimoAcceso) }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Fecha Creacion</span>
-              <span class="detail-value">{{ formatDate(selectedUser?.fechaCreacion) }}</span>
-            </div>
-          </div>
-
-          <div class="activity-section">
-            <h4>Actividad Reciente</h4>
-            <div class="activity-list">
-              <div v-for="(activity, index) in userActivities" :key="index" class="activity-item">
-                <span class="activity-icon">{{ activity.icon }}</span>
-                <span class="activity-text">{{ activity.text }}</span>
-                <span class="activity-time">{{ activity.time }}</span>
+          <template v-else-if="selectedUser">
+            <div class="user-detail-header">
+              <div class="user-avatar-large">{{ getInitials(selectedUser.nombre_completo || `${selectedUser.nombres} ${selectedUser.apellidos}`) }}</div>
+              <div class="user-detail-info">
+                <h4>{{ selectedUser.nombre_completo || `${selectedUser.nombres} ${selectedUser.apellidos}` }}</h4>
+                <p>{{ selectedUser.email }}</p>
+                <span class="status-badge" :class="selectedUser.activo ? 'activo' : 'inactivo'">
+                  {{ selectedUser.activo ? 'Activo' : 'Inactivo' }}
+                </span>
               </div>
             </div>
-          </div>
+
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">Username</span>
+                <span class="detail-value">{{ selectedUser.username || '-' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Rol</span>
+                <span class="detail-value">
+                  <span class="role-badge" :class="getRoleClass(selectedUser.roles?.[0]?.codigo)">
+                    {{ selectedUser.roles?.[0]?.nombre || 'Sin rol' }}
+                  </span>
+                </span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Autenticacion</span>
+                <span class="detail-value">{{ selectedUser.origen_autenticacion || 'local' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">MFA</span>
+                <span class="detail-value">{{ selectedUser.mfa_enabled ? 'Habilitado' : 'No habilitado' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Ultimo Acceso</span>
+                <span class="detail-value">{{ formatDate(selectedUser.ultimo_acceso) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Fecha Creacion</span>
+                <span class="detail-value">{{ formatDate(selectedUser.created_at) }}</span>
+              </div>
+            </div>
+
+            <!-- Permisos del rol -->
+            <div v-if="selectedUser.roles?.[0]?.permisos?.length" class="permissions-section">
+              <h4>Permisos del Rol</h4>
+              <div class="permissions-list">
+                <span
+                  v-for="perm in selectedUser.roles[0].permisos"
+                  :key="perm.id"
+                  class="permission-tag"
+                >
+                  {{ perm.recurso }}.{{ perm.accion }}
+                </span>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
     </div>
+
+    <!-- Modal Cambiar Contrasena -->
+    <div v-if="showPasswordModal" class="modal-overlay" @click.self="closePasswordModal">
+      <div class="modal-content password-modal">
+        <div class="modal-header">
+          <h3>Cambiar Contrasena</h3>
+          <button type="button" class="close-btn" @click="closePasswordModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="password-user-info">
+            Usuario: <strong>{{ passwordUser?.nombre_completo || `${passwordUser?.nombres} ${passwordUser?.apellidos}` }}</strong>
+          </p>
+          <form @submit.prevent="changePassword">
+            <div class="form-group">
+              <label>Nueva Contrasena *</label>
+              <input
+                type="password"
+                v-model="passwordForm.password"
+                required
+                class="form-input"
+                placeholder="Min. 8 caracteres, mayusculas, numeros"
+                minlength="8"
+              />
+            </div>
+            <div class="form-group" style="margin-top: 1rem;">
+              <label>Confirmar Contrasena *</label>
+              <input
+                type="password"
+                v-model="passwordForm.password_confirmation"
+                required
+                class="form-input"
+                placeholder="Repita la contrasena"
+                minlength="8"
+              />
+            </div>
+
+            <div v-if="passwordError" class="form-error" style="margin-top: 1rem;">
+              {{ passwordError }}
+            </div>
+
+            <div class="form-actions">
+              <button type="button" class="btn-cancel" @click="closePasswordModal" :disabled="savingPassword">
+                Cancelar
+              </button>
+              <button type="submit" class="btn-save" :disabled="savingPassword">
+                {{ savingPassword ? 'Guardando...' : 'Cambiar Contrasena' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast de notificacion -->
+    <Transition name="toast">
+      <div v-if="toast.show" class="toast" :class="toast.type">
+        {{ toast.message }}
+      </div>
+    </Transition>
   </section>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
+import { userService } from '@/services/userService.js';
+
+// --- Estado ---
+const loading = ref(false);
+const loadingRoles = ref(false);
+const loadingDetail = ref(false);
+const saving = ref(false);
+const savingPassword = ref(false);
+const error = ref(null);
+const formError = ref(null);
+const passwordError = ref(null);
 
 const searchQuery = ref('');
-const filterRole = ref('');
+const filterRoleId = ref('');
 const filterStatus = ref('');
-const currentPage = ref(1);
-const pageSize = 10;
 
+const users = ref([]);
+const roles = ref([]);
+const pagination = ref({
+  currentPage: 1,
+  lastPage: 1,
+  perPage: 15,
+  total: 0,
+});
+
+const stats = ref({
+  total: 0,
+  activos: 0,
+  inactivos: 0,
+  conMfa: 0,
+});
+
+// Modales
 const showModal = ref(false);
 const showViewModal = ref(false);
+const showPasswordModal = ref(false);
 const modalMode = ref('create');
 const selectedUser = ref(null);
+const passwordUser = ref(null);
+let searchTimeout = null;
 
-// Stats
-const stats = ref({
-  total: 45,
-  active: 38,
-  inactive: 5,
-  blocked: 2
+// Formulario de usuario
+const userForm = ref(getEmptyForm());
+
+// Formulario de contrasena
+const passwordForm = ref({
+  password: '',
+  password_confirmation: '',
 });
 
-// Roles disponibles
-const roles = ref([
-  {
-    id: 'admin',
-    name: 'Administrador',
-    description: 'Acceso completo al sistema',
-    userCount: 3,
-    permissions: ['usuarios', 'reportes', 'configuracion', 'auditoria']
-  },
-  {
-    id: 'director',
-    name: 'Director',
-    description: 'Visualizacion de KPIs y reportes',
-    userCount: 2,
-    permissions: ['dashboard', 'reportes', 'estadisticas']
-  },
-  {
-    id: 'veterinario',
-    name: 'Veterinario',
-    description: 'Gestión de salud animal',
-    userCount: 12,
-    permissions: ['animales', 'vacunación', 'historias_clinicas']
-  },
-  {
-    id: 'inspector',
-    name: 'Inspector',
-    description: 'Atención de denuncias y rescates',
-    userCount: 15,
-    permissions: ['denuncias', 'rescates', 'operativos']
-  },
-  {
-    id: 'adoptante',
-    name: 'Gestor de Adopciones',
-    description: 'Proceso de adopciones',
-    userCount: 8,
-    permissions: ['adopciones', 'seguimiento', 'animales_lectura']
-  },
-  {
-    id: 'consulta',
-    name: 'Solo Consulta',
-    description: 'Visualizacion sin edicion',
-    userCount: 5,
-    permissions: ['lectura_general']
-  }
-]);
+// Toast
+const toast = ref({ show: false, message: '', type: 'success' });
 
-// Usuarios
-const users = ref([
-  {
-    id: 1,
-    nombre: 'Carlos Alberto Ramirez',
-    email: 'caramirez@gov.co',
-    tipoDocumento: 'CC',
-    documento: '79.852.147',
-    telefono: '3001234567',
-    rol: 'admin',
-    rolNombre: 'Administrador',
-    estado: 'activo',
-    mfaEnabled: true,
-    dependencia: 'direccion',
-    ultimoAcceso: '2024-11-27T10:30:00',
-    fechaCreacion: '2023-01-15'
-  },
-  {
-    id: 2,
-    nombre: 'Maria Elena Lopez',
-    email: 'melopez@gov.co',
-    tipoDocumento: 'CC',
-    documento: '52.741.963',
-    telefono: '3109876543',
-    rol: 'director',
-    rolNombre: 'Director',
-    estado: 'activo',
-    mfaEnabled: true,
-    dependencia: 'direccion',
-    ultimoAcceso: '2024-11-27T08:15:00',
-    fechaCreacion: '2023-02-20'
-  },
-  {
-    id: 3,
-    nombre: 'Juan David Martinez',
-    email: 'jdmartinez@gov.co',
-    tipoDocumento: 'CC',
-    documento: '80.123.456',
-    telefono: '3205551234',
-    rol: 'veterinario',
-    rolNombre: 'Veterinario',
-    estado: 'activo',
-    mfaEnabled: false,
-    dependencia: 'veterinaria',
-    ultimoAcceso: '2024-11-26T16:45:00',
-    fechaCreacion: '2023-05-10'
-  },
-  {
-    id: 4,
-    nombre: 'Ana Patricia Gonzalez',
-    email: 'apgonzalez@gov.co',
-    tipoDocumento: 'CC',
-    documento: '51.987.654',
-    telefono: '3157894561',
-    rol: 'inspector',
-    rolNombre: 'Inspector',
-    estado: 'activo',
-    mfaEnabled: false,
-    dependencia: 'denuncias',
-    ultimoAcceso: '2024-11-27T09:00:00',
-    fechaCreacion: '2023-06-05'
-  },
-  {
-    id: 5,
-    nombre: 'Roberto Carlos Vega',
-    email: 'rcvega@gov.co',
-    tipoDocumento: 'CC',
-    documento: '79.456.123',
-    telefono: '3001112233',
-    rol: 'adoptante',
-    rolNombre: 'Gestor de Adopciones',
-    estado: 'inactivo',
-    mfaEnabled: false,
-    dependencia: 'adopciones',
-    ultimoAcceso: '2024-11-15T14:20:00',
-    fechaCreacion: '2023-08-12'
-  },
-  {
-    id: 6,
-    nombre: 'Sandra Milena Torres',
-    email: 'smtorres@gov.co',
-    tipoDocumento: 'CC',
-    documento: '52.369.147',
-    telefono: '3208887766',
-    rol: 'inspector',
-    rolNombre: 'Inspector',
-    estado: 'bloqueado',
-    mfaEnabled: false,
-    dependencia: 'operaciones',
-    ultimoAcceso: '2024-10-20T11:30:00',
-    fechaCreacion: '2023-04-18'
-  }
-]);
-
-// Form
-const userForm = ref({
-  nombre: '',
-  tipoDocumento: 'CC',
-  documento: '',
-  email: '',
-  telefono: '',
-  rol: '',
-  dependencia: '',
-  estado: 'activo',
-  mfaEnabled: false
+// --- Computed ---
+const selectedRoleRequiresMfa = computed(() => {
+  if (!userForm.value.rol_id) return false;
+  const role = roles.value.find(r => r.id === userForm.value.rol_id);
+  return role?.requiere_mfa || false;
 });
 
-// Actividades del usuario (mock)
-const userActivities = ref([
-  { icon: '=�', text: 'Actualizo registro de animal AN-1234', time: 'Hace 2 horas' },
-  { icon: '', text: 'Completo adopcion AD-5678', time: 'Hace 5 horas' },
-  { icon: '=', text: 'Inicio sesion desde 192.168.1.50', time: 'Ayer 16:30' },
-  { icon: '=�', text: 'Genero reporte de adopciones', time: 'Hace 2 dias' }
-]);
+// --- Funciones de datos ---
+function getEmptyForm() {
+  return {
+    nombres: '',
+    apellidos: '',
+    tipo_documento: 'CC',
+    documento_identidad: '',
+    email: '',
+    telefono: '',
+    rol_id: '',
+    area: '',
+    mfa_enabled: false,
+    password: '',
+    password_confirmation: '',
+  };
+}
 
-// Computed
-const filteredUsers = computed(() => {
-  let result = users.value;
+async function fetchUsers() {
+  loading.value = true;
+  error.value = null;
+  try {
+    const params = {
+      page: pagination.value.currentPage,
+      per_page: pagination.value.perPage,
+    };
+    if (searchQuery.value) params.busqueda = searchQuery.value;
+    if (filterRoleId.value) params.rol_id = filterRoleId.value;
+    if (filterStatus.value !== '') params.activo = filterStatus.value;
 
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase();
-    result = result.filter(u =>
-      u.nombre.toLowerCase().includes(query) ||
-      u.email.toLowerCase().includes(query) ||
-      u.documento.includes(query)
-    );
+    const response = await userService.getUsers(params);
+    const paginated = response.data;
+
+    users.value = paginated.data || [];
+    pagination.value = {
+      currentPage: paginated.current_page,
+      lastPage: paginated.last_page,
+      perPage: paginated.per_page,
+      total: paginated.total,
+    };
+
+    computeStats();
+  } catch (err) {
+    console.error('Error al cargar usuarios:', err);
+    error.value = err.response?.data?.message || 'Error al cargar la lista de usuarios';
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function fetchRoles() {
+  loadingRoles.value = true;
+  try {
+    const response = await userService.getRoles();
+    roles.value = response.data || [];
+  } catch (err) {
+    console.error('Error al cargar roles:', err);
+  } finally {
+    loadingRoles.value = false;
+  }
+}
+
+function computeStats() {
+  const all = users.value;
+  stats.value = {
+    total: pagination.value.total,
+    activos: all.filter(u => u.activo).length,
+    inactivos: all.filter(u => !u.activo).length,
+    conMfa: all.filter(u => u.mfa_enabled).length,
+  };
+}
+
+function goToPage(page) {
+  if (page < 1 || page > pagination.value.lastPage) return;
+  pagination.value.currentPage = page;
+  fetchUsers();
+}
+
+// --- Acciones CRUD ---
+async function saveUser() {
+  formError.value = null;
+
+  if (modalMode.value === 'create') {
+    if (userForm.value.password !== userForm.value.password_confirmation) {
+      formError.value = 'Las contrasenas no coinciden';
+      return;
+    }
   }
 
-  if (filterRole.value) {
-    result = result.filter(u => u.rol === filterRole.value);
+  // Forzar MFA si el rol lo requiere
+  if (selectedRoleRequiresMfa.value) {
+    userForm.value.mfa_enabled = true;
   }
 
-  if (filterStatus.value) {
-    result = result.filter(u => u.estado === filterStatus.value);
+  saving.value = true;
+  try {
+    if (modalMode.value === 'create') {
+      await userService.createUser({
+        nombres: userForm.value.nombres,
+        apellidos: userForm.value.apellidos,
+        tipo_documento: userForm.value.tipo_documento,
+        documento_identidad: userForm.value.documento_identidad,
+        email: userForm.value.email,
+        telefono: userForm.value.telefono || null,
+        rol_id: userForm.value.rol_id,
+        area: userForm.value.area || null,
+        password: userForm.value.password,
+        mfa_enabled: userForm.value.mfa_enabled,
+      });
+      showToast('Usuario creado exitosamente', 'success');
+    } else {
+      await userService.updateUser(userForm.value.id, {
+        nombres: userForm.value.nombres,
+        apellidos: userForm.value.apellidos,
+        email: userForm.value.email,
+        telefono: userForm.value.telefono || null,
+        rol_id: userForm.value.rol_id,
+        area: userForm.value.area || null,
+        activo: userForm.value.activo,
+      });
+      showToast('Usuario actualizado exitosamente', 'success');
+    }
+    closeModal();
+    await fetchUsers();
+  } catch (err) {
+    const data = err.response?.data;
+    if (data?.errors) {
+      const messages = Object.values(data.errors).flat();
+      formError.value = messages.join('. ');
+    } else {
+      formError.value = data?.message || 'Error al guardar el usuario';
+    }
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function toggleUserStatus(user) {
+  const action = user.activo ? 'desactivar' : 'activar';
+  const name = user.nombre_completo || `${user.nombres} ${user.apellidos}`;
+  if (!confirm(`¿Desea ${action} al usuario ${name}?`)) return;
+
+  try {
+    await userService.toggleActive(user.id);
+    showToast(`Usuario ${action === 'activar' ? 'activado' : 'desactivado'} exitosamente`, 'success');
+    await fetchUsers();
+  } catch (err) {
+    showToast(err.response?.data?.message || 'Error al cambiar estado del usuario', 'error');
+  }
+}
+
+async function changePassword() {
+  passwordError.value = null;
+
+  if (passwordForm.value.password !== passwordForm.value.password_confirmation) {
+    passwordError.value = 'Las contrasenas no coinciden';
+    return;
   }
 
-  return result;
-});
+  savingPassword.value = true;
+  try {
+    await userService.changePassword(passwordUser.value.id, {
+      password: passwordForm.value.password,
+      password_confirmation: passwordForm.value.password_confirmation,
+    });
+    showToast('Contrasena actualizada exitosamente', 'success');
+    closePasswordModal();
+  } catch (err) {
+    const data = err.response?.data;
+    if (data?.errors) {
+      const messages = Object.values(data.errors).flat();
+      passwordError.value = messages.join('. ');
+    } else {
+      passwordError.value = data?.message || 'Error al cambiar la contrasena';
+    }
+  } finally {
+    savingPassword.value = false;
+  }
+}
 
-const totalPages = computed(() => {
-  return Math.max(1, Math.ceil(filteredUsers.value.length / pageSize));
-});
+// --- Modales ---
+function openModal(mode, user = null) {
+  modalMode.value = mode;
+  formError.value = null;
+  if (mode === 'edit' && user) {
+    userForm.value = {
+      id: user.id,
+      nombres: user.nombres,
+      apellidos: user.apellidos,
+      tipo_documento: user.tipo_documento || 'CC',
+      documento_identidad: user.documento_identidad || '',
+      email: user.email,
+      telefono: user.telefono || '',
+      rol_id: user.roles?.[0]?.id || '',
+      area: user.area || '',
+      mfa_enabled: user.mfa_enabled || false,
+      activo: user.activo,
+      password: '',
+      password_confirmation: '',
+    };
+  } else {
+    userForm.value = getEmptyForm();
+  }
+  showModal.value = true;
+}
 
-// Methods
+function closeModal() {
+  showModal.value = false;
+  formError.value = null;
+}
+
+async function viewUser(user) {
+  showViewModal.value = true;
+  loadingDetail.value = true;
+  try {
+    const response = await userService.getUser(user.id);
+    selectedUser.value = response.data;
+  } catch (err) {
+    selectedUser.value = user;
+  } finally {
+    loadingDetail.value = false;
+  }
+}
+
+function closeViewModal() {
+  showViewModal.value = false;
+  selectedUser.value = null;
+}
+
+function openPasswordModal(user) {
+  passwordUser.value = user;
+  passwordForm.value = { password: '', password_confirmation: '' };
+  passwordError.value = null;
+  showPasswordModal.value = true;
+}
+
+function closePasswordModal() {
+  showPasswordModal.value = false;
+  passwordUser.value = null;
+  passwordError.value = null;
+}
+
+// --- Utilidades ---
 function getInitials(name) {
   if (!name) return '??';
   return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-}
-
-function capitalize(str) {
-  if (!str) return '';
-  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 function formatDate(dateStr) {
@@ -626,112 +843,53 @@ function formatDate(dateStr) {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   });
 }
 
-function getRoleClass(rol) {
-  const classes = {
-    admin: 'role-admin',
-    director: 'role-director',
-    veterinario: 'role-vet',
-    inspector: 'role-inspector',
-    adoptante: 'role-adoptante',
-    consulta: 'role-consulta'
+function getRoleClass(codigo) {
+  if (!codigo) return '';
+  const map = {
+    ADMIN: 'role-admin',
+    DIRECTOR: 'role-director',
+    VETERINARIO: 'role-vet',
+    AUXILIAR_VET: 'role-vet',
+    COORDINADOR: 'role-coordinador',
+    OPERADOR: 'role-operador',
+    EVALUADOR: 'role-evaluador',
   };
-  return classes[rol] || '';
+  return map[codigo] || '';
 }
 
-function openModal(mode, user = null) {
-  modalMode.value = mode;
-  if (mode === 'edit' && user) {
-    userForm.value = { ...user };
-  } else {
-    userForm.value = {
-      nombre: '',
-      tipoDocumento: 'CC',
-      documento: '',
-      email: '',
-      telefono: '',
-      rol: '',
-      dependencia: '',
-      estado: 'activo',
-      mfaEnabled: false
-    };
+function showToast(message, type = 'success') {
+  toast.value = { show: true, message, type };
+  setTimeout(() => {
+    toast.value.show = false;
+  }, 3500);
+}
+
+// --- Watchers ---
+watch(searchQuery, () => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    pagination.value.currentPage = 1;
+    fetchUsers();
+  }, 400);
+});
+
+// Forzar MFA cuando el rol lo requiere
+watch(() => userForm.value.rol_id, (newRolId) => {
+  if (!newRolId) return;
+  const role = roles.value.find(r => r.id === newRolId);
+  if (role?.requiere_mfa) {
+    userForm.value.mfa_enabled = true;
   }
-  showModal.value = true;
-}
+});
 
-function closeModal() {
-  showModal.value = false;
-}
-
-function saveUser() {
-  // Validar MFA obligatorio para admin
-  if (userForm.value.rol === 'admin' && !userForm.value.mfaEnabled) {
-    alert('El MFA es obligatorio para usuarios con rol de Administrador');
-    return;
-  }
-
-  if (modalMode.value === 'create') {
-    const newUser = {
-      ...userForm.value,
-      id: users.value.length + 1,
-      rolNombre: roles.value.find(r => r.id === userForm.value.rol)?.name,
-      ultimoAcceso: null,
-      fechaCreacion: new Date().toISOString()
-    };
-    users.value.push(newUser);
-    alert('Usuario creado exitosamente');
-  } else {
-    const index = users.value.findIndex(u => u.id === userForm.value.id);
-    if (index !== -1) {
-      users.value[index] = {
-        ...userForm.value,
-        rolNombre: roles.value.find(r => r.id === userForm.value.rol)?.name
-      };
-    }
-    alert('Usuario actualizado exitosamente');
-  }
-  closeModal();
-}
-
-function viewUser(user) {
-  selectedUser.value = user;
-  showViewModal.value = true;
-}
-
-function closeViewModal() {
-  showViewModal.value = false;
-  selectedUser.value = null;
-}
-
-function toggleUserStatus(user) {
-  const newStatus = user.estado === 'activo' ? 'inactivo' : 'activo';
-  if (confirm(`Cambiar estado de ${user.nombre} a ${newStatus}?`)) {
-    user.estado = newStatus;
-  }
-}
-
-function resetPassword(user) {
-  if (confirm(`Enviar enlace de restablecimiento de contrasena a ${user.email}?`)) {
-    alert(`Enlace enviado a ${user.email}`);
-  }
-}
-
-function openRoleModal() {
-  alert('Funcionalidad de crear rol (Integracion con sci-rbac)');
-}
-
-function editRole(role) {
-  alert(`Editar rol: ${role.name} (Integracion con sci-rbac)`);
-}
-
-// Watch para MFA obligatorio
-watch(() => userForm.value.rol, (newRol) => {
-  if (newRol === 'admin') {
-    userForm.value.mfaEnabled = true;
-  }
+// --- Inicializacion ---
+onMounted(async () => {
+  await fetchRoles();
+  await fetchUsers();
 });
 </script>
 
@@ -799,11 +957,19 @@ watch(() => userForm.value.rol, (newRol) => {
   box-sizing: border-box;
 }
 
+.search-input:focus {
+  outline: none;
+  border-color: #3366CC;
+  box-shadow: 0 0 0 2px rgba(51, 102, 204, 0.15);
+}
+
 .search-icon {
   position: absolute;
   left: 0.75rem;
   top: 50%;
   transform: translateY(-50%);
+  display: flex;
+  align-items: center;
 }
 
 .filter-select {
@@ -812,6 +978,12 @@ watch(() => userForm.value.rol, (newRol) => {
   border-radius: 4px;
   font-size: 0.95rem;
   min-width: 160px;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #3366CC;
+  box-shadow: 0 0 0 2px rgba(51, 102, 204, 0.15);
 }
 
 /* Stats Cards */
@@ -831,9 +1003,9 @@ watch(() => userForm.value.rol, (newRol) => {
   border-left: 4px solid #004884;
 }
 
-.stat-card.active { border-color: #068460; }
+.stat-card.active { border-color: #069169; }
 .stat-card.inactive { border-color: #FFAB00; }
-.stat-card.blocked { border-color: #A80521; }
+.stat-card.mfa { border-color: #3366CC; }
 
 .stat-value {
   display: block;
@@ -845,6 +1017,54 @@ watch(() => userForm.value.rol, (newRol) => {
 .stat-label {
   font-size: 0.85rem;
   color: #666;
+}
+
+/* Loading */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3rem;
+  color: #666;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #E8F0FE;
+  border-top-color: #3366CC;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error */
+.error-container {
+  text-align: center;
+  padding: 2rem;
+  background: #FFF5F5;
+  border: 1px solid #FFCDD2;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  color: #A80521;
+}
+
+.btn-retry {
+  margin-top: 1rem;
+  padding: 0.5rem 1.5rem;
+  background: #A80521;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-retry:hover {
+  background: #8b0419;
 }
 
 /* Users Table */
@@ -869,14 +1089,14 @@ watch(() => userForm.value.rol, (newRol) => {
 }
 
 .users-table th {
-  background: #f5f7fb;
+  background: #E8F0FE;
   font-weight: 600;
   color: #004884;
   white-space: nowrap;
 }
 
 .users-table tbody tr:hover {
-  background: #f9f9f9;
+  background: #f5f7fb;
 }
 
 .user-cell {
@@ -896,6 +1116,7 @@ watch(() => userForm.value.rol, (newRol) => {
   justify-content: center;
   font-weight: 600;
   font-size: 0.9rem;
+  flex-shrink: 0;
 }
 
 .user-info {
@@ -919,14 +1140,15 @@ watch(() => userForm.value.rol, (newRol) => {
   border-radius: 12px;
   font-size: 0.8rem;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .role-admin { background: #E8F0FE; color: #1565C0; }
 .role-director { background: #F3E5F5; color: #7B1FA2; }
 .role-vet { background: #E8F5E9; color: #2E7D32; }
-.role-inspector { background: #FFF3E0; color: #EF6C00; }
-.role-adoptante { background: #E0F7FA; color: #00838F; }
-.role-consulta { background: #ECEFF1; color: #546E7A; }
+.role-coordinador { background: #FFF3E0; color: #EF6C00; }
+.role-operador { background: #E0F7FA; color: #00838F; }
+.role-evaluador { background: #F3E5F5; color: #6A1B9A; }
 
 .status-badge {
   padding: 0.3rem 0.6rem;
@@ -937,7 +1159,6 @@ watch(() => userForm.value.rol, (newRol) => {
 
 .status-badge.activo { background: #E8F5E9; color: #2E7D32; }
 .status-badge.inactivo { background: #FFF8E1; color: #F57F17; }
-.status-badge.bloqueado { background: #FFEBEE; color: #C62828; }
 
 .mfa-badge {
   padding: 0.3rem 0.6rem;
@@ -968,15 +1189,17 @@ watch(() => userForm.value.rol, (newRol) => {
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #555;
 }
 
-.action-btn.view { background: #E8F0FE; }
-.action-btn.edit { background: #FFF3E0; }
-.action-btn.toggle { background: #F3E5F5; }
-.action-btn.reset { background: #E0F7FA; }
+.action-btn.view { background: #E8F0FE; color: #1565C0; }
+.action-btn.edit { background: #FFF3E0; color: #EF6C00; }
+.action-btn.toggle { background: #F3E5F5; color: #7B1FA2; }
+.action-btn.reset { background: #E0F7FA; color: #00838F; }
 
 .action-btn:hover {
   transform: scale(1.1);
+  opacity: 0.85;
 }
 
 .no-results {
@@ -1002,6 +1225,7 @@ watch(() => userForm.value.rol, (newRol) => {
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
+  font-weight: 500;
 }
 
 .page-btn:hover:not(:disabled) {
@@ -1042,21 +1266,6 @@ watch(() => userForm.value.rol, (newRol) => {
   color: #004884;
 }
 
-.btn-add-role {
-  padding: 0.5rem 1rem;
-  background: #E8F0FE;
-  color: #3366CC;
-  border: 1px solid #3366CC;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-add-role:hover {
-  background: #3366CC;
-  color: white;
-}
-
 .roles-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1067,9 +1276,14 @@ watch(() => userForm.value.rol, (newRol) => {
   border: 1px solid #E0E0E0;
   border-radius: 8px;
   padding: 1rem;
+  transition: box-shadow 0.2s;
 }
 
-.role-header {
+.role-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.role-header-card {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1081,12 +1295,13 @@ watch(() => userForm.value.rol, (newRol) => {
   color: #004884;
 }
 
-.role-count {
-  font-size: 0.8rem;
-  color: #666;
-  background: #f5f5f5;
-  padding: 0.2rem 0.5rem;
-  border-radius: 10px;
+.mfa-required-tag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.4rem;
+  background: #E8F0FE;
+  color: #1565C0;
+  border-radius: 4px;
 }
 
 .role-description {
@@ -1099,7 +1314,6 @@ watch(() => userForm.value.rol, (newRol) => {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
-  margin-bottom: 0.75rem;
 }
 
 .permission-tag {
@@ -1113,25 +1327,7 @@ watch(() => userForm.value.rol, (newRol) => {
 .more-permissions {
   font-size: 0.75rem;
   color: #666;
-}
-
-.role-actions {
-  text-align: right;
-}
-
-.role-btn {
-  padding: 0.4rem 0.8rem;
-  background: white;
-  color: #3366CC;
-  border: 1px solid #3366CC;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.role-btn:hover {
-  background: #3366CC;
-  color: white;
+  padding: 0.2rem 0.5rem;
 }
 
 /* Modal */
@@ -1161,6 +1357,10 @@ watch(() => userForm.value.rol, (newRol) => {
   max-width: 600px;
 }
 
+.modal-content.password-modal {
+  max-width: 450px;
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -1185,6 +1385,7 @@ watch(() => userForm.value.rol, (newRol) => {
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #666;
 }
 
 .close-btn:hover {
@@ -1226,19 +1427,27 @@ watch(() => userForm.value.rol, (newRol) => {
 .form-select:focus {
   outline: none;
   border-color: #3366CC;
-  box-shadow: 0 0 0 2px rgba(51, 102, 204, 0.1);
+  box-shadow: 0 0 0 2px rgba(51, 102, 204, 0.15);
 }
 
-.mfa-section,
-.sso-section {
+.form-error {
+  padding: 0.75rem 1rem;
+  background: #FFF5F5;
+  border: 1px solid #FFCDD2;
+  border-radius: 4px;
+  color: #A80521;
+  font-size: 0.9rem;
+  margin-top: 1rem;
+}
+
+.mfa-section {
   margin-top: 1.5rem;
   padding: 1rem;
   background: #f5f7fb;
   border-radius: 8px;
 }
 
-.mfa-section h4,
-.sso-section h4 {
+.mfa-section h4 {
   margin: 0 0 0.75rem 0;
   color: #004884;
   font-size: 0.95rem;
@@ -1255,12 +1464,6 @@ watch(() => userForm.value.rol, (newRol) => {
   margin: 0.5rem 0 0 0;
   font-size: 0.8rem;
   color: #A80521;
-}
-
-.sso-info {
-  margin: 0;
-  font-size: 0.9rem;
-  color: #666;
 }
 
 .form-actions {
@@ -1293,10 +1496,27 @@ watch(() => userForm.value.rol, (newRol) => {
   border-radius: 4px;
   font-weight: 600;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.btn-save:hover {
+.btn-save:hover:not(:disabled) {
   background: #003366;
+}
+
+.btn-save:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btn-loading {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
 }
 
 /* View Modal */
@@ -1320,6 +1540,7 @@ watch(() => userForm.value.rol, (newRol) => {
   justify-content: center;
   font-weight: 600;
   font-size: 1.5rem;
+  flex-shrink: 0;
 }
 
 .user-detail-info h4 {
@@ -1355,45 +1576,59 @@ watch(() => userForm.value.rol, (newRol) => {
   color: #333;
 }
 
-.activity-section {
+.permissions-section {
   background: #f5f7fb;
   border-radius: 8px;
   padding: 1rem;
 }
 
-.activity-section h4 {
-  margin: 0 0 1rem 0;
+.permissions-section h4 {
+  margin: 0 0 0.75rem 0;
   color: #004884;
   font-size: 0.95rem;
 }
 
-.activity-list {
+.permissions-list {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.35rem;
 }
 
-.activity-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem;
-  background: white;
-  border-radius: 4px;
+.password-user-info {
+  margin: 0 0 1.5rem 0;
+  color: #333;
 }
 
-.activity-icon {
-  font-size: 1.25rem;
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  color: white;
+  font-weight: 500;
+  z-index: 2000;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
-.activity-text {
-  flex: 1;
-  font-size: 0.9rem;
+.toast.success {
+  background: #069169;
 }
 
-.activity-time {
-  font-size: 0.8rem;
-  color: #999;
+.toast.error {
+  background: #A80521;
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s ease;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(20px);
 }
 
 /* Responsive */
