@@ -354,6 +354,7 @@ async function loadInitialData() {
     let animalsData = [];
 
     try {
+      animalsStore.clearFilters(); 
       await animalsStore.fetchAnimals({ per_page: 100 });
       animalsData = animalsStore.animals || [];
       console.log('✅ Animales desde store:', animalsData.length);
