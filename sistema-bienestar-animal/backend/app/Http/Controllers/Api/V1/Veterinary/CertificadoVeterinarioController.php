@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use App\Services\FileService;
 
 class CertificadoVeterinarioController extends BaseController
 {
@@ -57,9 +58,9 @@ class CertificadoVeterinarioController extends BaseController
             $file = $request->file('certificado');
             $tipoFolder = $tipo === 'esterilizacion' ? 'esterilizacion' : ($tipo === 'cirugia' ? 'cirugias' : 'vacunas');
             $filename = "certificado_{$tipoFolder}_{$animal->codigo_unico}_" . time() . '.' . $file->getClientOriginalExtension();
-            
-            // Guardar en storage/app/public/certificados/{tipo}/
-            $path = $file->storeAs("certificados/{$tipoFolder}", $filename, 'public');
+
+            // Guardar en S3
+            $path = $file->storeAs("documentos/certificados/{$tipoFolder}", $filename, 's3');
 
             $result = null;
 
@@ -99,7 +100,7 @@ class CertificadoVeterinarioController extends BaseController
                 'tipo' => $tipo,
                 'animal' => $animal->fresh(),
                 'registro' => $result['registro'] ?? null,
-                'certificado_url' => Storage::url($path),
+                'certificado_url' => FileService::privateUrl($path),
                 'total_certificados' => $result['total_certificados'] ?? 1,
             ], "Certificado de {$tipo} adjuntado exitosamente");
 
@@ -123,7 +124,7 @@ class CertificadoVeterinarioController extends BaseController
     {
         // Eliminar certificado anterior si existe
         if ($animal->certificado_esterilizacion) {
-            Storage::disk('public')->delete($animal->certificado_esterilizacion);
+            Storage::disk('s3')->delete($animal->certificado_esterilizacion);
         }
 
         $animal->certificado_esterilizacion = $path;
@@ -258,7 +259,7 @@ class CertificadoVeterinarioController extends BaseController
             // Certificado de esterilización del animal
             if ($animal->certificado_esterilizacion) {
                 $certificados['esterilizacion'] = [
-                    'url' => Storage::url($animal->certificado_esterilizacion),
+                    'url' => FileService::privateUrl($animal->certificado_esterilizacion),
                     'fecha_adjuncion' => $animal->fecha_adjuncion_certificado,
                     'fecha_esterilizacion' => $animal->fecha_esterilizacion,
                     'notas' => $animal->notas_certificado,
@@ -277,7 +278,7 @@ class CertificadoVeterinarioController extends BaseController
                         'fecha' => $cirugia->fecha_realizacion ?? $cirugia->fecha_programada,
                         'certificados' => array_map(function($cert) {
                             return [
-                                'url' => Storage::url($cert['path']),
+                                'url' => FileService::privateUrl($cert['path']),
                                 'fecha_adjuncion' => $cert['fecha_adjuncion'],
                                 'notas' => $cert['notas'] ?? null,
                                 'nombre_archivo' => $cert['nombre_archivo'] ?? basename($cert['path']),
@@ -300,7 +301,7 @@ class CertificadoVeterinarioController extends BaseController
                         'fecha_aplicacion' => $vacuna->fecha_aplicacion,
                         'certificados' => array_map(function($cert) {
                             return [
-                                'url' => Storage::url($cert['path']),
+                                'url' => FileService::privateUrl($cert['path']),
                                 'fecha_adjuncion' => $cert['fecha_adjuncion'],
                                 'notas' => $cert['notas'] ?? null,
                                 'nombre_archivo' => $cert['nombre_archivo'] ?? basename($cert['path']),
@@ -357,10 +358,10 @@ class CertificadoVeterinarioController extends BaseController
                 return $this->notFoundResponse('Certificado no encontrado');
             }
 
-            // Eliminar archivo del storage
+            // Eliminar archivo del storage S3
             $path = $certificados[$index]['path'];
-            if (Storage::disk('public')->exists($path)) {
-                Storage::disk('public')->delete($path);
+            if (Storage::disk('s3')->exists($path)) {
+                Storage::disk('s3')->delete($path);
             }
 
             // Eliminar del array
@@ -432,11 +433,11 @@ class CertificadoVeterinarioController extends BaseController
                 return $this->notFoundResponse('No hay certificado adjunto para este registro');
             }
 
-            if (!Storage::disk('public')->exists($path)) {
+            if (!Storage::disk('s3')->exists($path)) {
                 return $this->notFoundResponse('El archivo del certificado no existe');
             }
 
-            return Storage::disk('public')->download($path);
+            return Storage::disk('s3')->download($path);
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->notFoundResponse('Registro no encontrado');

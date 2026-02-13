@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use App\Services\FileService;
 
 class ContratoAdopcionService
 {
@@ -30,10 +31,10 @@ class ContratoAdopcionService
 
         // Nombre del archivo
         $fileName = 'contrato_' . $adopcion->id . '_' . now()->format('Ymd_His') . '.pdf';
-        $path = 'contratos/' . $fileName;
+        $path = 'documentos/contratos/' . $fileName;
 
-        // Guardar en storage
-        Storage::disk('public')->put($path, $pdf->output());
+        // Guardar en storage S3
+        Storage::disk('s3')->put($path, $pdf->output());
 
         // Actualizar adopción con la URL del contrato
         $adopcion->update([
@@ -42,7 +43,7 @@ class ContratoAdopcionService
 
         return [
             'path' => $path,
-            'url' => Storage::disk('public')->url($path),
+            'url' => FileService::privateUrl($path),
             'filename' => $fileName,
         ];
     }
@@ -59,7 +60,7 @@ class ContratoAdopcionService
         if ($adopcion->contrato_firmado) {
             // Buscar archivo de firma existente
             $firmaPattern = 'firmas/firma_' . $adopcion->id . '_*.png';
-            $firmaFiles = Storage::disk('public')->files('firmas');
+            $firmaFiles = Storage::disk('s3')->files('documentos/firmas');
             $firmaPath = null;
 
             foreach ($firmaFiles as $file) {
@@ -69,8 +70,8 @@ class ContratoAdopcionService
                 }
             }
 
-            if ($firmaPath && Storage::disk('public')->exists($firmaPath)) {
-                $firmaContent = Storage::disk('public')->get($firmaPath);
+            if ($firmaPath && Storage::disk('s3')->exists($firmaPath)) {
+                $firmaContent = Storage::disk('s3')->get($firmaPath);
                 $firmaBase64 = base64_encode($firmaContent);
                 $data['firma_base64'] = 'data:image/png;base64,' . $firmaBase64;
             }
@@ -95,8 +96,8 @@ class ContratoAdopcionService
 
         if ($firmaData) {
             $firmaFileName = 'firma_' . $adopcion->id . '_' . now()->format('Ymd_His') . '.png';
-            $firmaPath = 'firmas/' . $firmaFileName;
-            Storage::disk('public')->put($firmaPath, $firmaData);
+            $firmaPath = 'documentos/firmas/' . $firmaFileName;
+            Storage::disk('s3')->put($firmaPath, $firmaData);
         }
 
         // Actualizar adopción
@@ -395,12 +396,12 @@ class ContratoAdopcionService
         $adopcion->load(['animal', 'adoptante', 'evaluador']);
         $data = $this->prepararDatosContrato($adopcion);
 
-        if ($firmaPath && Storage::disk('public')->exists($firmaPath)) {
+        if ($firmaPath && Storage::disk('s3')->exists($firmaPath)) {
             // Embeber firma como base64 para DomPDF
-            $firmaContent = Storage::disk('public')->get($firmaPath);
+            $firmaContent = Storage::disk('s3')->get($firmaPath);
             $firmaBase64 = base64_encode($firmaContent);
             $data['firma_base64'] = 'data:image/png;base64,' . $firmaBase64;
-            $data['firma_url'] = Storage::disk('public')->url($firmaPath);
+            $data['firma_url'] = FileService::privateUrl($firmaPath);
         }
 
         $data['contrato_firmado'] = true;
@@ -411,9 +412,9 @@ class ContratoAdopcionService
 
         // Nombre del archivo firmado
         $fileName = 'contrato_firmado_' . $adopcion->id . '_' . now()->format('Ymd_His') . '.pdf';
-        $path = 'contratos/' . $fileName;
+        $path = 'documentos/contratos/' . $fileName;
 
-        Storage::disk('public')->put($path, $pdf->output());
+        Storage::disk('s3')->put($path, $pdf->output());
 
         $adopcion->update([
             'contrato_url' => $path,

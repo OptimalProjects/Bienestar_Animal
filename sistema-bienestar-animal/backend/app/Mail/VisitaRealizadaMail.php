@@ -54,12 +54,13 @@ class VisitaRealizadaMail extends Mailable
                 'resultadoTexto' => $this->getResultadoTexto($this->visita->resultado),
             ]);
 
-        // Adjuntar PDF si existe
-        if ($this->pdfPath && Storage::disk('public')->exists($this->pdfPath)) {
-            $mail->attach(Storage::disk('public')->path($this->pdfPath), [
-                'as' => 'resumen_visita_' . $this->visita->id . '.pdf',
-                'mime' => 'application/pdf',
-            ]);
+        // Adjuntar PDF si existe en S3
+        if ($this->pdfPath && Storage::disk('s3')->exists($this->pdfPath)) {
+            $mail->attachData(
+                Storage::disk('s3')->get($this->pdfPath),
+                'resumen_visita_' . $this->visita->id . '.pdf',
+                ['mime' => 'application/pdf']
+            );
         }
 
         return $mail;

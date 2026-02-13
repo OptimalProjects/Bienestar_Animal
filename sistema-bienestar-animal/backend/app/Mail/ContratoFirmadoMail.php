@@ -59,35 +59,27 @@ class ContratoFirmadoMail extends Mailable
                 'visitas' => $visitas,
             ]);
 
-        // Adjuntar el contrato firmado si existe
+        // Adjuntar el contrato firmado si existe en S3
         $contratoUrl = $this->contratoPath ?? $this->adopcion->contrato_url;
 
         Log::info('ContratoFirmadoMail::build - Verificando adjunto', [
             'contrato_url' => $contratoUrl,
-            'existe' => $contratoUrl ? Storage::disk('public')->exists($contratoUrl) : false,
+            'existe' => $contratoUrl ? Storage::disk('s3')->exists($contratoUrl) : false,
         ]);
 
-        if ($contratoUrl && Storage::disk('public')->exists($contratoUrl)) {
-            // Limpiar nombre de archivo para evitar caracteres problemáticos
+        if ($contratoUrl && Storage::disk('s3')->exists($contratoUrl)) {
             $nombreLimpio = preg_replace('/[^a-zA-Z0-9_-]/', '_', $animalNombre);
             $fileName = "Contrato_Adopcion_{$nombreLimpio}.pdf";
 
-            // Obtener la ruta absoluta del archivo
-            $fullPath = Storage::disk('public')->path($contratoUrl);
+            $mail->attachData(
+                Storage::disk('s3')->get($contratoUrl),
+                $fileName,
+                ['mime' => 'application/pdf']
+            );
 
-            Log::info('ContratoFirmadoMail::build - Adjuntando contrato', [
+            Log::info('ContratoFirmadoMail::build - Contrato adjuntado desde S3', [
                 'fileName' => $fileName,
-                'fullPath' => $fullPath,
-                'fileExists' => file_exists($fullPath),
-                'fileSize' => file_exists($fullPath) ? filesize($fullPath) : 0,
             ]);
-
-            if (file_exists($fullPath)) {
-                $mail->attach($fullPath, [
-                    'as' => $fileName,
-                    'mime' => 'application/pdf',
-                ]);
-            }
         } else {
             Log::warning('ContratoFirmadoMail::build - No se encontró contrato para adjuntar', [
                 'contrato_url' => $contratoUrl,

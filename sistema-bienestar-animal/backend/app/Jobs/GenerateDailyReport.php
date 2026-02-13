@@ -36,9 +36,9 @@ class GenerateDailyReport implements ShouldQueue
             'veterinaria' => $this->getVeterinariaStats($fecha),
         ];
 
-        // Guardar reporte en storage
-        $filename = "reportes/diario_{$fecha}.json";
-        Storage::put($filename, json_encode($reporte, JSON_PRETTY_PRINT));
+        // Guardar reporte en storage S3
+        $filename = "documentos/reportes/diario_{$fecha}.json";
+        Storage::disk('s3')->put($filename, json_encode($reporte, JSON_PRETTY_PRINT));
 
         Log::info('Reporte diario generado', [
             'fecha' => $fecha,

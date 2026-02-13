@@ -293,12 +293,12 @@ class AdopcionService
     }
 
     /**
-     * Guardar documento en storage.
+     * Guardar documento en storage S3.
      */
     protected function guardarDocumento($archivo, string $carpeta): string
     {
         $nombreArchivo = time() . '_' . uniqid() . '.' . $archivo->getClientOriginalExtension();
-        $path = $archivo->storeAs($carpeta, $nombreArchivo, 'public');
+        $path = $archivo->storeAs('documentos/' . $carpeta, $nombreArchivo, 's3');
         return $path;
     }
 

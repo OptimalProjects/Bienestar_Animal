@@ -6,6 +6,7 @@ use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Services\FileService;
 
 class Adoptante extends Model
 {
@@ -68,25 +69,25 @@ class Adoptante extends Model
     }
 
     /**
-     * Accessor: URL de copia de cédula.
+     * Accessor: URL de copia de cédula (S3).
      */
     public function getCopiaCedulaUrlAttribute(): ?string
     {
         if (!$this->copia_cedula) {
             return null;
         }
-        return url('storage/' . $this->copia_cedula);
+        return FileService::privateUrl($this->copia_cedula);
     }
 
     /**
-     * Accessor: URL de comprobante de domicilio.
+     * Accessor: URL de comprobante de domicilio (S3).
      */
     public function getComprobanteDomicilioUrlAttribute(): ?string
     {
         if (!$this->comprobante_domicilio) {
             return null;
         }
-        return url('storage/' . $this->comprobante_domicilio);
+        return FileService::privateUrl($this->comprobante_domicilio);
     }
 
     /**

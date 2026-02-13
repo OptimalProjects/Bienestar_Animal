@@ -59,8 +59,8 @@ class DenunciaController extends BaseController
             'ubicacion' => 'required|string|max:300',
             'latitud' => 'nullable|numeric|between:-90,90',
             'longitud' => 'nullable|numeric|between:-180,180',
-            'evidencias' => 'nullable|array',
-            'evidencias.*' => 'nullable|string',
+            'evidencias' => 'nullable|array|max:10',
+            'evidencias.*' => 'nullable|file|mimes:jpg,jpeg,png,mp4|max:10240',
             'es_anonima' => 'nullable|boolean',
 
             // Datos del denunciante (opcional si es anonima)
@@ -76,7 +76,12 @@ class DenunciaController extends BaseController
         }
 
         try {
-            $resultado = $this->denunciaService->registrar($request->all());
+            $data = $request->all();
+
+            // Extraer archivos de evidencia del request
+            $archivosEvidencia = $request->file('evidencias', []);
+
+            $resultado = $this->denunciaService->registrar($data, $archivosEvidencia);
 
             return $this->createdResponse([
                 'ticket' => $resultado['ticket'],

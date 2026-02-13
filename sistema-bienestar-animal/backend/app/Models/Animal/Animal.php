@@ -14,7 +14,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Veterinaria\Vacuna;
+
 
 
 class Animal extends Model
@@ -146,7 +148,7 @@ class Animal extends Model
 
 
     /**
-     * Accessor: URL completa de foto principal.
+     * Accessor: URL completa de foto principal (S3).
      */
     public function getFotoUrlAttribute(): ?string
     {
@@ -154,11 +156,11 @@ class Animal extends Model
             return null;
         }
 
-        return url('storage/' . $this->foto_principal);
+        return Storage::disk('s3')->url($this->foto_principal);
     }
 
     /**
-     * Accessor: URLs completas de galería de fotos.
+     * Accessor: URLs completas de galería de fotos (S3).
      */
     public function getGaleriaUrlsAttribute(): array
     {
@@ -167,7 +169,7 @@ class Animal extends Model
         }
 
         return array_map(function ($path) {
-            return url('storage/' . $path);
+            return Storage::disk('s3')->url($path);
         }, $this->galeria_fotos);
     }
 

@@ -55,18 +55,16 @@ class DevolucionRegistradaMail extends Mailable
                 'estadoAnimalTexto' => $this->devolucion->estado_animal_texto,
             ]);
 
-        // Adjuntar PDF si existe
-        if ($this->pdfPath && Storage::disk('public')->exists($this->pdfPath)) {
-            $fullPath = Storage::disk('public')->path($this->pdfPath);
+        // Adjuntar PDF si existe en S3
+        if ($this->pdfPath && Storage::disk('s3')->exists($this->pdfPath)) {
             $nombreLimpio = preg_replace('/[^a-zA-Z0-9_-]/', '_', $animalNombre);
             $fileName = "Resumen_Devolucion_{$nombreLimpio}.pdf";
 
-            if (file_exists($fullPath)) {
-                $mail->attach($fullPath, [
-                    'as' => $fileName,
-                    'mime' => 'application/pdf',
-                ]);
-            }
+            $mail->attachData(
+                Storage::disk('s3')->get($this->pdfPath),
+                $fileName,
+                ['mime' => 'application/pdf']
+            );
         }
 
         return $mail;

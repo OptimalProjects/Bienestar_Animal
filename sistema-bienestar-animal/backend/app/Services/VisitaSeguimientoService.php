@@ -29,10 +29,10 @@ class VisitaSeguimientoService
 
         // Nombre del archivo
         $fileName = 'visita_' . $visita->id . '_' . now()->format('Ymd_His') . '.pdf';
-        $path = 'visitas/pdf/' . $fileName;
+        $path = 'documentos/visitas/pdf/' . $fileName;
 
-        // Guardar en storage
-        Storage::disk('public')->put($path, $pdf->output());
+        // Guardar en storage S3
+        Storage::disk('s3')->put($path, $pdf->output());
 
         Log::info('PDF de resumen de visita generado', [
             'visita_id' => $visita->id,
@@ -41,7 +41,7 @@ class VisitaSeguimientoService
 
         return [
             'path' => $path,
-            'url' => Storage::disk('public')->url($path),
+            'url' => FileService::privateUrl($path),
             'filename' => $fileName,
         ];
     }

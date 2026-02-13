@@ -120,7 +120,7 @@ class AnimalService
         if (isset($data['foto_principal']) && $data['foto_principal'] instanceof UploadedFile) {
             // Borrar la foto anterior si existe
             if ($animal->foto_principal) {
-                Storage::disk('public')->delete($animal->foto_principal);
+                Storage::disk('s3')->delete($animal->foto_principal);
             }
 
             $file = $data['foto_principal'];
@@ -128,7 +128,7 @@ class AnimalService
             // Nombre que contenga "nueva" para que el test pase
             $fileName = 'nueva_'.$file->hashName();
 
-            $path = $file->storeAs('animales/fotos', $fileName, 'public');
+            $path = $file->storeAs('public/animales/fotos', $fileName, 's3');
 
             $data['foto_principal'] = $path;
         }
@@ -231,22 +231,22 @@ class AnimalService
 
 
     /**
-     * Guardar foto en storage.
+     * Guardar foto en storage S3.
      */
     protected function guardarFoto($foto): string
     {
-        $path = $foto->store('animales/fotos', 'public');
+        $path = $foto->store('public/animales/fotos', 's3');
         return $path;
     }
 
     /**
-     * Guardar galeria de fotos.
+     * Guardar galeria de fotos en S3.
      */
     protected function guardarGaleria(array $fotos): array
     {
         $paths = [];
         foreach ($fotos as $foto) {
-            $paths[] = $foto->store('animales/galeria', 'public');
+            $paths[] = $foto->store('public/animales/galeria', 's3');
         }
         return $paths;
     }

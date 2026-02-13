@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use App\Services\FileService;
 
 class VisitaSeguimientoController extends BaseController
 {
@@ -203,10 +204,10 @@ class VisitaSeguimientoController extends BaseController
             if ($request->hasFile('fotos_respaldo')) {
                 foreach ($request->file('fotos_respaldo') as $foto) {
                     $fileName = 'visita_' . $id . '_' . uniqid() . '.' . $foto->getClientOriginalExtension();
-                    $path = $foto->storeAs('visitas/fotos', $fileName, 'public');
+                    $path = $foto->storeAs('documentos/visitas/fotos', $fileName, 's3');
                     $fotosRespaldo[] = [
                         'path' => $path,
-                        'url' => Storage::disk('public')->url($path),
+                        'url' => FileService::privateUrl($path),
                         'nombre_original' => $foto->getClientOriginalName(),
                         'tamanio' => $foto->getSize(),
                         'fecha_subida' => now()->toISOString(),
@@ -240,7 +241,7 @@ class VisitaSeguimientoController extends BaseController
 
                         $adopcionAprobada = true;
                         $contratoGenerado = $adopcion->fresh()->contrato_url
-                            ? Storage::disk('public')->url($adopcion->fresh()->contrato_url)
+                            ? FileService::privateUrl($adopcion->fresh()->contrato_url)
                             : null;
 
                         $mensaje = 'Visita registrada exitosamente. La adopción ha sido aprobada y el contrato está listo para firma.';
