@@ -1135,22 +1135,63 @@ onMounted(() => {
   align-items: center;
   gap: 1rem;
   padding: 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: white;
   border-radius: 12px;
-  color: white;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  color: #333;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border-left: 4px solid #3366CC;
+}
+
+.summary-card:nth-child(1) .summary-icon {
+  background: #E8F0FE;
+  border-radius: 50%;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .summary-card:nth-child(2) {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  border-left-color: #004884;
+}
+
+.summary-card:nth-child(2) .summary-icon {
+  background: #E3F2FD;
+  border-radius: 50%;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .summary-card:nth-child(3) {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  border-left-color: #17A2B8;
+}
+
+.summary-card:nth-child(3) .summary-icon {
+  background: #E3F2FD;
+  border-radius: 50%;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .summary-card:nth-child(4) {
-  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  border-left-color: #069169;
+}
+
+.summary-card:nth-child(4) .summary-icon {
+  background: #E8F5E9;
+  border-radius: 50%;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .summary-icon {
@@ -1161,11 +1202,12 @@ onMounted(() => {
   margin: 0;
   font-size: 2rem;
   font-weight: 700;
+  color: #004884;
 }
 
 .summary-info p {
   margin: 0.25rem 0 0 0;
-  opacity: 0.9;
+  color: #666;
   font-size: 0.9rem;
 }
 
@@ -1298,11 +1340,11 @@ onMounted(() => {
 }
 
 .surgery-card {
-  border-left-color: #F5576C;
+  border-left-color: #004884;
 }
 
 .exam-card {
-  border-left-color: #43E97B;
+  border-left-color: #17A2B8;
 }
 
 .card-header {
@@ -1337,18 +1379,18 @@ onMounted(() => {
   text-transform: uppercase;
 }
 
-.mini-badge.purple { background: #E9D5FF; color: #7C3AED; }
-.mini-badge.blue { background: #DBEAFE; color: #2563EB; }
-.mini-badge.orange { background: #FED7AA; color: #EA580C; }
-.mini-badge.red { background: #FEE2E2; color: #DC2626; }
-.mini-badge.pink { background: #FCE7F3; color: #EC4899; }
-.mini-badge.cyan { background: #CFFAFE; color: #0891B2; }
-.mini-badge.green { background: #D1FAE5; color: #059669; }
+.mini-badge.purple { background: #E8F0FE; color: #004884; }
+.mini-badge.blue { background: #E3F2FD; color: #3366CC; }
+.mini-badge.orange { background: #FFF8E1; color: #F57C00; }
+.mini-badge.red { background: #FFEBEE; color: #A80521; }
+.mini-badge.pink { background: #E8F0FE; color: #004884; }
+.mini-badge.cyan { background: #E3F2FD; color: #17A2B8; }
+.mini-badge.green { background: #E8F5E9; color: #069169; }
 .mini-badge.gray { background: #F3F4F6; color: #6B7280; }
 
-.mini-badge.estado.programada { background: #DBEAFE; color: #1E40AF; }
-.mini-badge.estado.realizada { background: #D1FAE5; color: #065F46; }
-.mini-badge.estado.cancelada { background: #FEE2E2; color: #991B1B; }
+.mini-badge.estado.programada { background: #E3F2FD; color: #3366CC; }
+.mini-badge.estado.realizada { background: #E8F5E9; color: #069169; }
+.mini-badge.estado.cancelada { background: #FFEBEE; color: #A80521; }
 
 .card-date {
   color: #666;
@@ -1388,9 +1430,9 @@ onMounted(() => {
   font-weight: 500;
 }
 
-.info-pill.resultado.exitosa { background: #D1FAE5; color: #065F46; }
-.info-pill.resultado.con_complicaciones { background: #FED7AA; color: #EA580C; }
-.info-pill.resultado.fallida { background: #FEE2E2; color: #DC2626; }
+.info-pill.resultado.exitosa { background: #E8F5E9; color: #069169; }
+.info-pill.resultado.con_complicaciones { background: #FFF8E1; color: #F57C00; }
+.info-pill.resultado.fallida { background: #FFEBEE; color: #A80521; }
 
 .surgeon-name {
   color: #666;
@@ -1403,8 +1445,8 @@ onMounted(() => {
   align-items: center;
   gap: 0.5rem;
   padding: 0.4rem 0.8rem;
-  background: linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%);
-  color: #6B21A8;
+  background: #E8F0FE;
+  color: #004884;
   border-radius: 16px;
   font-size: 0.8rem;
   font-weight: 700;
@@ -1413,7 +1455,7 @@ onMounted(() => {
 
 /* Vacunas */
 .next-dose {
-  color: #F5576C;
+  color: #A80521;
   font-weight: 600;
 }
 
@@ -1515,7 +1557,7 @@ onMounted(() => {
 }
 
 .surgery-header {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  background: linear-gradient(135deg, #004884 0%, #3366CC 100%);
   color: white;
 }
 
@@ -1539,22 +1581,22 @@ onMounted(() => {
   background: white;
 }
 
-.modal-badge.purple { color: #7C3AED; }
-.modal-badge.blue { color: #2563EB; }
-.modal-badge.orange { color: #EA580C; }
-.modal-badge.red { color: #DC2626; }
-.modal-badge.pink { color: #EC4899; }
-.modal-badge.cyan { color: #0891B2; }
-.modal-badge.green { color: #059669; }
+.modal-badge.purple { color: #004884; }
+.modal-badge.blue { color: #3366CC; }
+.modal-badge.orange { color: #F57C00; }
+.modal-badge.red { color: #A80521; }
+.modal-badge.pink { color: #004884; }
+.modal-badge.cyan { color: #17A2B8; }
+.modal-badge.green { color: #069169; }
 .modal-badge.gray { color: #6B7280; }
 
-.modal-badge.estado.programada { color: #1E40AF; }
-.modal-badge.estado.realizada { color: #065F46; }
-.modal-badge.estado.cancelada { color: #991B1B; }
+.modal-badge.estado.programada { color: #3366CC; }
+.modal-badge.estado.realizada { color: #069169; }
+.modal-badge.estado.cancelada { color: #A80521; }
 
-.modal-badge.resultado.exitosa { color: #065F46; }
-.modal-badge.resultado.con_complicaciones { color: #D97706; }
-.modal-badge.resultado.fallida { color: #991B1B; }
+.modal-badge.resultado.exitosa { color: #069169; }
+.modal-badge.resultado.con_complicaciones { color: #F57C00; }
+.modal-badge.resultado.fallida { color: #A80521; }
 
 .modal-header h3 {
   margin: 0;
@@ -1685,8 +1727,8 @@ onMounted(() => {
 }
 
 .alert-esterilizacion {
-  background: linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%);
-  border-left: 4px solid #7C3AED;
+  background: #E8F0FE;
+  border-left: 4px solid #3366CC;
   padding: 1.5rem;
   border-radius: 8px;
 }
@@ -1703,29 +1745,29 @@ onMounted(() => {
 
 .alert-content h4 {
   margin: 0 0 0.25rem 0;
-  color: #6B21A8;
+  color: #004884;
   font-weight: 700;
 }
 
 .alert-content p {
   margin: 0;
-  color: #7C3AED;
+  color: #3366CC;
   font-size: 0.9rem;
 }
 
 .alert-followup {
-  background: #FFF7ED;
-  border-left: 4px solid #EA580C;
+  background: #FFF8E1;
+  border-left: 4px solid #FFAB00;
   padding: 1.5rem;
   border-radius: 8px;
 }
 
 .alert-followup .alert-content h4 {
-  color: #EA580C;
+  color: #F57C00;
 }
 
 .alert-followup .alert-content p {
-  color: #9A3412;
+  color: #E65100;
 }
 
 .preformatted-text {
@@ -1791,8 +1833,8 @@ onMounted(() => {
 
 .assistant-tag {
   padding: 0.3rem 0.8rem;
-  background: #D1FAE5;
-  color: #065F46;
+  background: #E8F0FE;
+  color: #004884;
   border-radius: 16px;
   font-size: 0.85rem;
   font-weight: 500;
