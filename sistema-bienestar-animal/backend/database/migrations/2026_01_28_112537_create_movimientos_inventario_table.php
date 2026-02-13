@@ -16,7 +16,7 @@ return new class extends Migration
             $table->decimal('cantidad', 10, 2);
             $table->string('motivo')->nullable();
             $table->text('descripcion')->nullable();
-            $table->uuid('usuario_id')->nullable();
+            $table->unsignedBigInteger('usuario_id')->nullable();
             $table->timestamps();
 
             // Foreign keys
