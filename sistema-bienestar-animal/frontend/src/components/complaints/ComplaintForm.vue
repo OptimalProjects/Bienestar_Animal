@@ -553,10 +553,48 @@ async function onSubmit() {
 
   try {
     const complaintData = prepareComplaintData();
-    console.log('Enviando denuncia al backend:', complaintData);
+
+    // Si hay archivos de evidencia, enviar como FormData (multipart/form-data)
+    let dataToSend;
+    const hasEvidence = Array.isArray(form.evidence) && form.evidence.length > 0;
+
+    if (hasEvidence) {
+      const fd = new FormData();
+
+      // Agregar campos de texto
+      fd.append('canal_recepcion', complaintData.canal_recepcion);
+      fd.append('tipo_denuncia', complaintData.tipo_denuncia);
+      fd.append('prioridad', complaintData.prioridad);
+      fd.append('descripcion', complaintData.descripcion);
+      fd.append('ubicacion', complaintData.ubicacion);
+      if (complaintData.latitud != null) fd.append('latitud', complaintData.latitud);
+      if (complaintData.longitud != null) fd.append('longitud', complaintData.longitud);
+      fd.append('es_anonima', complaintData.es_anonima ? '1' : '0');
+
+      // Datos del denunciante
+      if (complaintData.denunciante) {
+        Object.entries(complaintData.denunciante).forEach(([key, value]) => {
+          if (value != null) fd.append(`denunciante[${key}]`, value);
+        });
+      }
+
+      // Archivos de evidencia
+      form.evidence.forEach((item) => {
+        const file = item?.file ?? item;
+        if (file instanceof File) {
+          fd.append('evidencias[]', file);
+        }
+      });
+
+      dataToSend = fd;
+    } else {
+      dataToSend = complaintData;
+    }
+
+    console.log('Enviando denuncia al backend:', hasEvidence ? '(FormData con evidencias)' : complaintData);
 
     // LLAMADA REAL AL BACKEND
-    const response = await complaintsStore.crearDenuncia(complaintData);
+    const response = await complaintsStore.crearDenuncia(dataToSend);
     console.log('Respuesta del backend:', response);
 
     // Obtener el ticket del response

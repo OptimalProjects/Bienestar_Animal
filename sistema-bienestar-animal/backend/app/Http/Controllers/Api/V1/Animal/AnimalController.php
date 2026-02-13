@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;  
 use Illuminate\Support\Facades\Log;
 use App\Services\AnimalService;
+use App\Services\FileService;
 
 class AnimalController extends BaseController
 {
@@ -435,14 +436,14 @@ class AnimalController extends BaseController
             if ($request->hasFile('certificado')) {
                 // Eliminar certificado anterior si existe
                 if ($animal->certificado_esterilizacion) {
-                    Storage::disk('public')->delete($animal->certificado_esterilizacion);
+                    Storage::disk('s3')->delete($animal->certificado_esterilizacion);
                 }
 
                 $file = $request->file('certificado');
                 $filename = 'certificado_esterilizacion_' . $animal->codigo_unico . '_' . time() . '.' . $file->getClientOriginalExtension();
-                
-                // Guardar en storage/app/public/certificados
-                $path = $file->storeAs('certificados', $filename, 'public');
+
+                // Guardar en S3
+                $path = $file->storeAs('documentos/certificados/esterilizacion', $filename, 's3');
                 
                 // Guardar la ruta en el animal
                 $animal->certificado_esterilizacion = $path;
@@ -474,7 +475,7 @@ class AnimalController extends BaseController
 
             return $this->successResponse([
                 'animal' => $animal->fresh(),
-                'certificado_url' => $path ? Storage::url($path) : null,
+                'certificado_url' => $path ? FileService::privateUrl($path) : null,
             ], 'Certificado de esterilización adjuntado exitosamente');
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -504,14 +505,14 @@ class AnimalController extends BaseController
             }
 
             // Verificar que el archivo existe
-            if (!Storage::disk('public')->exists($animal->certificado_esterilizacion)) {
+            if (!Storage::disk('s3')->exists($animal->certificado_esterilizacion)) {
                 return $this->notFoundResponse('El archivo del certificado no existe');
             }
 
             return $this->successResponse([
                 'animal_id' => $animal->id,
                 'codigo_unico' => $animal->codigo_unico,
-                'certificado_url' => Storage::url($animal->certificado_esterilizacion),
+                'certificado_url' => FileService::privateUrl($animal->certificado_esterilizacion),
                 'fecha_esterilizacion' => $animal->fecha_esterilizacion,
                 'fecha_adjuncion' => $animal->fecha_adjuncion_certificado,
                 'notas' => $animal->notas_certificado,
@@ -539,11 +540,11 @@ class AnimalController extends BaseController
             }
 
             // Verificar que el archivo existe
-            if (!Storage::disk('public')->exists($animal->certificado_esterilizacion)) {
+            if (!Storage::disk('s3')->exists($animal->certificado_esterilizacion)) {
                 return $this->notFoundResponse('El archivo del certificado no existe');
             }
 
-            return Storage::disk('public')->download($animal->certificado_esterilizacion);
+            return Storage::disk('s3')->download($animal->certificado_esterilizacion);
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->notFoundResponse('Animal no encontrado');

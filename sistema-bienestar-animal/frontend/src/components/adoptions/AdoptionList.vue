@@ -215,7 +215,7 @@
 
 <script setup>
 import { reactive, watch } from 'vue';
-import { resolveAnimalImageUrl, handleImageError as handleImgError, getSpeciesPlaceholder } from '@/utils/animalImages';
+import { resolveAnimalImageUrl, handleImageError as handleImgError } from '@/utils/animalImages';
 
 const props = defineProps({
   animals: {
@@ -279,21 +279,13 @@ function getPhotoUrl(animal) {
   return resolveAnimalImageUrl(url, getAnimalEspecie(animal), getAnimalSeed(animal));
 }
 
-// Resolver URL de galeria
-function resolveGalleryUrl(url, animal) {
-  if (!url) return getSpeciesPlaceholder(getAnimalEspecie(animal), getAnimalSeed(animal));
-  const s = String(url);
-  if (/^(https?:)?\/\//i.test(s) || s.startsWith('data:') || s.startsWith('blob:')) return s;
-  if (s.includes('/storage/')) {
-    return s.startsWith('http') ? s : `${window.location.origin}${s.startsWith('/') ? '' : '/'}${s}`;
-  }
-  return `${window.location.origin}/storage/${s.replace(/^\/+/, '')}`;
-}
-
+// Obtener fotos de galería (URLs completas desde accessor S3 del backend)
 function getGalleryPhotos(animal) {
   const galeria = animal.galeria_urls || animal.galeria_fotos || [];
   if (!Array.isArray(galeria)) return [];
-  return galeria.map(foto => resolveGalleryUrl(foto, animal));
+  return galeria
+    .filter(foto => !!foto)
+    .map(foto => resolveAnimalImageUrl(foto, getAnimalEspecie(animal), getAnimalSeed(animal)));
 }
 
 // Manejador de error de imagen

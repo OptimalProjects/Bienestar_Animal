@@ -103,8 +103,10 @@ function hashString(str) {
 }
 
 /**
- * Resuelve la URL de una imagen de animal, con fallback a placeholder por especie
- * @param {string|null} imageUrl - URL de la imagen original
+ * Resuelve la URL de una imagen de animal, con fallback a placeholder por especie.
+ * Soporta URLs de S3/MinIO (devueltas por los accessors del backend).
+ *
+ * @param {string|null} imageUrl - URL de la imagen original (puede ser URL absoluta S3 o path relativo)
  * @param {string} especie - Especie del animal para el placeholder
  * @param {string|number} seed - Semilla para placeholder consistente
  * @returns {string} URL resuelta de la imagen
@@ -114,21 +116,19 @@ export function resolveAnimalImageUrl(imageUrl, especie = 'otro', seed = 0) {
     return getSpeciesPlaceholder(especie, seed);
   }
 
-  const url = String(imageUrl);
+  const url = String(imageUrl).trim();
+  if (!url) {
+    return getSpeciesPlaceholder(especie, seed);
+  }
 
-  // Ya es URL absoluta, data URL o blob
+  // Ya es URL absoluta (S3, MinIO, Unsplash, etc.), data URL o blob
   if (/^(https?:)?\/\//i.test(url) || url.startsWith('data:') || url.startsWith('blob:')) {
     return url;
   }
 
-  // Si contiene /storage/, completar URL
-  if (url.includes('/storage/')) {
-    return url.startsWith('http') ? url : `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`;
-  }
-
-  // Path relativo tipico de Laravel
-  const clean = url.replace(/^\/+/, '');
-  return `${window.location.origin}/storage/${clean}`;
+  // Path relativo: devolver placeholder ya que los archivos están en S3,
+  // no en el filesystem local. El backend debe retornar URLs completas vía accessors.
+  return getSpeciesPlaceholder(especie, seed);
 }
 
 /**

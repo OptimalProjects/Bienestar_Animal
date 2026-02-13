@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\Auth\SSOController;
 use App\Http\Controllers\Api\V1\Veterinary\CertificadoController;
 use App\Http\Controllers\Api\V1\Veterinary\CertificadoVeterinarioController;
+use App\Http\Controllers\Api\V1\FileController;
 use App\Http\Controllers\Api\V1\SciController;
 
 /*
@@ -70,6 +71,11 @@ Route::prefix('v1')->group(function () {
     
     // Solo para desarrollo (generar tokens fake)
     Route::post('/sso/generate-fake-token', [SSOController::class, 'generateFakeToken']);
+
+    // Archivos privados (proxy S3 con firma de Laravel)
+    Route::get('/files/private', [FileController::class, 'servePrivate'])
+        ->name('files.private')
+        ->middleware('signed');
 
     // ============================================
     // RUTAS PROTEGIDAS (Requieren autenticacion)

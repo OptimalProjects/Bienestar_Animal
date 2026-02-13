@@ -305,20 +305,13 @@ const displayFechaRescate = computed(() => {
   }
 });
 
-// Galeria de fotos adicionales
+// Galeria de fotos adicionales (URLs completas desde accessor S3 del backend)
 const galeriaFotos = computed(() => {
-  // Intentar obtener desde galeria_urls (accessor del backend) o galeria_fotos
   const galeria = props.animal?.galeria_urls || props.animal?.galeria_fotos || [];
   if (!Array.isArray(galeria) || galeria.length === 0) return [];
-  return galeria.map(foto => {
-    if (!foto) return resolveAnimalImageUrl(null, animalEspecie.value, animalSeed.value);
-    const s = String(foto);
-    if (/^(https?:)?\/\//i.test(s) || s.startsWith('data:') || s.startsWith('blob:')) return s;
-    if (s.includes('/storage/')) {
-      return s.startsWith('http') ? s : `${window.location.origin}${s.startsWith('/') ? '' : '/'}${s}`;
-    }
-    return `${window.location.origin}/storage/${s.replace(/^\/+/, '')}`;
-  });
+  return galeria
+    .filter(foto => !!foto)
+    .map(foto => resolveAnimalImageUrl(foto, animalEspecie.value, animalSeed.value));
 });
 
 function openGalleryImage(url) {

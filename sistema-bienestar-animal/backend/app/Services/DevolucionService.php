@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use App\Services\FileService;
 
 class DevolucionService
 {
@@ -334,10 +335,10 @@ class DevolucionService
 
         // Nombre del archivo
         $fileName = 'devolucion_' . $devolucion->id . '_' . now()->format('Ymd_His') . '.pdf';
-        $path = 'devoluciones/pdf/' . $fileName;
+        $path = 'documentos/devoluciones/pdf/' . $fileName;
 
-        // Guardar en storage
-        Storage::disk('public')->put($path, $pdf->output());
+        // Guardar en storage S3
+        Storage::disk('s3')->put($path, $pdf->output());
 
         Log::info('PDF de resumen de devolución generado', [
             'devolucion_id' => $devolucion->id,
@@ -346,7 +347,7 @@ class DevolucionService
 
         return [
             'path' => $path,
-            'url' => Storage::disk('public')->url($path),
+            'url' => FileService::privateUrl($path),
             'filename' => $fileName,
         ];
     }

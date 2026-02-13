@@ -15,6 +15,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class DenunciaService
@@ -65,10 +66,13 @@ class DenunciaService
 
     /**
      * Registrar nueva denuncia (puede ser anonima).
+     *
+     * @param array $data Datos de la denuncia
+     * @param array $archivosEvidencia Archivos de evidencia (UploadedFile[])
      */
-    public function registrar(array $data): array
+    public function registrar(array $data, array $archivosEvidencia = []): array
     {
-        return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data, $archivosEvidencia) {
             // Log de datos recibidos para debug
             Log::info('Datos recibidos para nueva denuncia', [
                 'es_anonima' => $data['es_anonima'] ?? $data['anonima'] ?? false,
@@ -103,6 +107,9 @@ class DenunciaService
             // Asignar automáticamente a un operador de rescate disponible
             $operadorId = $this->obtenerOperadorDisponible();
 
+            // Subir archivos de evidencia a S3
+            $evidenciasPaths = $this->guardarEvidencias($archivosEvidencia);
+
             // Crear denuncia
             $denuncia = Denuncia::create([
                 'denunciante_id' => $denuncianteId,
@@ -114,7 +121,7 @@ class DenunciaService
                 'ubicacion' => $data['ubicacion'] ?? $data['direccion'] ?? '',
                 'latitud' => $data['latitud'] ?? $data['coordenadas_lat'] ?? null,
                 'longitud' => $data['longitud'] ?? $data['coordenadas_lng'] ?? null,
-                'evidencias' => $data['evidencias'] ?? null,
+                'evidencias' => !empty($evidenciasPaths) ? $evidenciasPaths : null,
                 'prioridad' => $prioridad,
                 'estado' => $operadorId ? 'asignada' : 'recibida',
                 'es_anonima' => $esAnonima,
@@ -281,6 +288,25 @@ class DenunciaService
     public function getMapaCalor(): array
     {
         return $this->denunciaRepository->getMapaCalorPorComuna();
+    }
+
+    /**
+     * Guardar archivos de evidencia en S3.
+     *
+     * @param array $archivos Array de UploadedFile
+     * @return array Paths de los archivos almacenados en S3
+     */
+    protected function guardarEvidencias(array $archivos): array
+    {
+        $paths = [];
+
+        foreach ($archivos as $archivo) {
+            if ($archivo && $archivo->isValid()) {
+                $paths[] = $archivo->store('documentos/denuncias', 's3');
+            }
+        }
+
+        return $paths;
     }
 
     /**

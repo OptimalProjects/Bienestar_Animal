@@ -223,15 +223,10 @@ const statusClass = computed(() => {
   return `status-${estado.replace(/\s+/g, '-')}`;
 });
 
-// Resolver URL de galería
+// Resolver URL de galería (URLs completas desde accessor S3 del backend)
 function resolveGalleryUrl(url) {
   if (!url) return '';
-  const s = String(url);
-  if (/^(https?:)?\/\//i.test(s) || s.startsWith('data:') || s.startsWith('blob:')) return s;
-  if (s.includes('/storage/')) {
-    return s.startsWith('http') ? s : `${window.location.origin}${s.startsWith('/') ? '' : '/'}${s}`;
-  }
-  return `${window.location.origin}/storage/${s.replace(/^\/+/, '')}`;
+  return resolveAnimalImageUrl(url, animal.value?.especie || 'otro', animal.value?.id || 0);
 }
 
 function onImageError(event) {

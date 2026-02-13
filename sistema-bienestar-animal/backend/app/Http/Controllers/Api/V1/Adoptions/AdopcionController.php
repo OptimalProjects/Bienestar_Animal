@@ -11,6 +11,7 @@ use App\Models\Adopcion\Devolucion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use App\Services\FileService;
 
 class AdopcionController extends BaseController
 {
@@ -191,9 +192,9 @@ class AdopcionController extends BaseController
             }
 
             // Si ya tiene contrato, retornar la URL existente
-            if ($adopcion->contrato_url && Storage::disk('public')->exists($adopcion->contrato_url)) {
+            if ($adopcion->contrato_url && Storage::disk('s3')->exists($adopcion->contrato_url)) {
                 return $this->successResponse([
-                    'url' => Storage::disk('public')->url($adopcion->contrato_url),
+                    'url' => FileService::privateUrl($adopcion->contrato_url),
                     'firmado' => $adopcion->contrato_firmado,
                     'fecha_firma' => $adopcion->fecha_entrega?->toISOString(),
                 ]);
@@ -275,7 +276,7 @@ class AdopcionController extends BaseController
 
             return $this->successResponse([
                 'adopcion' => $adopcionFirmada,
-                'contrato_url' => Storage::disk('public')->url($adopcionFirmada->contrato_url),
+                'contrato_url' => FileService::privateUrl($adopcionFirmada->contrato_url),
                 'mensaje' => 'Contrato firmado exitosamente. Se han programado los seguimientos post-adopcion.',
             ], 'Contrato firmado exitosamente');
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -303,8 +304,8 @@ class AdopcionController extends BaseController
                 'fecha_firma' => $adopcion->fecha_entrega?->toISOString(),
             ];
 
-            if ($adopcion->contrato_url && Storage::disk('public')->exists($adopcion->contrato_url)) {
-                $response['contrato_url'] = Storage::disk('public')->url($adopcion->contrato_url);
+            if ($adopcion->contrato_url && Storage::disk('s3')->exists($adopcion->contrato_url)) {
+                $response['contrato_url'] = FileService::privateUrl($adopcion->contrato_url);
             }
 
             // Incluir seguimientos programados
@@ -441,8 +442,8 @@ class AdopcionController extends BaseController
                 // URL del contrato si existe y esta aprobada/completada
                 if (in_array($adopcion->estado, ['aprobada', 'completada']) &&
                     $adopcion->contrato_url &&
-                    Storage::disk('public')->exists($adopcion->contrato_url)) {
-                    $response['contrato_url'] = Storage::disk('public')->url($adopcion->contrato_url);
+                    Storage::disk('s3')->exists($adopcion->contrato_url)) {
+                    $response['contrato_url'] = FileService::privateUrl($adopcion->contrato_url);
                 }
 
                 return $response;
@@ -499,7 +500,7 @@ class AdopcionController extends BaseController
                 'adopcion_id' => $adopcionFirmada->id,
                 'estado' => $adopcionFirmada->estado,
                 'contrato_firmado' => true,
-                'contrato_url' => Storage::disk('public')->url($adopcionFirmada->contrato_url),
+                'contrato_url' => FileService::privateUrl($adopcionFirmada->contrato_url),
                 'fecha_firma' => $adopcionFirmada->fecha_entrega?->toISOString(),
                 'mensaje' => 'Contrato firmado exitosamente. Se han programado los seguimientos post-adopcion.',
             ], 'Contrato firmado exitosamente');

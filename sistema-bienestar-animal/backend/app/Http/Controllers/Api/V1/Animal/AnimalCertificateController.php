@@ -61,9 +61,9 @@ class AnimalCertificateController extends BaseController
                 
                 // Guardar archivo en storage/public/certificados
                 $path = $file->storeAs(
-                    'certificados',
+                    'documentos/certificados/esterilizacion',
                     $fileName,
-                    'public'
+                    's3'
                 );
 
                 // Actualizar el animal con la referencia al certificado
@@ -134,7 +134,7 @@ class AnimalCertificateController extends BaseController
             }
 
             if (!$animal->certificado_esterilizacion || 
-                !Storage::disk('public')->exists($animal->certificado_esterilizacion)) {
+                !Storage::disk('s3')->exists($animal->certificado_esterilizacion)) {
                 return $this->errorResponse(
                     'Certificado no encontrado',
                     [],
@@ -148,7 +148,7 @@ class AnimalCertificateController extends BaseController
                 'usuario_id' => auth()->id()
             ]);
 
-            return Storage::disk('public')->download($animal->certificado_esterilizacion);
+            return Storage::disk('s3')->download($animal->certificado_esterilizacion);
 
         } catch (\Exception $e) {
             Log::error("Error al descargar certificado", [
@@ -179,8 +179,8 @@ class AnimalCertificateController extends BaseController
 
             if ($animal->certificado_esterilizacion) {
                 // Eliminar archivo
-                if (Storage::disk('public')->exists($animal->certificado_esterilizacion)) {
-                    Storage::disk('public')->delete($animal->certificado_esterilizacion);
+                if (Storage::disk('s3')->exists($animal->certificado_esterilizacion)) {
+                    Storage::disk('s3')->delete($animal->certificado_esterilizacion);
                 }
                 
                 // Actualizar animal
