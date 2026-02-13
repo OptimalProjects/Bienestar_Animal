@@ -1,744 +1,246 @@
 <!-- src/components/admin/AuditLog.vue -->
-<!-- HU-023: Consultar Log de Auditoria del Sistema -->
 <template>
   <section class="audit-log">
     <div class="audit-header">
-      <div class="header-left">
-        <h2 class="h3-tipografia-govco">Log de Auditoria</h2>
-        <p class="text2-tipografia-govco">
-          Registro completo de actividades del sistema - Integracion sci-audit
-        </p>
+      <div>
+        <h2 class="h3-tipografia-govco">Log de Auditoría</h2>
+        <p class="text2-tipografia-govco">Registro de actividades del sistema</p>
       </div>
-      <div class="header-right">
-        <button type="button" class="btn-export" @click="exportLogs">
-          📥 Exportar CSV
-        </button>
-        <button type="button" class="btn-refresh" @click="refreshLogs">
-          🔄 Actualizar
-        </button>
-      </div>
+      <button type="button" class="btn-refresh" @click="fetchEventos">
+        Actualizar
+      </button>
     </div>
 
-    <!-- Filtros Avanzados -->
+    <!-- Filtros -->
     <div class="filters-panel">
       <div class="filters-row">
         <div class="filter-group">
           <label>Fecha Desde</label>
-          <input type="date" v-model="filters.startDate" class="filter-input" />
+          <input type="date" v-model="filters.fecha_inicio" class="filter-input" />
         </div>
         <div class="filter-group">
           <label>Fecha Hasta</label>
-          <input type="date" v-model="filters.endDate" class="filter-input" />
+          <input type="date" v-model="filters.fecha_fin" class="filter-input" />
         </div>
         <div class="filter-group">
           <label>Usuario</label>
-          <select v-model="filters.userId" class="filter-select">
+          <select v-model="filters.usuario_id" class="filter-select">
             <option value="">Todos</option>
-            <option v-for="user in users" :key="user.id" :value="user.id">
-              {{ user.name }}
+            <option v-for="u in usuariosFiltro" :key="u.id" :value="u.id">
+              {{ u.nombres }} {{ u.apellidos }}
             </option>
           </select>
         </div>
         <div class="filter-group">
-          <label>Tipo de Accion</label>
-          <select v-model="filters.actionType" class="filter-select">
+          <label>Acción</label>
+          <select v-model="filters.accion" class="filter-select">
             <option value="">Todas</option>
-            <option value="CREATE">Crear</option>
-            <option value="UPDATE">Actualizar</option>
-            <option value="DELETE">Eliminar</option>
-            <option value="LOGIN">Inicio Sesion</option>
-            <option value="LOGOUT">Cierre Sesion</option>
-            <option value="VIEW">Visualizacion</option>
-            <option value="EXPORT">Exportacion</option>
-          </select>
-        </div>
-      </div>
-      <div class="filters-row">
-        <div class="filter-group">
-          <label>Modulo</label>
-          <select v-model="filters.module" class="filter-select">
-            <option value="">Todos</option>
-            <option value="animales">Animales</option>
-            <option value="adopciones">Adopciones</option>
-            <option value="denuncias">Denuncias</option>
-            <option value="vacunacion">Vacunación</option>
-            <option value="usuarios">Usuarios</option>
-            <option value="reportes">Reportes</option>
-            <option value="configuracion">Configuracion</option>
+            <option v-for="a in accionesFiltro" :key="a" :value="a">
+              {{ a }}
+            </option>
           </select>
         </div>
         <div class="filter-group">
           <label>Resultado</label>
-          <select v-model="filters.result" class="filter-select">
+          <select v-model="filters.resultado" class="filter-select">
             <option value="">Todos</option>
-            <option value="success">Exitoso</option>
-            <option value="error">Error</option>
-            <option value="warning">Advertencia</option>
+            <option value="exitoso">Exitoso</option>
+            <option value="fallido">Fallido</option>
+            <option value="denegado">Denegado</option>
           </select>
         </div>
-        <div class="filter-group search-group">
-          <label>Buscar</label>
-          <input
-            type="text"
-            v-model="filters.search"
-            placeholder="Buscar en descripción, IP, ID..."
-            class="filter-input"
-          />
-        </div>
         <div class="filter-actions">
-          <button type="button" class="btn-filter" @click="applyFilters">
-            Aplicar Filtros
-          </button>
-          <button type="button" class="btn-clear" @click="clearFilters">
-            Limpiar
-          </button>
+          <button type="button" class="btn-filter" @click="applyFilters">Filtrar</button>
+          <button type="button" class="btn-clear" @click="clearFilters">Limpiar</button>
         </div>
       </div>
     </div>
 
-    <!-- Stats Resumen -->
-    <div class="stats-bar">
-      <div class="stat-item">
-        <span class="stat-value">{{ stats.total.toLocaleString() }}</span>
-        <span class="stat-label">Total Registros</span>
-      </div>
-      <div class="stat-item success">
-        <span class="stat-value">{{ stats.success.toLocaleString() }}</span>
-        <span class="stat-label">Exitosos</span>
-      </div>
-      <div class="stat-item error">
-        <span class="stat-value">{{ stats.errors }}</span>
-        <span class="stat-label">Errores</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-value">{{ stats.uniqueUsers }}</span>
-        <span class="stat-label">Usuarios Activos</span>
-      </div>
+    <!-- Loading -->
+    <div v-if="loading" class="loading-state">
+      <p>Cargando registros...</p>
     </div>
 
-    <!-- Tabla de Logs -->
-    <div class="logs-table-container">
-      <table class="logs-table">
-        <thead>
-          <tr>
-            <th class="col-time">Fecha/Hora</th>
-            <th class="col-user">Usuario</th>
-            <th class="col-action">Accion</th>
-            <th class="col-module">Modulo</th>
-            <th class="col-description">Descripción</th>
-            <th class="col-result">Resultado</th>
-            <th class="col-ip">IP</th>
-            <th class="col-details">Detalles</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="log in paginatedLogs" :key="log.id" :class="getRowClass(log)">
-            <td class="col-time">
-              <div class="time-display">
-                <span class="date">{{ formatDate(log.timestamp) }}</span>
-                <span class="time">{{ formatTime(log.timestamp) }}</span>
-              </div>
-            </td>
-            <td class="col-user">
-              <div class="user-display">
-                <span class="user-name">{{ log.userName }}</span>
-                <span class="user-role">{{ log.userRole }}</span>
-              </div>
-            </td>
-            <td class="col-action">
-              <span class="action-badge" :class="log.actionType.toLowerCase()">
-                {{ getActionLabel(log.actionType) }}
-              </span>
-            </td>
-            <td class="col-module">
-              <span class="module-badge">{{ log.module }}</span>
-            </td>
-            <td class="col-description">{{ log.description }}</td>
-            <td class="col-result">
-              <span class="result-badge" :class="log.result">
-                {{ getResultIcon(log.result) }} {{ capitalize(log.result) }}
-              </span>
-            </td>
-            <td class="col-ip">{{ log.ipAddress }}</td>
-            <td class="col-details">
-              <button
-                type="button"
-                class="details-btn"
-                @click="showDetails(log)"
-              >
-                👁️
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div v-if="filteredLogs.length === 0" class="no-results">
-        <p>No se encontraron registros con los filtros aplicados</p>
-      </div>
+    <!-- Error -->
+    <div v-else-if="error" class="error-state">
+      <p>{{ error }}</p>
+      <button type="button" class="btn-refresh" @click="fetchEventos">Reintentar</button>
     </div>
 
-    <!-- Paginacion -->
-    <div class="pagination">
-      <div class="pagination-info">
-        Mostrando {{ paginationStart }}-{{ paginationEnd }} de {{ filteredLogs.length }} registros
+    <!-- Tabla -->
+    <template v-else>
+      <div class="logs-table-container">
+        <table class="logs-table">
+          <thead>
+            <tr>
+              <th>Fecha / Hora</th>
+              <th>Usuario</th>
+              <th>Acción</th>
+              <th>Recurso</th>
+              <th>Resultado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="ev in eventos" :key="ev.id" :class="getRowClass(ev)">
+              <td>
+                <div class="time-display">
+                  <span class="date">{{ formatDate(ev.timestamp) }}</span>
+                  <span class="time">{{ formatTime(ev.timestamp) }}</span>
+                </div>
+              </td>
+              <td>
+                {{ ev.usuario ? `${ev.usuario.nombres} ${ev.usuario.apellidos}` : 'Sistema' }}
+              </td>
+              <td>
+                <span class="action-badge" :class="getActionClass(ev.accion)">
+                  {{ ev.accion }}
+                </span>
+              </td>
+              <td>{{ ev.recurso || '-' }}</td>
+              <td>
+                <span class="result-badge" :class="ev.resultado">
+                  {{ capitalize(ev.resultado) }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div v-if="eventos.length === 0" class="no-results">
+          <p>No se encontraron registros</p>
+        </div>
       </div>
-      <div class="pagination-controls">
-        <button
-          type="button"
-          @click="currentPage = 1"
-          :disabled="currentPage === 1"
-          class="page-btn"
-        >
-          � Primera
-        </button>
-        <button
-          type="button"
-          @click="currentPage--"
-          :disabled="currentPage === 1"
-          class="page-btn"
-        >
-          9 Anterior
-        </button>
-        <span class="page-numbers">
-          <button
-            v-for="page in visiblePages"
-            :key="page"
-            type="button"
-            @click="currentPage = page"
-            class="page-btn"
-            :class="{ active: currentPage === page }"
-          >
-            {{ page }}
-          </button>
+
+      <!-- Paginación -->
+      <div v-if="pagination.lastPage > 1" class="pagination">
+        <span class="pagination-info">
+          Página {{ pagination.currentPage }} de {{ pagination.lastPage }}
+          ({{ pagination.total }} registros)
         </span>
-        <button
-          type="button"
-          @click="currentPage++"
-          :disabled="currentPage === totalPages"
-          class="page-btn"
-        >
-          Siguiente :
-        </button>
-        <button
-          type="button"
-          @click="currentPage = totalPages"
-          :disabled="currentPage === totalPages"
-          class="page-btn"
-        >
-          Ultima �
-        </button>
-      </div>
-      <div class="page-size-selector">
-        <label>Mostrar:</label>
-        <select v-model="pageSize" class="page-size-select">
-          <option :value="10">10</option>
-          <option :value="25">25</option>
-          <option :value="50">50</option>
-          <option :value="100">100</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Modal de Detalles -->
-    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>Detalle del Registro de Auditoria</h3>
-          <button type="button" class="close-btn" @click="closeModal">�</button>
-        </div>
-        <div class="modal-body">
-          <div class="detail-section">
-            <h4>Información General</h4>
-            <div class="detail-grid">
-              <div class="detail-item">
-                <span class="detail-label">ID Registro</span>
-                <span class="detail-value code">{{ selectedLog?.id }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Fecha y Hora</span>
-                <span class="detail-value">{{ formatFullDate(selectedLog?.timestamp) }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Usuario</span>
-                <span class="detail-value">{{ selectedLog?.userName }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Rol</span>
-                <span class="detail-value">{{ selectedLog?.userRole }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Acción</span>
-                <span class="detail-value">
-                  <span class="action-badge" :class="selectedLog?.actionType?.toLowerCase()">
-                    {{ getActionLabel(selectedLog?.actionType) }}
-                  </span>
-                </span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Módulo</span>
-                <span class="detail-value">{{ selectedLog?.module }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Resultado</span>
-                <span class="detail-value">
-                  <span class="result-badge" :class="selectedLog?.result">
-                    {{ getResultIcon(selectedLog?.result) }} {{ capitalize(selectedLog?.result) }}
-                  </span>
-                </span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Dirección IP</span>
-                <span class="detail-value code">{{ selectedLog?.ipAddress }}</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="detail-section">
-            <h4>Descripción</h4>
-            <p class="description-text">{{ selectedLog?.description }}</p>
-          </div>
-
-          <div class="detail-section">
-            <h4>Información Técnica</h4>
-            <div class="detail-grid">
-              <div class="detail-item">
-                <span class="detail-label">Navegador</span>
-                <span class="detail-value">{{ selectedLog?.userAgent }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Endpoint</span>
-                <span class="detail-value code">{{ selectedLog?.endpoint }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Metodo HTTP</span>
-                <span class="detail-value code">{{ selectedLog?.httpMethod }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Tiempo Respuesta</span>
-                <span class="detail-value">{{ selectedLog?.responseTime }}ms</span>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="selectedLog?.entityId" class="detail-section">
-            <h4>Entidad Afectada</h4>
-            <div class="detail-grid">
-              <div class="detail-item">
-                <span class="detail-label">Tipo de Entidad</span>
-                <span class="detail-value">{{ selectedLog?.entityType }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">ID Entidad</span>
-                <span class="detail-value code">{{ selectedLog?.entityId }}</span>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="selectedLog?.changes" class="detail-section">
-            <h4>Cambios Realizados</h4>
-            <div class="changes-container">
-              <pre>{{ JSON.stringify(selectedLog?.changes, null, 2) }}</pre>
-            </div>
-          </div>
-
-          <div v-if="selectedLog?.errorDetails" class="detail-section error-section">
-            <h4>Detalles del Error</h4>
-            <div class="error-container">
-              <p class="error-message">{{ selectedLog?.errorDetails?.message }}</p>
-              <pre v-if="selectedLog?.errorDetails?.stack">{{ selectedLog?.errorDetails?.stack }}</pre>
-            </div>
-          </div>
+        <div class="pagination-controls">
+          <button
+            type="button"
+            class="page-btn"
+            :disabled="pagination.currentPage === 1"
+            @click="goToPage(pagination.currentPage - 1)"
+          >
+            Anterior
+          </button>
+          <button
+            type="button"
+            class="page-btn"
+            :disabled="pagination.currentPage === pagination.lastPage"
+            @click="goToPage(pagination.currentPage + 1)"
+          >
+            Siguiente
+          </button>
         </div>
       </div>
-    </div>
+    </template>
   </section>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, onMounted } from 'vue';
+import { auditService } from '../../services/auditService';
 
-const currentPage = ref(1);
-const pageSize = ref(25);
-const showModal = ref(false);
-const selectedLog = ref(null);
+const eventos = ref([]);
+const loading = ref(false);
+const error = ref(null);
 
-// Filtros
+const usuariosFiltro = ref([]);
+const accionesFiltro = ref([]);
+
 const filters = ref({
-  startDate: '',
-  endDate: '',
-  userId: '',
-  actionType: '',
-  module: '',
-  result: '',
-  search: ''
+  fecha_inicio: '',
+  fecha_fin: '',
+  usuario_id: '',
+  accion: '',
+  resultado: '',
 });
 
-// Stats
-const stats = ref({
-  total: 15234,
-  success: 14892,
-  errors: 287,
-  uniqueUsers: 42
+const pagination = ref({
+  currentPage: 1,
+  lastPage: 1,
+  total: 0,
 });
 
-// Usuarios para filtro
-const users = ref([
-  { id: 1, name: 'Carlos Ramirez' },
-  { id: 2, name: 'Maria Lopez' },
-  { id: 3, name: 'Juan Martinez' },
-  { id: 4, name: 'Ana Gonzalez' },
-  { id: 5, name: 'Roberto Vega' }
-]);
+async function fetchEventos(page = 1) {
+  loading.value = true;
+  error.value = null;
+  try {
+    const params = { page, per_page: 20 };
 
-// Logs de auditoria (mock data)
-const auditLogs = ref([
-  {
-    id: 'AUD-20241127-001',
-    timestamp: '2024-11-27T10:45:23',
-    userId: 1,
-    userName: 'Carlos Ramirez',
-    userRole: 'Administrador',
-    actionType: 'UPDATE',
-    module: 'usuarios',
-    description: 'Actualizo permisos del usuario Maria Lopez',
-    result: 'success',
-    ipAddress: '192.168.1.50',
-    userAgent: 'Chrome 120.0 / Windows 10',
-    endpoint: '/api/users/2/permissions',
-    httpMethod: 'PUT',
-    responseTime: 245,
-    entityType: 'Usuario',
-    entityId: 2,
-    changes: {
-      before: { permissions: ['read'] },
-      after: { permissions: ['read', 'write'] }
-    }
-  },
-  {
-    id: 'AUD-20241127-002',
-    timestamp: '2024-11-27T10:30:15',
-    userId: 3,
-    userName: 'Juan Martinez',
-    userRole: 'Veterinario',
-    actionType: 'CREATE',
-    module: 'animales',
-    description: 'Registro nuevo animal: Luna (Perro)',
-    result: 'success',
-    ipAddress: '192.168.1.55',
-    userAgent: 'Firefox 121.0 / Windows 11',
-    endpoint: '/api/animals',
-    httpMethod: 'POST',
-    responseTime: 312,
-    entityType: 'Animal',
-    entityId: 'AN-1234'
-  },
-  {
-    id: 'AUD-20241127-003',
-    timestamp: '2024-11-27T10:15:42',
-    userId: 4,
-    userName: 'Ana Gonzalez',
-    userRole: 'Inspector',
-    actionType: 'UPDATE',
-    module: 'denuncias',
-    description: 'Actualizo estado de denuncia DN-5678 a "En proceso"',
-    result: 'success',
-    ipAddress: '192.168.1.60',
-    userAgent: 'Chrome 120.0 / Android',
-    endpoint: '/api/complaints/DN-5678/status',
-    httpMethod: 'PATCH',
-    responseTime: 189,
-    entityType: 'Denuncia',
-    entityId: 'DN-5678',
-    changes: {
-      before: { status: 'pendiente' },
-      after: { status: 'en_proceso' }
-    }
-  },
-  {
-    id: 'AUD-20241127-004',
-    timestamp: '2024-11-27T09:58:11',
-    userId: 2,
-    userName: 'Maria Lopez',
-    userRole: 'Director',
-    actionType: 'EXPORT',
-    module: 'reportes',
-    description: 'Exporto reporte de adopciones Q4 2024 en formato PDF',
-    result: 'success',
-    ipAddress: '192.168.1.45',
-    userAgent: 'Safari 17.0 / macOS',
-    endpoint: '/api/reports/adoptions/export',
-    httpMethod: 'POST',
-    responseTime: 1523,
-    entityType: 'Reporte',
-    entityId: 'RPT-ADO-Q4-2024'
-  },
-  {
-    id: 'AUD-20241127-005',
-    timestamp: '2024-11-27T09:45:33',
-    userId: 1,
-    userName: 'Carlos Ramirez',
-    userRole: 'Administrador',
-    actionType: 'DELETE',
-    module: 'usuarios',
-    description: 'Desactivo cuenta de usuario: Roberto Vega',
-    result: 'success',
-    ipAddress: '192.168.1.50',
-    userAgent: 'Chrome 120.0 / Windows 10',
-    endpoint: '/api/users/5/deactivate',
-    httpMethod: 'DELETE',
-    responseTime: 178,
-    entityType: 'Usuario',
-    entityId: 5,
-    changes: {
-      before: { status: 'activo' },
-      after: { status: 'inactivo' }
-    }
-  },
-  {
-    id: 'AUD-20241127-006',
-    timestamp: '2024-11-27T09:30:00',
-    userId: 3,
-    userName: 'Juan Martinez',
-    userRole: 'Veterinario',
-    actionType: 'UPDATE',
-    module: 'vacunacion',
-    description: 'Registro vacuna antirrabica para animal AN-1100',
-    result: 'success',
-    ipAddress: '192.168.1.55',
-    userAgent: 'Firefox 121.0 / Windows 11',
-    endpoint: '/api/vaccinations',
-    httpMethod: 'POST',
-    responseTime: 267,
-    entityType: 'Vacunacion',
-    entityId: 'VAC-8901'
-  },
-  {
-    id: 'AUD-20241127-007',
-    timestamp: '2024-11-27T09:15:22',
-    userId: 5,
-    userName: 'Roberto Vega',
-    userRole: 'Gestor Adopciones',
-    actionType: 'UPDATE',
-    module: 'adopciones',
-    description: 'Actualizo estado de adopcion AD-3456 a "Completada"',
-    result: 'success',
-    ipAddress: '192.168.1.70',
-    userAgent: 'Edge 120.0 / Windows 10',
-    endpoint: '/api/adoptions/AD-3456/status',
-    httpMethod: 'PATCH',
-    responseTime: 234,
-    entityType: 'Adopcion',
-    entityId: 'AD-3456'
-  },
-  {
-    id: 'AUD-20241127-008',
-    timestamp: '2024-11-27T09:00:05',
-    userId: 2,
-    userName: 'Maria Lopez',
-    userRole: 'Director',
-    actionType: 'LOGIN',
-    module: 'autenticacion',
-    description: 'Inicio de sesion exitoso',
-    result: 'success',
-    ipAddress: '192.168.1.45',
-    userAgent: 'Safari 17.0 / macOS',
-    endpoint: '/api/auth/login',
-    httpMethod: 'POST',
-    responseTime: 523
-  },
-  {
-    id: 'AUD-20241127-009',
-    timestamp: '2024-11-27T08:45:18',
-    userId: 4,
-    userName: 'Ana Gonzalez',
-    userRole: 'Inspector',
-    actionType: 'CREATE',
-    module: 'denuncias',
-    description: 'Registro nueva denuncia por maltrato animal',
-    result: 'error',
-    ipAddress: '192.168.1.60',
-    userAgent: 'Chrome 120.0 / Android',
-    endpoint: '/api/complaints',
-    httpMethod: 'POST',
-    responseTime: 5023,
-    errorDetails: {
-      message: 'Error de conexion con base de datos',
-      code: 'DB_CONNECTION_TIMEOUT',
-      stack: 'Error: Connection timeout after 5000ms\n  at Database.connect (/app/db/index.js:45:11)'
-    }
-  },
-  {
-    id: 'AUD-20241127-010',
-    timestamp: '2024-11-27T08:30:45',
-    userId: 1,
-    userName: 'Carlos Ramirez',
-    userRole: 'Administrador',
-    actionType: 'VIEW',
-    module: 'auditoria',
-    description: 'Consulto logs de auditoria del mes de octubre',
-    result: 'success',
-    ipAddress: '192.168.1.50',
-    userAgent: 'Chrome 120.0 / Windows 10',
-    endpoint: '/api/audit/logs',
-    httpMethod: 'GET',
-    responseTime: 892
-  },
-  {
-    id: 'AUD-20241127-011',
-    timestamp: '2024-11-27T08:15:30',
-    userId: 3,
-    userName: 'Juan Martinez',
-    userRole: 'Veterinario',
-    actionType: 'LOGIN',
-    module: 'autenticacion',
-    description: 'Inicio de sesion exitoso con MFA',
-    result: 'success',
-    ipAddress: '192.168.1.55',
-    userAgent: 'Firefox 121.0 / Windows 11',
-    endpoint: '/api/auth/login/mfa',
-    httpMethod: 'POST',
-    responseTime: 723
-  },
-  {
-    id: 'AUD-20241127-012',
-    timestamp: '2024-11-27T08:00:12',
-    userId: null,
-    userName: 'Sistema',
-    userRole: 'Automatico',
-    actionType: 'UPDATE',
-    module: 'configuracion',
-    description: 'Respaldo automatico de base de datos completado',
-    result: 'success',
-    ipAddress: '127.0.0.1',
-    userAgent: 'Cron Job / Server',
-    endpoint: '/api/system/backup',
-    httpMethod: 'POST',
-    responseTime: 45230
+    if (filters.value.fecha_inicio) params.fecha_inicio = filters.value.fecha_inicio;
+    if (filters.value.fecha_fin) params.fecha_fin = filters.value.fecha_fin;
+    if (filters.value.usuario_id) params.usuario_id = filters.value.usuario_id;
+    if (filters.value.accion) params.accion = filters.value.accion;
+    if (filters.value.resultado) params.resultado = filters.value.resultado;
+
+    const res = await auditService.getEventos(params);
+    const data = res.data;
+
+    eventos.value = data.data || [];
+    pagination.value = {
+      currentPage: data.current_page,
+      lastPage: data.last_page,
+      total: data.total,
+    };
+  } catch (e) {
+    error.value = 'Error al cargar los registros de auditoría';
+    console.error(e);
+  } finally {
+    loading.value = false;
   }
-]);
+}
 
-// Computed
-const filteredLogs = computed(() => {
-  let result = auditLogs.value;
-
-  if (filters.value.startDate) {
-    const start = new Date(filters.value.startDate);
-    result = result.filter(log => new Date(log.timestamp) >= start);
+async function fetchFiltros() {
+  try {
+    const [accionesRes, usuariosRes] = await Promise.all([
+      auditService.getAcciones(),
+      auditService.getUsuarios(),
+    ]);
+    accionesFiltro.value = accionesRes.data || [];
+    usuariosFiltro.value = usuariosRes.data || [];
+  } catch (e) {
+    console.error('Error cargando filtros:', e);
   }
+}
 
-  if (filters.value.endDate) {
-    const end = new Date(filters.value.endDate);
-    end.setHours(23, 59, 59);
-    result = result.filter(log => new Date(log.timestamp) <= end);
-  }
+function applyFilters() {
+  fetchEventos(1);
+}
 
-  if (filters.value.userId) {
-    result = result.filter(log => log.userId === filters.value.userId);
-  }
+function clearFilters() {
+  filters.value = {
+    fecha_inicio: '',
+    fecha_fin: '',
+    usuario_id: '',
+    accion: '',
+    resultado: '',
+  };
+  fetchEventos(1);
+}
 
-  if (filters.value.actionType) {
-    result = result.filter(log => log.actionType === filters.value.actionType);
-  }
+function goToPage(page) {
+  fetchEventos(page);
+}
 
-  if (filters.value.module) {
-    result = result.filter(log => log.module === filters.value.module);
-  }
-
-  if (filters.value.result) {
-    result = result.filter(log => log.result === filters.value.result);
-  }
-
-  if (filters.value.search) {
-    const search = filters.value.search.toLowerCase();
-    result = result.filter(log =>
-      log.description.toLowerCase().includes(search) ||
-      log.ipAddress.includes(search) ||
-      log.id.toLowerCase().includes(search) ||
-      log.userName.toLowerCase().includes(search)
-    );
-  }
-
-  return result;
-});
-
-const totalPages = computed(() => {
-  return Math.max(1, Math.ceil(filteredLogs.value.length / pageSize.value));
-});
-
-const paginatedLogs = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value;
-  const end = start + pageSize.value;
-  return filteredLogs.value.slice(start, end);
-});
-
-const paginationStart = computed(() => {
-  if (filteredLogs.value.length === 0) return 0;
-  return (currentPage.value - 1) * pageSize.value + 1;
-});
-
-const paginationEnd = computed(() => {
-  return Math.min(currentPage.value * pageSize.value, filteredLogs.value.length);
-});
-
-const visiblePages = computed(() => {
-  const pages = [];
-  const total = totalPages.value;
-  const current = currentPage.value;
-
-  let start = Math.max(1, current - 2);
-  let end = Math.min(total, current + 2);
-
-  if (end - start < 4) {
-    if (start === 1) {
-      end = Math.min(total, 5);
-    } else if (end === total) {
-      start = Math.max(1, total - 4);
-    }
-  }
-
-  for (let i = start; i <= end; i++) {
-    pages.push(i);
-  }
-
-  return pages;
-});
-
-// Watch
-watch(pageSize, () => {
-  currentPage.value = 1;
-});
-
-// Methods
 function formatDate(timestamp) {
   if (!timestamp) return '-';
-  const date = new Date(timestamp);
-  return date.toLocaleDateString('es-CO', {
+  return new Date(timestamp).toLocaleDateString('es-CO', {
+    year: 'numeric',
+    month: 'short',
     day: '2-digit',
-    month: 'short'
   });
 }
 
 function formatTime(timestamp) {
-  if (!timestamp) return '-';
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString('es-CO', {
+  if (!timestamp) return '';
+  return new Date(timestamp).toLocaleTimeString('es-CO', {
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit'
-  });
-}
-
-function formatFullDate(timestamp) {
-  if (!timestamp) return '-';
-  const date = new Date(timestamp);
-  return date.toLocaleString('es-CO', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
+    second: '2-digit',
   });
 }
 
@@ -747,98 +249,29 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-function getActionLabel(action) {
-  const labels = {
-    CREATE: 'Crear',
-    UPDATE: 'Actualizar',
-    DELETE: 'Eliminar',
-    LOGIN: 'Login',
-    LOGOUT: 'Logout',
-    VIEW: 'Ver',
-    EXPORT: 'Exportar'
-  };
-  return labels[action] || action;
+function getActionClass(accion) {
+  if (!accion) return '';
+  const a = accion.toUpperCase();
+  if (a.includes('CREAR') || a === 'CREATE') return 'crear';
+  if (a.includes('ACTUALIZAR') || a === 'UPDATE') return 'actualizar';
+  if (a.includes('ELIMINAR') || a === 'DELETE') return 'eliminar';
+  if (a.includes('LOGIN')) return 'login';
+  if (a.includes('LOGOUT')) return 'logout';
+  if (a.includes('CONSULTAR') || a === 'VIEW') return 'consultar';
+  return '';
 }
 
-function getResultIcon(result) {
-  const icons = {
-    success: '',
-    error: '',
-    warning: '�'
-  };
-  return icons[result] || '';
-}
-
-function getRowClass(log) {
+function getRowClass(ev) {
   return {
-    'row-error': log.result === 'error',
-    'row-warning': log.result === 'warning'
+    'row-error': ev.resultado === 'fallido',
+    'row-denied': ev.resultado === 'denegado',
   };
 }
 
-function applyFilters() {
-  currentPage.value = 1;
-}
-
-function clearFilters() {
-  filters.value = {
-    startDate: '',
-    endDate: '',
-    userId: '',
-    actionType: '',
-    module: '',
-    result: '',
-    search: ''
-  };
-  currentPage.value = 1;
-}
-
-function showDetails(log) {
-  selectedLog.value = log;
-  showModal.value = true;
-}
-
-function closeModal() {
-  showModal.value = false;
-  selectedLog.value = null;
-}
-
-function exportLogs() {
-  const csvContent = generateCSV();
-  downloadFile(csvContent, 'audit_log_export.csv', 'text/csv');
-}
-
-function generateCSV() {
-  const headers = ['ID', 'Fecha/Hora', 'Usuario', 'Rol', 'Acción', 'Módulo', 'Descripción', 'Resultado', 'IP'];
-  const rows = filteredLogs.value.map(log => [
-    log.id,
-    log.timestamp,
-    log.userName,
-    log.userRole,
-    log.actionType,
-    log.module,
-    `"${log.description.replace(/"/g, '""')}"`,
-    log.result,
-    log.ipAddress
-  ]);
-
-  return [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
-}
-
-function downloadFile(content, filename, type) {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-function refreshLogs() {
-  // Simular actualizacion
-  alert('Logs actualizados desde sci-audit');
-}
+onMounted(() => {
+  fetchEventos();
+  fetchFiltros();
+});
 </script>
 
 <style scoped>
@@ -867,35 +300,15 @@ function refreshLogs() {
   color: #666;
 }
 
-.header-right {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.btn-export,
 .btn-refresh {
-  padding: 0.65rem 1rem;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-export {
-  background: #E8F5E9;
-  color: #2E7D32;
-  border: 1px solid #2E7D32;
-}
-
-.btn-export:hover {
-  background: #2E7D32;
-  color: white;
-}
-
-.btn-refresh {
+  padding: 0.6rem 1.2rem;
   background: #E8F0FE;
   color: #3366CC;
   border: 1px solid #3366CC;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
 }
 
 .btn-refresh:hover {
@@ -903,7 +316,7 @@ function refreshLogs() {
   color: white;
 }
 
-/* Filters Panel */
+/* Filters */
 .filters-panel {
   background: white;
   border-radius: 12px;
@@ -916,22 +329,13 @@ function refreshLogs() {
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
-  margin-bottom: 1rem;
-}
-
-.filters-row:last-child {
-  margin-bottom: 0;
+  align-items: flex-end;
 }
 
 .filter-group {
   display: flex;
   flex-direction: column;
-  min-width: 150px;
-}
-
-.filter-group.search-group {
-  flex: 1;
-  min-width: 250px;
+  min-width: 140px;
 }
 
 .filter-group label {
@@ -956,7 +360,6 @@ function refreshLogs() {
 
 .filter-actions {
   display: flex;
-  align-items: flex-end;
   gap: 0.5rem;
 }
 
@@ -967,6 +370,7 @@ function refreshLogs() {
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 0.9rem;
 }
 
 .btn-filter:hover {
@@ -980,45 +384,33 @@ function refreshLogs() {
   border: 1px solid #D0D0D0;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 0.9rem;
 }
 
 .btn-clear:hover {
   background: #f5f5f5;
 }
 
-/* Stats Bar */
-.stats-bar {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.stat-item {
+/* Loading / Error */
+.loading-state,
+.error-state {
   background: white;
-  border-radius: 8px;
-  padding: 0.75rem 1.25rem;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-  border-left: 3px solid #004884;
-}
-
-.stat-item.success { border-color: #068460; }
-.stat-item.error { border-color: #A80521; }
-
-.stat-value {
-  font-size: 1.25rem;
-  font-weight: bold;
-  color: #004884;
-}
-
-.stat-label {
-  font-size: 0.8rem;
+  border-radius: 12px;
+  padding: 3rem;
+  text-align: center;
   color: #666;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
-/* Logs Table */
+.error-state {
+  color: #C62828;
+}
+
+.error-state .btn-refresh {
+  margin-top: 1rem;
+}
+
+/* Table */
 .logs-table-container {
   background: white;
   border-radius: 12px;
@@ -1035,7 +427,7 @@ function refreshLogs() {
 
 .logs-table th,
 .logs-table td {
-  padding: 0.75rem;
+  padding: 0.85rem 1rem;
   text-align: left;
   border-bottom: 1px solid #E0E0E0;
 }
@@ -1045,8 +437,6 @@ function refreshLogs() {
   font-weight: 600;
   color: #004884;
   white-space: nowrap;
-  position: sticky;
-  top: 0;
 }
 
 .logs-table tbody tr:hover {
@@ -1057,20 +447,11 @@ function refreshLogs() {
   background: #FFF5F5;
 }
 
-.logs-table tbody tr.row-warning {
-  background: #FFFBF0;
+.logs-table tbody tr.row-denied {
+  background: #FFF8E1;
 }
 
-.col-time { width: 100px; }
-.col-user { width: 140px; }
-.col-action { width: 100px; }
-.col-module { width: 100px; }
-.col-result { width: 100px; }
-.col-ip { width: 110px; }
-.col-details { width: 60px; text-align: center; }
-
-.time-display,
-.user-display {
+.time-display {
   display: flex;
   flex-direction: column;
 }
@@ -1084,65 +465,33 @@ function refreshLogs() {
   color: #666;
 }
 
-.user-display .user-name {
-  font-weight: 500;
-}
-
-.user-display .user-role {
-  font-size: 0.8rem;
-  color: #666;
-}
-
 /* Badges */
 .action-badge {
-  padding: 0.25rem 0.5rem;
+  padding: 0.25rem 0.6rem;
   border-radius: 4px;
   font-size: 0.8rem;
   font-weight: 500;
-}
-
-.action-badge.create { background: #E8F5E9; color: #2E7D32; }
-.action-badge.update { background: #E8F0FE; color: #1565C0; }
-.action-badge.delete { background: #FFEBEE; color: #C62828; }
-.action-badge.login { background: #F3E5F5; color: #7B1FA2; }
-.action-badge.logout { background: #ECEFF1; color: #546E7A; }
-.action-badge.view { background: #E0F7FA; color: #00838F; }
-.action-badge.export { background: #FFF3E0; color: #EF6C00; }
-
-.module-badge {
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
   background: #f5f5f5;
   color: #333;
-  text-transform: capitalize;
 }
 
+.action-badge.crear { background: #E8F5E9; color: #2E7D32; }
+.action-badge.actualizar { background: #E8F0FE; color: #1565C0; }
+.action-badge.eliminar { background: #FFEBEE; color: #C62828; }
+.action-badge.login { background: #F3E5F5; color: #7B1FA2; }
+.action-badge.logout { background: #ECEFF1; color: #546E7A; }
+.action-badge.consultar { background: #E0F7FA; color: #00838F; }
+
 .result-badge {
-  padding: 0.25rem 0.5rem;
+  padding: 0.25rem 0.6rem;
   border-radius: 4px;
   font-size: 0.8rem;
   font-weight: 500;
 }
 
-.result-badge.success { background: #E8F5E9; color: #2E7D32; }
-.result-badge.error { background: #FFEBEE; color: #C62828; }
-.result-badge.warning { background: #FFF8E1; color: #F57F17; }
-
-.details-btn {
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: #E8F0FE;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.details-btn:hover {
-  background: #3366CC;
-  transform: scale(1.1);
-}
+.result-badge.exitoso { background: #E8F5E9; color: #2E7D32; }
+.result-badge.fallido { background: #FFEBEE; color: #C62828; }
+.result-badge.denegado { background: #FFF8E1; color: #F57F17; }
 
 .no-results {
   padding: 2rem;
@@ -1170,20 +519,14 @@ function refreshLogs() {
 
 .pagination-controls {
   display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.page-numbers {
-  display: flex;
-  gap: 0.25rem;
+  gap: 0.5rem;
 }
 
 .page-btn {
-  padding: 0.5rem 0.75rem;
-  background: #f5f5f5;
-  color: #333;
-  border: 1px solid #E0E0E0;
+  padding: 0.5rem 1rem;
+  background: #E8F0FE;
+  color: #3366CC;
+  border: 1px solid #3366CC;
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.85rem;
@@ -1191,193 +534,18 @@ function refreshLogs() {
 }
 
 .page-btn:hover:not(:disabled) {
-  background: #E8F0FE;
-  border-color: #3366CC;
-  color: #3366CC;
-}
-
-.page-btn.active {
-  background: #004884;
+  background: #3366CC;
   color: white;
-  border-color: #004884;
 }
 
 .page-btn:disabled {
   background: #f5f5f5;
   color: #ccc;
+  border-color: #D0D0D0;
   cursor: not-allowed;
 }
 
-.page-size-selector {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-}
-
-.page-size-select {
-  padding: 0.4rem 0.75rem;
-  border: 1px solid #D0D0D0;
-  border-radius: 4px;
-}
-
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: white;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 800px;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid #E0E0E0;
-  position: sticky;
-  top: 0;
-  background: white;
-  z-index: 1;
-}
-
-.modal-header h3 {
-  margin: 0;
-  color: #004884;
-}
-
-.close-btn {
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: #f5f5f5;
-  border-radius: 50%;
-  font-size: 1.25rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.close-btn:hover {
-  background: #e0e0e0;
-}
-
-.modal-body {
-  padding: 1.5rem;
-}
-
-.detail-section {
-  margin-bottom: 1.5rem;
-}
-
-.detail-section:last-child {
-  margin-bottom: 0;
-}
-
-.detail-section h4 {
-  margin: 0 0 1rem 0;
-  color: #004884;
-  font-size: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #E0E0E0;
-}
-
-.detail-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-}
-
-.detail-item {
-  display: flex;
-  flex-direction: column;
-}
-
-.detail-label {
-  font-size: 0.8rem;
-  color: #666;
-  margin-bottom: 0.25rem;
-}
-
-.detail-value {
-  font-weight: 500;
-  color: #333;
-}
-
-.detail-value.code {
-  font-family: monospace;
-  background: #f5f5f5;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.9rem;
-}
-
-.description-text {
-  background: #f9f9f9;
-  padding: 1rem;
-  border-radius: 8px;
-  margin: 0;
-  color: #333;
-}
-
-.changes-container,
-.error-container {
-  background: #f5f5f5;
-  border-radius: 8px;
-  padding: 1rem;
-  overflow-x: auto;
-}
-
-.changes-container pre,
-.error-container pre {
-  margin: 0;
-  font-size: 0.85rem;
-  white-space: pre-wrap;
-}
-
-.error-section {
-  background: #FFF5F5;
-  border-radius: 8px;
-  padding: 1rem;
-}
-
-.error-section h4 {
-  color: #C62828;
-}
-
-.error-message {
-  color: #C62828;
-  font-weight: 500;
-  margin: 0 0 1rem 0;
-}
-
-.error-container {
-  background: #FFEBEE;
-}
-
 /* Responsive */
-@media (max-width: 1200px) {
-  .detail-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 992px) {
   .filters-row {
     flex-direction: column;
@@ -1389,16 +557,6 @@ function refreshLogs() {
 
   .filter-actions {
     width: 100%;
-    justify-content: flex-start;
-  }
-
-  .stats-bar {
-    flex-wrap: wrap;
-  }
-
-  .stat-item {
-    flex: 1;
-    min-width: 120px;
   }
 }
 
@@ -1411,24 +569,13 @@ function refreshLogs() {
     flex-direction: column;
   }
 
-  .header-right {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
   .pagination {
     flex-direction: column;
-    align-items: stretch;
     text-align: center;
   }
 
   .pagination-controls {
     justify-content: center;
-    flex-wrap: wrap;
-  }
-
-  .modal-content {
-    width: 95%;
   }
 }
 </style>

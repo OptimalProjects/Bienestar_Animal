@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\Adoptions\AdopcionController;
 use App\Http\Controllers\Api\V1\Adoptions\VisitaSeguimientoController;
 use App\Http\Controllers\Api\V1\Complaints\DenunciaController;
 use App\Http\Controllers\Api\V1\Complaints\RescateController;
+use App\Http\Controllers\Api\V1\Admin\AuditoriaController;
 use App\Http\Controllers\Api\V1\Admin\ReporteController;
 use App\Http\Controllers\Api\V1\Admin\UsuarioController;
 use App\Http\Controllers\Api\V1\Admin\InventarioController;
@@ -274,6 +275,13 @@ Route::prefix('v1')->group(function () {
             Route::post('/{id}/entrada', [InventarioController::class, 'registrarEntrada']);
             Route::post('/{id}/salida', [InventarioController::class, 'registrarSalida']);
             Route::get('/movimientos', [InventarioController::class, 'movimientos']);
+        });
+
+        // Auditoría
+        Route::prefix('auditoria')->group(function () {
+            Route::get('/acciones', [AuditoriaController::class, 'acciones']);
+            Route::get('/usuarios', [AuditoriaController::class, 'usuarios']);
+            Route::get('/', [AuditoriaController::class, 'index']);
         });
 
         // Reportes
