@@ -1144,11 +1144,11 @@ onMounted(async () => {
 }
 
 .role-admin { background: #E8F0FE; color: #1565C0; }
-.role-director { background: #F3E5F5; color: #7B1FA2; }
-.role-vet { background: #E8F5E9; color: #2E7D32; }
+.role-director { background: #FDF5E9; color: #ad7f33; }
+.role-vet { background: #E8F5E9; color: #488148; }
 .role-coordinador { background: #FFF3E0; color: #EF6C00; }
-.role-operador { background: #E0F7FA; color: #00838F; }
-.role-evaluador { background: #F3E5F5; color: #6A1B9A; }
+.role-operador { background: #EDF2F8; color: #5a7eb6; }
+.role-evaluador { background: #FDF5E9; color: #5b4239; }
 
 .status-badge {
   padding: 0.3rem 0.6rem;
@@ -1194,8 +1194,8 @@ onMounted(async () => {
 
 .action-btn.view { background: #E8F0FE; color: #1565C0; }
 .action-btn.edit { background: #FFF3E0; color: #EF6C00; }
-.action-btn.toggle { background: #F3E5F5; color: #7B1FA2; }
-.action-btn.reset { background: #E0F7FA; color: #00838F; }
+.action-btn.toggle { background: #FDF5E9; color: #ad7f33; }
+.action-btn.reset { background: #EDF2F8; color: #5a7eb6; }
 
 .action-btn:hover {
   transform: scale(1.1);
